@@ -139,7 +139,7 @@ Your reply MUST be a single JSON object. No comments. No code fences.
           content: [
             { type: "text", text: userPrompt.trim() },
             ...(imageDataUrl
-              ? [{ type: "image_url", image_url: imageDataUrl }]
+              ? [{ type: "image_url", image_url: { url: imageDataUrl } }]
               : []),
           ],
         },
@@ -157,6 +157,11 @@ Your reply MUST be a single JSON object. No comments. No code fences.
 
     const data = await resp.json();
 
+    if (!resp.ok) {
+      console.error("❌ [OpenAI] API error:", resp.status, JSON.stringify(data));
+      return fallbackCaption();
+    }
+
     const raw = data?.choices?.[0]?.message?.content || "";
     const clean = sanitizeText(raw);
 
@@ -166,7 +171,7 @@ Your reply MUST be a single JSON object. No comments. No code fences.
       null;
 
     if (!parsed) {
-      console.warn("⚠️ Failed to parse JSON reply from OpenAI");
+      console.warn("⚠️ Failed to parse JSON reply from OpenAI. Raw response:", raw.slice(0, 500));
       return fallbackCaption();
     }
 
