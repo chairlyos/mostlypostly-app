@@ -429,11 +429,6 @@ window.admin = {
       fill("[data-field='phone']",    payload.phone);
       fill("[data-field='instagram_handle']", payload.instagram);
 
-      // ---- Stock photo upload form hidden fields ----
-      const stockSalonEl   = panel.querySelector("#edit-stock-salon-id");
-      const stockStylistEl = panel.querySelector("#edit-stock-stylist-id");
-      if (stockSalonEl)   stockSalonEl.value   = data.salon_id || "";
-      if (stockStylistEl) stockStylistEl.value = payload.id    || "";
 
       // ---- Specialties ----
       const rows   = panel.querySelector("#edit-specialties-rows");
@@ -507,28 +502,8 @@ window.admin = {
           renderSpecs();
         }
 
-        // Stock photos grid
-        const stockGrid = panel.querySelector("#edit-stylist-stock-photos");
-        if (stockGrid) {
-          if (!full.stock_photos || full.stock_photos.length === 0) {
-            stockGrid.innerHTML = `<p class="text-xs text-slate-500 italic col-span-3">No photos yet.</p>`;
-          } else {
-            stockGrid.innerHTML = full.stock_photos.map(p => `
-              <div class="relative group">
-                <img src="${p.url}" class="w-full aspect-square object-cover rounded-lg border border-slate-700" />
-                <p class="text-[10px] text-slate-400 mt-1 truncate">${p.label ? p.label.replace(/</g,"&lt;") : "Unlabeled"}</p>
-                <button type="button"
-                  onclick="window.admin.deleteStockPhoto('${p.id}', '${data.salon_id}')"
-                  class="absolute top-1 right-1 bg-red-600 text-white text-[10px] font-bold rounded px-1.5 py-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                  ×
-                </button>
-              </div>`).join("");
-          }
-        }
       } catch (err) {
         console.warn("[Admin] Stylist fetch failed:", err);
-        const stockGrid = panel.querySelector("#edit-stylist-stock-photos");
-        if (stockGrid) stockGrid.innerHTML = `<p class="text-xs text-slate-500 italic col-span-3">Could not load photos.</p>`;
       }
     },
 

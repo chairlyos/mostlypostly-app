@@ -851,19 +851,10 @@ export async function handleIncomingMessage({
       }
     }
 
-    // ✅ Always rehost Twilio media so dashboards can render the image
-    let imageUrl = null;
-
-    if (draft?.image_url) {
-      imageUrl = await rehostTwilioMedia(
-        draft.image_url,
-        salon?.salon_id || salon?.id || salon?.salon_info?.id || "unknown"
-      );
-
-      if (imageUrl.includes("api.twilio.com")) {
-        throw new Error("❌ Twilio URL leaked — rehosting failed");
-      }
-    }
+    // Keep original Twilio URL in DB — the media proxy handles display.
+    // Only rehost temporarily for Telegram image previews (not stored).
+    let imageUrl = draft?.image_url || null;
+    let telegramPreviewUrl = imageUrl;
 
 
     if (!draft) {
@@ -1061,7 +1052,13 @@ export async function handleIncomingMessage({
             await sendMessage.sendText(manager.phone, notifyBody);
           } else if (manager?.chat_id) {
           console.log("📤 No phone found — using Telegram fallback");
-          await sendManagerPreviewPhoto(manager.chat_id, imageUrl || draft.image_url, {
+          // Rehost just for Telegram preview (not stored to DB)
+          if (telegramPreviewUrl && /^https:\/\/api\.twilio\.com/i.test(telegramPreviewUrl)) {
+            try {
+              telegramPreviewUrl = await rehostTwilioMedia(telegramPreviewUrl, salon?.salon_id || "unknown");
+            } catch { /* use original if rehost fails */ }
+          }
+          await sendManagerPreviewPhoto(manager.chat_id, telegramPreviewUrl || draft.image_url, {
             draft,
             stylist,
             salon,
@@ -1086,58 +1083,16 @@ export async function handleIncomingMessage({
     // --------------------------
     let fbResult = null; // ensure it's visible across try/catch
     try {
-      let image = null;
-
-      if (draft?.image_url) {
-        image = await rehostTwilioMedia(draft.image_url, draft.salon_id);
-
-        // SAFETY CHECK — NEVER allow Twilio URLs downstream
-        if (image.includes("api.twilio.com")) {
-          throw new Error("❌ Twilio URL leaked — rehosting failed");
-        }
-      }
-
       // Build per-network captions
       const fbCaption = buildFacebookCaption(baseCaption, stylistName, stylistHandle);
       const igCaption = buildInstagramCaption(baseCaption, stylistName, stylistHandle);
 
-      // ✅ Always rehost Twilio media to ensure a public URL for Meta (FB + IG)
-      let rehostedUrl = null;
-      try {
-        const draftImage = draft?.image_url || null;
+      // Rehost Twilio URL → public HTTPS for FB/IG (temporary, not stored to DB)
+      const draftImage = draft?.image_url || null;
+      if (!draftImage) throw new Error("No image URL available for publishing");
 
-        if (!draftImage) {
-          throw new Error("No image URL available for publishing");
-        }
-
-        // ALWAYS rehost unless already public HTTPS
-        // ALWAYS rehost unless already public HTTPS
-        if (!draftImage.startsWith("https://")) {
-          let tmpPath = await rehostTwilioMedia(
-            draftImage,
-            salon?.salon_id || "unknown"
-          );
-
-          const PUBLIC_BASE_URL =
-            process.env.PUBLIC_BASE_URL ||
-            process.env.BASE_URL;
-
-          if (!PUBLIC_BASE_URL) {
-            throw new Error("PUBLIC_BASE_URL is not defined");
-          }
-
-          // 🔑 FORCE absolute public HTTPS URL (Instagram requires this)
-          rehostedUrl = `${PUBLIC_BASE_URL.replace(/\/$/, "")}${tmpPath.startsWith("/") ? tmpPath : `/${tmpPath}`}`;
-
-          console.log(`🌐 Rehosted image (public) → ${rehostedUrl}`);
-        } else {
-          rehostedUrl = draftImage;
-        }
-
-      } catch (err) {
-        console.error("❌ Image rehost failed:", err.message);
-        throw err; // STOP publish — IG requires public HTTPS
-      }
+      const rehostedUrl = await rehostTwilioMedia(draftImage, salon?.salon_id || "unknown");
+      console.log(`🌐 Rehosted image for direct publish → ${rehostedUrl}`);
 
 
       // 🔒 ALWAYS reload salon from DB to guarantee FB token exists
