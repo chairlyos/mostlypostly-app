@@ -6,7 +6,6 @@ import pageShell from "../ui/pageShell.js";
 import { DateTime } from "luxon";
 import { getSalonName } from "../core/salonLookup.js";
 import { handleManagerApproval } from "../core/messageRouter.js";
-import { rehostTwilioMedia } from "../utils/rehostTwilioMedia.js";
 import { buildPromotionImage } from "../core/buildPromotionImage.js";
 import { getSalonPolicy } from "../scheduler.js";
 
@@ -22,39 +21,33 @@ function esc(str) {
     .replace(/'/g, "&#x27;");
 }
 
-// Rehost any raw Twilio URLs in a post and persist the public URLs to DB
-async function ensurePublicImageUrls(p) {
-  const isTwilio = (u) => /^https:\/\/api\.twilio\.com/i.test(u || "");
-
-  let urls = [];
-  try { urls = JSON.parse(p.image_urls || "[]"); } catch { }
-  if (!urls.length && p.image_url) urls = [p.image_url];
-
-  if (!urls.some(isTwilio)) return p; // nothing to rehost
-
-  const rehosted = await Promise.all(
-    urls.map(u => isTwilio(u) ? rehostTwilioMedia(u, p.salon_id).catch(() => u) : Promise.resolve(u))
-  );
-
-  const newImageUrl = rehosted[0] || p.image_url;
-  const newImageUrls = JSON.stringify(rehosted);
-
-  db.prepare(`
-    UPDATE posts SET image_url = ?, image_urls = ?, updated_at = datetime('now') WHERE id = ?
-  `).run(newImageUrl, newImageUrls, p.id);
-
-  return { ...p, image_url: newImageUrl, image_urls: newImageUrls };
+// Convert a Twilio URL to a server-side proxy URL for safe browser display
+function toProxyUrl(u) {
+  if (!u) return u;
+  if (/^https:\/\/api\.twilio\.com/i.test(u)) {
+    return `/api/media-proxy?url=${encodeURIComponent(u)}`;
+  }
+  return u;
 }
 
-// Render image thumbnail(s) — single img or horizontal strip for multi-image posts
+// No-op pass-through — kept for call-site compatibility.
+// The scheduler rehosted files are ephemeral on Render; we proxy Twilio URLs
+// for display instead of saving to disk.
+async function ensurePublicImageUrls(p) {
+  return p;
+}
+
+// Render image thumbnail(s) — Twilio URLs are served via the media proxy
 function imageStrip(p, thumbClass = "w-32 h-32") {
   let urls = [];
   try { urls = JSON.parse(p.image_urls || "[]"); } catch { }
   if (!urls.length && p.image_url) urls = [p.image_url];
   if (!urls.length) return `<div class="${thumbClass} rounded-lg bg-slate-800 border border-slate-700"></div>`;
 
-  if (urls.length === 1) {
-    return `<img src="${esc(urls[0])}" class="${thumbClass} rounded-lg object-cover border border-slate-700" />`;
+  const displayUrls = urls.map(toProxyUrl);
+
+  if (displayUrls.length === 1) {
+    return `<img src="${esc(displayUrls[0])}" class="${thumbClass} rounded-lg object-cover border border-slate-700" />`;
   }
 
   // Multi-image: horizontal strip with count badge
@@ -62,7 +55,7 @@ function imageStrip(p, thumbClass = "w-32 h-32") {
   return `
     <div class="flex flex-col gap-1">
       <div class="flex gap-1">
-        ${urls.map(u => `<img src="${esc(u)}" class="${stripThumb} rounded-lg object-cover border border-slate-700" />`).join("")}
+        ${displayUrls.map(u => `<img src="${esc(u)}" class="${stripThumb} rounded-lg object-cover border border-slate-700" />`).join("")}
       </div>
       <span class="text-xs text-slate-400 text-center">${urls.length} photos</span>
     </div>

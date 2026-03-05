@@ -111,7 +111,7 @@ async function generateDalleBackground() {
       },
       body: JSON.stringify({
         model: "dall-e-3",
-        prompt: "Elegant modern hair salon interior, soft natural lighting, blurred bokeh background, warm tones, professional photography, vertical 9:16 format",
+        prompt: "Vibrant editorial hair salon portrait, bold jewel-tone colors, electric teal and magenta accents, artistic fashion photography, dramatic studio lighting, colorful blurred bokeh, magazine cover aesthetic, ultra high-end glamour, vertical 9:16 portrait",
         n: 1,
         size: "1024x1792",
       }),

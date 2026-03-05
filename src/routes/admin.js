@@ -43,6 +43,20 @@ const stockPhotoUpload = multer({
   limits: { fileSize: 10 * 1024 * 1024 },
 });
 
+const stylistPhotoUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, UPLOADS_DIR),
+    filename:    (_req, file, cb) => {
+      const ext = path.extname(file.originalname) || ".jpg";
+      cb(null, `stylist-${Date.now()}${ext}`);
+    },
+  }),
+  fileFilter: (_req, file, cb) => {
+    cb(null, /image\/(jpeg|png|webp|gif)/.test(file.mimetype));
+  },
+  limits: { fileSize: 10 * 1024 * 1024 },
+});
+
 const router = express.Router();
 
 // ───────────────────────────────────────────────────────────
@@ -1076,6 +1090,82 @@ router.post("/stock-photos/delete", requireAuth, (req, res) => {
   }
 
   return res.redirect(`/manager/admin?salon=${salon_id}`);
+});
+
+// ───────────────────────────────────────────────────────────
+// GET /manager/admin/stylist/:id — JSON for edit modal
+// ───────────────────────────────────────────────────────────
+router.get("/stylist/:id", requireAuth, (req, res) => {
+  const { id } = req.params;
+  const salon_id = req.manager.salon_id;
+
+  const stylist = db
+    .prepare(`SELECT id, name, phone, instagram_handle, specialties, photo_url
+              FROM stylists WHERE id = ? AND salon_id = ?`)
+    .get(id, salon_id);
+
+  if (!stylist) return res.status(404).json({ error: "Not found" });
+
+  const stockPhotos = db
+    .prepare(`SELECT id, label, url FROM stock_photos
+              WHERE salon_id = ? AND stylist_id = ?
+              ORDER BY created_at DESC`)
+    .all(salon_id, id);
+
+  let specialties = [];
+  if (stylist.specialties) {
+    try {
+      const p = JSON.parse(stylist.specialties);
+      specialties = Array.isArray(p) ? p : String(stylist.specialties).split(",").map(x => x.trim());
+    } catch {
+      specialties = String(stylist.specialties).split(",").map(x => x.trim());
+    }
+  }
+
+  res.json({ ...stylist, specialties, stock_photos: stockPhotos });
+});
+
+// ───────────────────────────────────────────────────────────
+// POST /manager/admin/update-stylist-full — profile + photo upload
+// ───────────────────────────────────────────────────────────
+router.post("/update-stylist-full", requireAuth, stylistPhotoUpload.single("stylist_photo"), (req, res) => {
+  const { id, name, phone, instagram_handle } = req.body;
+  const salon_id = req.manager.salon_id;
+
+  if (!id) return res.status(400).send("Missing stylist id");
+
+  let specialties = [];
+  try {
+    specialties = JSON.parse(req.body.specialties_json || "[]");
+  } catch { specialties = []; }
+
+  const base = (process.env.PUBLIC_BASE_URL || "").replace(/\/$/, "");
+  const photoUrl = req.file ? `${base}/uploads/${req.file.filename}` : null;
+
+  if (photoUrl) {
+    db.prepare(`
+      UPDATE stylists
+      SET name = COALESCE(?, name),
+          phone = COALESCE(?, phone),
+          instagram_handle = COALESCE(?, instagram_handle),
+          specialties = ?,
+          photo_url = ?,
+          updated_at = datetime('now')
+      WHERE id = ? AND salon_id = ?
+    `).run(name || null, phone || null, instagram_handle || null, JSON.stringify(specialties), photoUrl, id, salon_id);
+  } else {
+    db.prepare(`
+      UPDATE stylists
+      SET name = COALESCE(?, name),
+          phone = COALESCE(?, phone),
+          instagram_handle = COALESCE(?, instagram_handle),
+          specialties = ?,
+          updated_at = datetime('now')
+      WHERE id = ? AND salon_id = ?
+    `).run(name || null, phone || null, instagram_handle || null, JSON.stringify(specialties), id, salon_id);
+  }
+
+  return res.redirect(`/manager/admin?salon=${encodeURIComponent(salon_id)}`);
 });
 
 // ───────────────────────────────────────────────────────────

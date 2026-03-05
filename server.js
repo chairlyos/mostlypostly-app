@@ -177,6 +177,40 @@ app.use(
   })
 );
 
+// Media proxy — streams Twilio media server-side (no file storage needed)
+app.get("/api/media-proxy", async (req, res) => {
+  const rawUrl = req.query.url;
+  if (!rawUrl || !/^https:\/\/api\.twilio\.com/i.test(rawUrl)) {
+    return res.status(400).send("Invalid proxy URL");
+  }
+  try {
+    const authHeader =
+      "Basic " +
+      Buffer.from(
+        `${process.env.TWILIO_ACCOUNT_SID}:${process.env.TWILIO_AUTH_TOKEN}`
+      ).toString("base64");
+
+    const upstream = await fetch(rawUrl, {
+      headers: { Authorization: authHeader },
+      redirect: "follow",
+    });
+
+    if (!upstream.ok) {
+      return res.status(upstream.status).send("Upstream error");
+    }
+
+    res.setHeader(
+      "Content-Type",
+      upstream.headers.get("content-type") || "image/jpeg"
+    );
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    upstream.body.pipe(res);
+  } catch (err) {
+    console.error("[media-proxy] Error:", err.message);
+    res.status(500).send("Proxy error");
+  }
+});
+
 // Ensure public dir exists
 const PUBLIC_DIR = process.env.PUBLIC_DIR || path.join(process.cwd(), "public");
 if (!fs.existsSync(PUBLIC_DIR)) fs.mkdirSync(PUBLIC_DIR, { recursive: true });

@@ -43,7 +43,7 @@ async function pickBackground(salonId) {
         headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
         body: JSON.stringify({
           model: "dall-e-3",
-          prompt: "Luxurious modern hair salon, soft warm lighting, elegant bokeh, vertical story format, rich dark tones, professional photography",
+          prompt: "Luxury hair salon editorial, bold vibrant colors, deep jewel tones, electric neon accents, dramatic cinematic lighting, artistic fashion photography, scattered colorful bokeh, high-gloss magazine aesthetic, ultra glamorous, vertical 9:16 portrait format",
           n: 1,
           size: "1024x1792",
         }),

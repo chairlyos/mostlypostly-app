@@ -63,12 +63,16 @@ function errorPage(msg) {
   `);
 }
 
-// Rehost all Twilio URLs so browser can display them
-async function resolveDisplayUrls(post) {
+// Convert Twilio URLs to server-side proxy URLs for browser display
+function resolveDisplayUrls(post) {
   let urls = [];
   try { urls = JSON.parse(post.image_urls || "[]"); } catch { }
   if (!urls.length && post.image_url) urls = [post.image_url];
-  return Promise.all(urls.map(u => rehostTwilioMedia(u, post.salon_id).catch(() => u)));
+  return urls.map(u =>
+    /^https:\/\/api\.twilio\.com/i.test(u)
+      ? `/api/media-proxy?url=${encodeURIComponent(u)}`
+      : u
+  );
 }
 
 function renderImages(displayUrls) {
@@ -102,7 +106,7 @@ router.get("/:id", validateToken, async (req, res) => {
 
   const token = req.query.token;
   const justRegenerated = req.query.regen === "1";
-  const displayUrls = await resolveDisplayUrls(post);
+  const displayUrls = resolveDisplayUrls(post);
 
   // Build the locked full-post preview
   let hashtags = [];

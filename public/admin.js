@@ -56,6 +56,13 @@ window.admin = {
     const backdrop = document.querySelector("#admin-modal-backdrop");
     const panel = document.querySelector("#admin-modal-content");
 
+    // Reset modal width to default before each open
+    const modalPanel = document.querySelector("#admin-modal-panel");
+    if (modalPanel) {
+      modalPanel.classList.remove("max-w-2xl");
+      modalPanel.classList.add("max-w-lg");
+    }
+
     // Replace {{placeholders}} using adminData
     const populated = html.replace(/{{(.*?)}}/g, (match, key) => {
       key = key.trim();
@@ -399,146 +406,145 @@ window.admin = {
 
 
     // -----------------------------------------
-    // Edit Stylist Modal (robust version)
+    // Edit Stylist Modal
     // -----------------------------------------
     async openEditStylist(payload) {
-      // Load the modal using the template system
       const panel = await this.openModal("tpl-edit-stylist");
       if (!panel) return;
 
+      // Widen the modal for the richer content
+      const modalPanel = document.querySelector("#admin-modal-panel");
+      if (modalPanel) {
+        modalPanel.classList.remove("max-w-lg");
+        modalPanel.classList.add("max-w-2xl");
+      }
+
       const data = window.adminData || {};
 
-      // ---- Basic fields (name / phone / IG) ----
-      const salonIdEl = panel.querySelector("[data-field='salon_id']");
-      const idEl = panel.querySelector("[data-field='id']");
-      const nameEl = panel.querySelector("[data-field='name']");
-      const phoneEl = panel.querySelector("[data-field='phone']");
-      const igEl = panel.querySelector("[data-field='instagram_handle']");
+      // ---- Basic hidden + text fields ----
+      const fill = (sel, val) => { const el = panel.querySelector(sel); if (el) el.value = val || ""; };
+      fill("[data-field='salon_id']", data.salon_id);
+      fill("[data-field='id']",       payload.id);
+      fill("[data-field='name']",     payload.name);
+      fill("[data-field='phone']",    payload.phone);
+      fill("[data-field='instagram_handle']", payload.instagram);
 
-      if (salonIdEl) salonIdEl.value = data.salon_id || "";
-      if (idEl) idEl.value = payload.id || "";
-      if (nameEl) nameEl.value = payload.name || "";
-      if (phoneEl) phoneEl.value = payload.phone || "";
-      if (igEl) igEl.value = payload.instagram || "";
+      // ---- Stock photo upload form hidden fields ----
+      const stockSalonEl   = panel.querySelector("#edit-stock-salon-id");
+      const stockStylistEl = panel.querySelector("#edit-stock-stylist-id");
+      if (stockSalonEl)   stockSalonEl.value   = data.salon_id || "";
+      if (stockStylistEl) stockStylistEl.value = payload.id    || "";
 
-      // ---- Specialties container & hidden JSON ----
-      let rows = panel.querySelector("#edit-specialties-rows");
-      let hidden = panel.querySelector("#edit-specialties-json");
+      // ---- Specialties ----
+      const rows   = panel.querySelector("#edit-specialties-rows");
+      const hidden = panel.querySelector("#edit-specialties-json");
 
-      // If the template is missing the container, CREATE it
-      if (!rows) {
-        rows = document.createElement("div");
-        rows.id = "edit-specialties-rows";
-        rows.className = "space-y-2 mt-2";
-
-        // Try to attach right under the "Specialties" label
-        const label = Array.from(panel.querySelectorAll("label")).find((lbl) =>
-          (lbl.textContent || "").toLowerCase().includes("specialties")
-        );
-        if (label && label.parentElement) {
-          label.parentElement.appendChild(rows);
-        } else if (panel.querySelector("form")) {
-          // Fallback: just add into the form
-          panel.querySelector("form").appendChild(rows);
-        } else {
-          panel.appendChild(rows);
-        }
-      }
-
-      // If the hidden input is missing, CREATE it
-      if (!hidden) {
-        hidden = document.createElement("input");
-        hidden.type = "hidden";
-        hidden.id = "edit-specialties-json";
-        hidden.name = "specialties_json";
-
-        // Try to place it right after the rows container
-        if (rows && rows.parentElement) {
-          rows.parentElement.appendChild(hidden);
-        } else if (panel.querySelector("form")) {
-          panel.querySelector("form").appendChild(hidden);
-        } else {
-          panel.appendChild(hidden);
-        }
-      }
-
-      // ---- Build specialties list from payload (like old manager-OLD.js) ----
-      let specs = [];
-
-      if (Array.isArray(payload.specialties) && payload.specialties.length) {
-        specs = payload.specialties
-          .map((t) => (t == null ? "" : String(t).trim()))
-          .filter((t) => t.length)
-          .slice(0, 5);
-      }
-
-      // Ensure at least one row so you always see a textbox
-      if (specs.length === 0) {
-        specs = [""];
-      }
+      let specs = Array.isArray(payload.specialties) && payload.specialties.length
+        ? payload.specialties.map(t => String(t || "").trim()).filter(Boolean).slice(0, 5)
+        : [""];
 
       function syncHidden() {
-        const cleaned = specs
-          .map((x) => (x == null ? "" : String(x).trim()))
-          .filter(Boolean)
-          .slice(0, 5);
-
-        hidden.value = JSON.stringify(cleaned);
+        if (hidden) hidden.value = JSON.stringify(
+          specs.map(x => String(x || "").trim()).filter(Boolean).slice(0, 5)
+        );
       }
 
-      function render() {
+      function renderSpecs() {
+        if (!rows) return;
         rows.innerHTML = "";
-
         specs.forEach((val, idx) => {
           const row = document.createElement("div");
           row.className = "flex items-center gap-2";
 
           const input = document.createElement("input");
           input.type = "text";
-          input.className =
-            "flex-1 bg-slate-800 rounded p-2 text-sm text-slate-100";
+          input.className = "flex-1 bg-slate-800 rounded p-2 text-sm text-slate-100";
           input.value = val || "";
           input.placeholder = "specialty";
-
-          input.addEventListener("input", () => {
-            specs[idx] = input.value;
-            syncHidden();
-          });
+          input.addEventListener("input", () => { specs[idx] = input.value; syncHidden(); });
 
           const addBtn = document.createElement("button");
-          addBtn.type = "button";
-          addBtn.textContent = "+";
-          addBtn.className =
-            "px-2 py-1 rounded bg-slate-800 text-xs hover:bg-slate-700";
-          addBtn.addEventListener("click", () => {
-            if (specs.length >= 5) return;
-            specs.push("");
-            render();
-            syncHidden();
-          });
+          addBtn.type = "button"; addBtn.textContent = "+";
+          addBtn.className = "px-2 py-1 rounded bg-slate-800 text-xs hover:bg-slate-700";
+          addBtn.addEventListener("click", () => { if (specs.length < 5) { specs.push(""); renderSpecs(); syncHidden(); } });
 
           const removeBtn = document.createElement("button");
-          removeBtn.type = "button";
-          removeBtn.textContent = "×";
-          removeBtn.className =
-            "px-2 py-1 rounded bg-slate-800 text-xs hover:bg-red-500";
+          removeBtn.type = "button"; removeBtn.textContent = "×";
+          removeBtn.className = "px-2 py-1 rounded bg-slate-800 text-xs hover:bg-red-500";
           removeBtn.addEventListener("click", () => {
             specs.splice(idx, 1);
             if (specs.length === 0) specs.push("");
-            render();
-            syncHidden();
+            renderSpecs(); syncHidden();
           });
 
-          row.appendChild(input);
-          row.appendChild(addBtn);
-          row.appendChild(removeBtn);
+          row.appendChild(input); row.appendChild(addBtn); row.appendChild(removeBtn);
           rows.appendChild(row);
         });
-
         syncHidden();
       }
+      renderSpecs();
 
-      render();
+      // ---- Fetch full profile (photo + stock photos) ----
+      try {
+        const resp = await fetch(`/manager/admin/stylist/${payload.id}`);
+        if (!resp.ok) throw new Error("Not found");
+        const full = await resp.json();
+
+        // Profile photo preview
+        const photoPreview = panel.querySelector("#edit-stylist-photo-preview");
+        if (photoPreview && full.photo_url) {
+          photoPreview.innerHTML = `
+            <div class="flex items-center gap-3 mb-2">
+              <img src="${full.photo_url}" class="w-16 h-16 rounded-lg object-cover border border-slate-700" />
+              <span class="text-xs text-slate-400">Current photo — upload a new one to replace</span>
+            </div>`;
+        }
+
+        // Update specialties from server (more reliable than inline data attrs)
+        if (Array.isArray(full.specialties) && full.specialties.length) {
+          specs = full.specialties.map(t => String(t || "").trim()).filter(Boolean).slice(0, 5);
+          if (specs.length === 0) specs = [""];
+          renderSpecs();
+        }
+
+        // Stock photos grid
+        const stockGrid = panel.querySelector("#edit-stylist-stock-photos");
+        if (stockGrid) {
+          if (!full.stock_photos || full.stock_photos.length === 0) {
+            stockGrid.innerHTML = `<p class="text-xs text-slate-500 italic col-span-3">No photos yet.</p>`;
+          } else {
+            stockGrid.innerHTML = full.stock_photos.map(p => `
+              <div class="relative group">
+                <img src="${p.url}" class="w-full aspect-square object-cover rounded-lg border border-slate-700" />
+                <p class="text-[10px] text-slate-400 mt-1 truncate">${p.label ? p.label.replace(/</g,"&lt;") : "Unlabeled"}</p>
+                <button type="button"
+                  onclick="window.admin.deleteStockPhoto('${p.id}', '${data.salon_id}')"
+                  class="absolute top-1 right-1 bg-red-600 text-white text-[10px] font-bold rounded px-1.5 py-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                  ×
+                </button>
+              </div>`).join("");
+          }
+        }
+      } catch (err) {
+        console.warn("[Admin] Stylist fetch failed:", err);
+        const stockGrid = panel.querySelector("#edit-stylist-stock-photos");
+        if (stockGrid) stockGrid.innerHTML = `<p class="text-xs text-slate-500 italic col-span-3">Could not load photos.</p>`;
+      }
+    },
+
+    // -----------------------------------------
+    // Delete a stock photo from the edit modal
+    // -----------------------------------------
+    deleteStockPhoto(photoId, salonId) {
+      if (!confirm("Remove this stock photo?")) return;
+      const form = document.createElement("form");
+      form.method = "POST";
+      form.action = `/manager/admin/stock-photos/delete?salon=${encodeURIComponent(salonId)}`;
+      const inp = document.createElement("input");
+      inp.type = "hidden"; inp.name = "photo_id"; inp.value = photoId;
+      form.appendChild(inp);
+      document.body.appendChild(form);
+      form.submit();
     },
 };
 
