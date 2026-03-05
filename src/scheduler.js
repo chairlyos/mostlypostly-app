@@ -5,7 +5,7 @@ import { db } from "../db.js";
 import { createLogger } from "./utils/logHelper.js";
 import { rehostTwilioMedia } from "./utils/rehostTwilioMedia.js";
 import { publishToFacebook, publishToFacebookMulti } from "./publishers/facebook.js";
-import { publishToInstagram, publishToInstagramCarousel } from "./publishers/instagram.js";
+import { publishToInstagram, publishToInstagramCarousel, publishStoryToInstagram } from "./publishers/instagram.js";
 import { logEvent } from "./core/analyticsDb.js";
 
 const log = createLogger("scheduler");
@@ -223,11 +223,20 @@ export async function runSchedulerOnce() {
           );
 
           const isMulti = allImages.length > 1;
-          console.log(`📸 [Scheduler] Publishing ${allImages.length} image(s) for post ${post.id} (${isMulti ? "carousel" : "single"})`);
+          const postType = post.post_type || "standard_post";
+          console.log(`📸 [Scheduler] Publishing ${allImages.length} image(s) for post ${post.id} (${postType}, ${isMulti ? "carousel" : "single"})`);
 
-          let fbResp, igResp;
+          let fbResp = null;
+          let igResp = null;
 
-          if (isMulti) {
+          if (postType === "availability") {
+            // Availability → Instagram Story only (no Facebook story yet)
+            const image = allImages[0] || post.image_url;
+            igResp = await publishStoryToInstagram({
+              salon_id: salon.slug,
+              imageUrl: image,
+            });
+          } else if (isMulti) {
             fbResp = await publishToFacebookMulti(fbPageId, post.final_caption, allImages, fbToken);
             igResp = await publishToInstagramCarousel({
               salon_id: salon.slug,
@@ -253,7 +262,7 @@ export async function runSchedulerOnce() {
                  ig_media_id=?,
                  published_at=datetime('now','utc')
              WHERE id=?`
-          ).run(fbResp?.post_id, igResp?.id, post.id);
+          ).run(fbResp?.post_id || null, igResp?.id || null, post.id);
 
           console.log(`✅ [${post.id}] Published`);
         } catch (err) {

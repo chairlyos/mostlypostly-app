@@ -101,6 +101,7 @@ import {
 import { composeFinalCaption } from "./composeFinalCaption.js";
 import { classifyPostType } from "./classifyPostType.js";
 import { buildBeforeAfterCollage } from "./buildBeforeAfterCollage.js";
+import { buildAvailabilityImage } from "./buildAvailabilityImage.js";
 // 🧠 Import moderation utility directly
 import moderateAIOutput from "../utils/moderation.js";
 import { rehostTwilioMedia } from "../utils/rehostTwilioMedia.js";
@@ -490,6 +491,66 @@ async function processNewImageFlow({
       await sendMessage.sendText(chatId, "Sorry, we couldn't build the collage. Please try again.");
       return;
     }
+  }
+
+  // 0c️⃣ Availability: build story image and skip normal caption flow
+  if (postType === "availability") {
+    try {
+      await sendMessage.sendText(chatId, "Building your availability post… one moment!");
+
+      const fullSalon = getSalonPolicy(salon?.slug || salon?.salon_id || salon?.id);
+      const salonName = fullSalon?.name || fullSalon?.salon_info?.salon_name || "the salon";
+      const bookingCta = fullSalon?.booking_url
+        ? `Book: ${fullSalon.booking_url}`
+        : (fullSalon?.default_cta || "Book via link in bio.");
+
+      const storyImageUrl = await buildAvailabilityImage({
+        text: text || "",
+        stylistName: getStylistName(stylist),
+        salonName,
+        salonId: salon?.salon_id || salon?.id || "",
+        stylistId: stylist?.stylist_id || stylist?.id || null,
+        bookingCta,
+      });
+
+      // Save as draft with the story image
+      const savedDraft = savePost(
+        chatId,
+        {
+          ...stylist,
+          image_url: storyImageUrl,
+          image_urls: [storyImageUrl],
+          final_caption: text || "Availability post",
+          post_type: "availability",
+        },
+        text || "Availability post",
+        [],
+        "draft",
+        null,
+        salon
+      );
+
+      // Send portal link
+      const postId = savedDraft?.id;
+      if (postId) {
+        const portalToken = crypto.randomBytes(32).toString("hex");
+        const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+        db.prepare(`
+          INSERT INTO stylist_portal_tokens (id, post_id, token, expires_at)
+          VALUES (?, ?, ?, ?)
+        `).run(crypto.randomUUID(), postId, portalToken, expiresAt);
+
+        const baseUrl = process.env.PUBLIC_BASE_URL || "";
+        const portalUrl = `${baseUrl}/stylist/${postId}?token=${portalToken}`;
+        await sendMessage.sendText(chatId,
+          `Your availability post is ready! Review it here:\n${portalUrl}\n\n(Link expires in 24 hours.)`
+        );
+      }
+    } catch (err) {
+      console.error("❌ [Router] Availability flow failed:", err.message);
+      await sendMessage.sendText(chatId, "Sorry, we couldn't build your availability post. Please try again.");
+    }
+    return;
   }
 
   // 1️⃣ Generate AI caption object

@@ -213,6 +213,48 @@ export async function publishToInstagramCarousel({ salon_id, caption, imageUrls 
 }
 
 /**
+ * publishStoryToInstagram({ salon_id, imageUrl })
+ * Publishes a single image as an Instagram Story.
+ */
+export async function publishStoryToInstagram({ salon_id, imageUrl }) {
+  if (!salon_id) throw new Error("publishStoryToInstagram: missing salon_id");
+  if (!imageUrl) throw new Error("publishStoryToInstagram: missing imageUrl");
+
+  const { userId, token, graphVer } = await resolveIgCredentials(salon_id);
+  if (!token || !userId) throw new Error("Missing Instagram credentials for story.");
+
+  const publicUrl = await ensurePublicImage(imageUrl, `story-${Date.now()}`, salon_id);
+
+  console.log(`📖 [Instagram Story] Publishing for salon_id=${salon_id}`);
+
+  const creationId = await retryIg(async () => {
+    const url = `https://graph.facebook.com/${graphVer}/${userId}/media`;
+    const params = new URLSearchParams({
+      image_url: publicUrl,
+      media_type: "STORIES",
+      access_token: token,
+    });
+    const resp = await fetch(url, { method: "POST", body: params });
+    const data = await resp.json();
+    if (!resp.ok || !data?.id) {
+      throw new Error(`IG story create failed: ${resp.status} ${JSON.stringify(data)}`);
+    }
+    return data.id;
+  }, "story create");
+
+  await waitForContainer(creationId, token, graphVer);
+
+  const publishRes = await retryIg(
+    () => publishContainer(creationId, userId, token, graphVer),
+    "story publish"
+  );
+
+  logEvent({ event: "instagram_story_publish_success", salon_id, data: { media_id: publishRes.id } });
+  console.log(`✅ [Instagram Story] Published: ${publishRes.id}`);
+  return { id: publishRes.id, status: "success", type: "story" };
+}
+
+/**
  * publishToInstagram({ salon_id, caption, imageUrl, imageUrls? })
  * Routes to carousel automatically when imageUrls has 2+ entries.
  */
