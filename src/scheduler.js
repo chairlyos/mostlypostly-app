@@ -4,8 +4,8 @@ import { DateTime } from "luxon";
 import { db } from "../db.js";
 import { createLogger } from "./utils/logHelper.js";
 import { rehostTwilioMedia } from "./utils/rehostTwilioMedia.js";
-import { publishToFacebook } from "./publishers/facebook.js";
-import { publishToInstagram } from "./publishers/instagram.js";
+import { publishToFacebook, publishToFacebookMulti } from "./publishers/facebook.js";
+import { publishToInstagram, publishToInstagramCarousel } from "./publishers/instagram.js";
 import { logEvent } from "./core/analyticsDb.js";
 
 const log = createLogger("scheduler");
@@ -207,25 +207,44 @@ export async function runSchedulerOnce() {
             throw new Error("Missing Facebook credentials in salons table");
           }
 
-          const image =
-            post.image_url?.includes("api.twilio.com")
-              ? await rehostTwilioMedia(post.image_url, post.salon_id)
-              : post.image_url;
+          // Resolve all image URLs (multi-image carousel support)
+          const rawUrls = (() => {
+            try { return JSON.parse(post.image_urls || "[]"); } catch { return []; }
+          })();
+          const allRaw = rawUrls.length ? rawUrls : (post.image_url ? [post.image_url] : []);
 
-          const fbResp = await publishToFacebook(
-            fbPageId,
-            post.final_caption,
-            image,
-            fbToken
+          // Rehost any Twilio-signed URLs
+          const allImages = await Promise.all(
+            allRaw.map(url =>
+              url?.includes("api.twilio.com")
+                ? rehostTwilioMedia(url, post.salon_id)
+                : url
+            )
           );
 
-          const igResp = await publishToInstagram({
-            salon_id: salon.slug,
-            imageUrl: image,
-            caption: post.final_caption,
-            instagram_business_id:
-              salon.instagram_business_id || salon?.salon_info?.instagram_business_id,
-          });
+          const isMulti = allImages.length > 1;
+          console.log(`📸 [Scheduler] Publishing ${allImages.length} image(s) for post ${post.id} (${isMulti ? "carousel" : "single"})`);
+
+          let fbResp, igResp;
+
+          if (isMulti) {
+            fbResp = await publishToFacebookMulti(fbPageId, post.final_caption, allImages, fbToken);
+            igResp = await publishToInstagramCarousel({
+              salon_id: salon.slug,
+              caption: post.final_caption,
+              imageUrls: allImages,
+            });
+          } else {
+            const image = allImages[0] || post.image_url;
+            fbResp = await publishToFacebook(fbPageId, post.final_caption, image, fbToken);
+            igResp = await publishToInstagram({
+              salon_id: salon.slug,
+              imageUrl: image,
+              caption: post.final_caption,
+              instagram_business_id:
+                salon.instagram_business_id || salon?.salon_info?.instagram_business_id,
+            });
+          }
 
           db.prepare(
             `UPDATE posts

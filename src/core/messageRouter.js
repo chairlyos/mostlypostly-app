@@ -338,8 +338,8 @@ function hasConsent(stylist) {
 function isAgreementMessage(text) {
   return /^\s*(AGREE|I AGREE|YES|YES I AGREE)\s*$/i.test(text || "");
 }
-function queueConsentAndPrompt(chatId, imageUrl, text, sendMessage, stylist) {
-  consentSessions.set(chatId, { status: "pending", queued: { imageUrl, text } });
+function queueConsentAndPrompt(chatId, imageUrls, text, sendMessage, stylist) {
+  consentSessions.set(chatId, { status: "pending", queued: { imageUrls: imageUrls || [], text } });
   const prompt = `
 MostlyPostly: Please review our SMS Consent, Privacy, and Terms:
 https://mostlypostly.github.io/mostlypostly-legal/
@@ -456,11 +456,12 @@ Reply "APPROVE" to post or "DENY" to reject.
 // --------------------------------------
 // New image → AI → store draft → preview to stylist
 async function processNewImageFlow({
-  chatId, text, imageUrl, drafts,
+  chatId, text, imageUrls = [], drafts,
   generateCaption, moderateAIOutput, sendMessage,
   stylist, salon
   }) {
-  console.log("📸 [Router] New image received (consented):", imageUrl);
+  const imageUrl = imageUrls[0] || null;
+  console.log(`📸 [Router] New image(s) received (consented): ${imageUrls.length} image(s)`);
 
   // 1️⃣ Generate AI caption object
   // Hydrate salon with DB-backed config (tone, hashtags, rules, etc.)
@@ -513,12 +514,12 @@ async function processNewImageFlow({
   const previewCaption = buildFacebookCaption(baseCaption, stylistName, stylistHandle);
 
   // Save draft to memory AND DB so it survives a server restart
-  const draftPayload = { ...aiJson, final_caption: previewCaption, base_caption: baseCaption };
+  const draftPayload = { ...aiJson, final_caption: previewCaption, base_caption: baseCaption, image_urls: imageUrls };
 
   try {
     const savedDraft = savePost(
       chatId,
-      { ...stylist, image_url: imageUrl, final_caption: previewCaption },
+      { ...stylist, image_url: imageUrl, image_urls: imageUrls, final_caption: previewCaption },
       aiJson.caption,
       aiJson.hashtags || [],
       "draft",
@@ -551,11 +552,15 @@ async function processNewImageFlow({
 function restoreDraftFromDb(row) {
   let hashtags = [];
   try { hashtags = JSON.parse(row.hashtags || "[]"); } catch { /* leave empty */ }
+  let imageUrls = [];
+  try { imageUrls = JSON.parse(row.image_urls || "[]"); } catch { /* leave empty */ }
+  if (!imageUrls.length && row.image_url) imageUrls = [row.image_url];
   return {
     caption: row.base_caption || row.final_caption || "",
     hashtags,
     cta: row.cta || "",
     image_url: row.image_url || null,
+    image_urls: imageUrls,
     original_notes: row.original_notes || "",
     final_caption: row.final_caption || "",
     base_caption: row.base_caption || "",
@@ -571,7 +576,8 @@ export async function handleIncomingMessage({
   source,
   chatId,
   text,
-  imageUrl,
+  imageUrl,    // single URL (Telegram / legacy callers)
+  imageUrls,   // array from Twilio MMS
   drafts,
   generateCaption,
   moderateAIOutput,
@@ -579,7 +585,10 @@ export async function handleIncomingMessage({
   io
 }) {
   const start = startTimer();
-  console.log(`💬 [Router] Message received from ${source}:`, { chatId, text, imageUrl });
+  // Normalize: merge imageUrl + imageUrls into one canonical array
+  const allImageUrls = imageUrls?.length ? imageUrls : (imageUrl ? [imageUrl] : []);
+  const primaryImageUrl = allImageUrls[0] || null;
+  console.log(`💬 [Router] Message received from ${source}:`, { chatId, text, images: allImageUrls.length });
 
   const cleanText = (text || "").trim();
   const command = cleanText.toUpperCase();
@@ -673,11 +682,11 @@ export async function handleIncomingMessage({
     const queued = getQueuedIfAny(chatId);
     await sendMessage.sendText(chatId, "✅ Thanks! Consent received. Continuing…");
     
-    if (queued?.imageUrl) {
+    if (queued?.imageUrls?.length) {
       await processNewImageFlow({
         chatId,
         text: queued.text,
-        imageUrl: queued.imageUrl,
+        imageUrls: queued.imageUrls,
         drafts,
         generateCaption,
         moderateAIOutput,
@@ -1191,7 +1200,7 @@ export async function handleIncomingMessage({
 
 
   // NEW PHOTO — Consented?
-  if (imageUrl) {
+  if (primaryImageUrl) {
   const alreadyOptedIn =
     stylist?.compliance_opt_in ||
     stylist?.consent?.sms_opt_in ||
@@ -1199,7 +1208,7 @@ export async function handleIncomingMessage({
       (stylist?.compliance_opt_in || stylist?.consent?.sms_opt_in));
 
   if (!alreadyOptedIn && consentSessions.get(chatId)?.status !== "granted") {
-    await queueConsentAndPrompt(chatId, imageUrl, text, sendMessage, stylist);
+    await queueConsentAndPrompt(chatId, allImageUrls, text, sendMessage, stylist);
     endTimer(start);
     return;
   }
@@ -1207,7 +1216,7 @@ export async function handleIncomingMessage({
     await processNewImageFlow({
       chatId,
       text,
-      imageUrl,
+      imageUrls: allImageUrls,
       drafts,
       generateCaption,
       moderateAIOutput,
@@ -1230,7 +1239,7 @@ export async function handleIncomingMessage({
     ) &&
     consentSessions.get(chatId)?.status !== "granted"
     ) {
-      await queueConsentAndPrompt(chatId, null, null, sendMessage, stylist);
+      await queueConsentAndPrompt(chatId, [], null, sendMessage, stylist);
       endTimer(start);
       return;
     }

@@ -158,6 +158,7 @@ CREATE TABLE IF NOT EXISTS posts (
   manager_chat_id    TEXT,
 
   image_url          TEXT,
+  image_urls         TEXT,          -- JSON array of all image URLs (multi-image / carousel)
   image_mime         TEXT,
   rehosted_image_url TEXT,
 

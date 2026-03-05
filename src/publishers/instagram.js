@@ -129,11 +129,101 @@ async function retryIg(fn, label, retries = 2, delayMs = 1500) {
   throw lastErr;
 }
 
+async function resolveIgCredentials(salon_id) {
+  const salonRow = db
+    .prepare(`SELECT instagram_business_id, facebook_page_token FROM salons WHERE id = ? OR slug = ? LIMIT 1`)
+    .get(salon_id, salon_id);
+  return {
+    userId: salonRow?.instagram_business_id || DEFAULT_IG_USER_ID,
+    token:  salonRow?.facebook_page_token  || DEFAULT_FB_TOKEN,
+    graphVer: DEFAULT_GRAPH_VER,
+  };
+}
+
 /**
- * publishToInstagram({ salon_id, caption, imageUrl })
+ * publishToInstagramCarousel({ salon_id, caption, imageUrls })
+ * Uses the IG Carousel API for 2–10 images.
+ */
+export async function publishToInstagramCarousel({ salon_id, caption, imageUrls }) {
+  if (!salon_id) throw new Error("publishToInstagramCarousel: missing salon_id");
+  if (!imageUrls?.length) throw new Error("publishToInstagramCarousel: no imageUrls");
+
+  const { userId, token, graphVer } = await resolveIgCredentials(salon_id);
+  if (!token || !userId) throw new Error("Missing Instagram credentials for carousel.");
+
+  // Normalize caption (same as single-image path)
+  let igCaption = (caption || "").trim();
+  igCaption = igCaption.replace(/<a[^>]*href="https?:\/\/instagram\.com\/([^"]+)"[^>]*>@[^<]+<\/a>/gi, "@$1");
+  igCaption = igCaption.replace(/https?:\/\/\S+/gi, "").trim();
+  if (!/book via link in bio/i.test(igCaption)) {
+    igCaption += (igCaption ? "\n\n" : "") + "Book via link in bio.";
+  }
+
+  console.log(`📷 [Instagram Carousel] ${imageUrls.length} images for salon_id=${salon_id}`);
+
+  // 1. Rehost and create a carousel item container for each image
+  const itemIds = [];
+  for (let i = 0; i < imageUrls.length; i++) {
+    const publicUrl = await ensurePublicImage(imageUrls[i], `${Date.now()}_${i}`, salon_id);
+    const itemId = await retryIg(async () => {
+      const url = `https://graph.facebook.com/${graphVer}/${userId}/media`;
+      const params = new URLSearchParams({
+        image_url: publicUrl,
+        is_carousel_item: "true",
+        access_token: token,
+      });
+      const resp = await fetch(url, { method: "POST", body: params });
+      const data = await resp.json();
+      if (!resp.ok || !data?.id) {
+        throw new Error(`IG carousel item ${i} create failed: ${resp.status} ${JSON.stringify(data)}`);
+      }
+      return data.id;
+    }, `carousel item ${i}`);
+    itemIds.push(itemId);
+  }
+
+  // 2. Create the carousel container
+  const carouselId = await retryIg(async () => {
+    const url = `https://graph.facebook.com/${graphVer}/${userId}/media`;
+    const params = new URLSearchParams({
+      media_type: "CAROUSEL",
+      children: itemIds.join(","),
+      caption: igCaption,
+      access_token: token,
+    });
+    const resp = await fetch(url, { method: "POST", body: params });
+    const data = await resp.json();
+    if (!resp.ok || !data?.id) {
+      throw new Error(`IG carousel container create failed: ${resp.status} ${JSON.stringify(data)}`);
+    }
+    return data.id;
+  }, "carousel container");
+
+  // 3. Wait for ready
+  await waitForContainer(carouselId, token, graphVer);
+
+  // 4. Publish
+  const publishRes = await retryIg(
+    () => publishContainer(carouselId, userId, token, graphVer),
+    "carousel publish"
+  );
+
+  logEvent({ event: "instagram_carousel_publish_success", salon_id, data: { media_id: publishRes.id, count: imageUrls.length } });
+  return { id: publishRes.id, status: "success", type: "carousel" };
+}
+
+/**
+ * publishToInstagram({ salon_id, caption, imageUrl, imageUrls? })
+ * Routes to carousel automatically when imageUrls has 2+ entries.
  */
 export async function publishToInstagram(input) {
-  const { salon_id, caption, imageUrl } = input;
+  const { salon_id, caption, imageUrl, imageUrls } = input;
+
+  // Route to carousel if multiple images provided
+  const allUrls = imageUrls?.length ? imageUrls : (imageUrl ? [imageUrl] : []);
+  if (allUrls.length > 1) {
+    return publishToInstagramCarousel({ salon_id, caption, imageUrls: allUrls });
+  }
 
   if (!salon_id || salon_id === "global") {
     throw new Error("Instagram publish called without a valid salon_id");
@@ -158,31 +248,12 @@ export async function publishToInstagram(input) {
   }
 
   // -------------------------------------------------------
-  // DB-based credential resolution (FIXED)
+  // Credential resolution via shared helper
   // -------------------------------------------------------
-  const salonRow = db
-    .prepare(
-      `
-    SELECT
-      instagram_business_id,
-      facebook_page_token
-    FROM salons
-    WHERE id = ? OR slug = ?
-    LIMIT 1
-  `
-    )
-    .get(salon_id, salon_id);
-
-  const userId = salonRow?.instagram_business_id || DEFAULT_IG_USER_ID;
-  const token = salonRow?.facebook_page_token || DEFAULT_FB_TOKEN;
-  const graphVer = DEFAULT_GRAPH_VER;
+  const { userId, token, graphVer } = await resolveIgCredentials(salon_id);
 
   if (!token || !userId) {
-    console.warn("[Instagram] Missing IG creds", {
-      salon_id,
-      hasUserId: !!userId,
-      hasToken: !!token,
-    });
+    console.warn("[Instagram] Missing IG creds", { salon_id, hasUserId: !!userId, hasToken: !!token });
     throw new Error("Missing Instagram credentials (token or userId).");
   }
 

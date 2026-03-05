@@ -28,6 +28,7 @@ const insertPostStmt = db.prepare(`
     stylist_phone,
 
     image_url,
+    image_urls,
 
     base_caption,
     final_caption,
@@ -61,6 +62,7 @@ const insertPostStmt = db.prepare(`
     @stylist_phone,
 
     @image_url,
+    @image_urls,
 
     @base_caption,
     @final_caption,
@@ -130,6 +132,9 @@ export function savePost(
     stylist_phone: String(chatId),
 
     image_url: stylist.image_url || null,
+    image_urls: Array.isArray(stylist.image_urls) && stylist.image_urls.length
+      ? JSON.stringify(stylist.image_urls)
+      : null,
 
     base_caption: caption || "",
     final_caption: stylist.final_caption || caption || "",

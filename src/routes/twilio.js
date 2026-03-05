@@ -46,14 +46,19 @@ export default function twilioRoute(drafts, _lookupStylist, generateCaption) {
     const toNumber = (req.body.To || "").trim();
     const text = (req.body.Body || "").trim();
     const numMedia = parseInt(req.body.NumMedia || "0", 10);
-    const imageUrl = numMedia > 0 ? req.body[`MediaUrl${numMedia - 1}`] : null;
+    const imageUrls = [];
+    for (let i = 0; i < numMedia; i++) {
+      const url = req.body[`MediaUrl${i}`];
+      if (url) imageUrls.push(url);
+    }
+    const imageUrl = imageUrls[0] || null; // primary, for backward compat
 
     console.log("🔔 [Twilio] Webhook:", {
       from,
       to: toNumber,
       hasText: text.length > 0,
       numMedia,
-      imageUrl: imageUrl || null,
+      imageUrls: imageUrls.length ? imageUrls : null,
     });
 
     const upperInit = text.toUpperCase();
@@ -100,13 +105,14 @@ export default function twilioRoute(drafts, _lookupStylist, generateCaption) {
         return;
       }
 
-      console.log("🧠 [Twilio] Calling handleIncomingMessage for:", { from, imageUrl, text });
+      console.log("🧠 [Twilio] Calling handleIncomingMessage for:", { from, imageUrls, text });
 
       await handleIncomingMessage({
         source: "twilio",
         chatId: from,
         text,
         imageUrl,
+        imageUrls,
         drafts,
         generateCaption,
         moderateAIOutput,
