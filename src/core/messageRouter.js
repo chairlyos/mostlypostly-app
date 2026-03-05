@@ -535,16 +535,31 @@ async function processNewImageFlow({
 
   drafts.set(chatId, draftPayload);
 
-  // 5️⃣ Send stylist preview
-  const preview = `
-  💇‍♀️ *MostlyPostly Preview (Full Post)*
+  // 5️⃣ Generate portal token and send link instead of inline caption
+  const postId = draftPayload._db_id;
+  if (postId) {
+    try {
+      const portalToken = crypto.randomBytes(32).toString("hex");
+      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+      db.prepare(`
+        INSERT INTO stylist_portal_tokens (id, post_id, token, expires_at)
+        VALUES (?, ?, ?, ?)
+      `).run(crypto.randomUUID(), postId, portalToken, expiresAt);
 
-  ${previewCaption}
+      const baseUrl = process.env.PUBLIC_BASE_URL || "";
+      const portalUrl = `${baseUrl}/stylist/${postId}?token=${portalToken}`;
 
-  Reply *APPROVE* to continue, *REGENERATE*, or *CANCEL* to stop.
-  `.trim();
-
-  await sendMessage.sendText(chatId, preview);
+      await sendMessage.sendText(chatId,
+        `Your caption preview is ready! Review and edit it here:\n${portalUrl}\n\n(Link expires in 24 hours. Reply CANCEL to discard.)`
+      );
+    } catch (err) {
+      console.warn("⚠️ Could not generate portal token, falling back to SMS preview:", err.message);
+      await sendMessage.sendText(chatId, `Preview:\n\n${previewCaption}\n\nReply APPROVE to submit or CANCEL to discard.`);
+    }
+  } else {
+    // DB save failed — fall back to SMS preview
+    await sendMessage.sendText(chatId, `Preview:\n\n${previewCaption}\n\nReply APPROVE to submit or CANCEL to discard.`);
+  }
 }
 
 // --------------------------------------
@@ -1120,72 +1135,31 @@ export async function handleIncomingMessage({
     return;
   }
 
-  // REGENERATE
+  // REGENERATE — redirect to portal (editing now happens on the web)
   if (command === "REGENERATE") {
-    let draft = drafts.get(chatId);
+    const draft = drafts.get(chatId) || (() => {
+      const row = findLatestDraft(chatId);
+      return row ? restoreDraftFromDb(row) : null;
+    })();
 
-    // DB fallback for server restart recovery
-    if (!draft) {
-      const dbDraft = findLatestDraft(chatId);
-      if (dbDraft) {
-        console.log(`[Router] Restored draft from DB for REGENERATE (${chatId})`);
-        draft = restoreDraftFromDb(dbDraft);
-        drafts.set(chatId, draft);
-      }
-    }
-
-    if (!draft?.image_url) {
-      await sendMessage.sendText(chatId, "⚠️ No previous image found. Please send a new photo first.");
+    const postId = draft?._db_id;
+    if (!postId) {
+      await sendMessage.sendText(chatId, "No draft found. Please send a new photo first.");
       endTimer(start);
       return;
     }
 
-    await sendMessage.sendText(chatId, "🔄 Regenerating a fresh caption...");
+    // Issue a fresh portal link
     try {
-      // ✅ Hydrate salon exactly like initial flow
-      const fullSalon = getSalonPolicy(
-        salon?.slug || salon?.salon_id || salon?.id
-      );
-
-      const aiJson = await generateCaption({
-        imageDataUrl: draft.image_url,
-        notes: draft.original_notes || "",
-        salon: fullSalon,
-        stylist,
-        city: stylist?.city || ""
-      });
-
-      aiJson.image_url = draft.image_url;
-      aiJson.original_notes = draft.original_notes;
-      drafts.set(chatId, aiJson);
-
-      const bookingUrlR = salon?.salon_info?.booking_url || "";
-      let regenBase = composeFinalCaption({
-        caption: aiJson.caption,
-        hashtags: aiJson.hashtags,
-        cta: aiJson.cta,
-        instagramHandle: null,
-        stylistName: getStylistName(stylist),
-        bookingUrl: bookingUrlR,
-        salon: fullSalon,
-        asHtml: false
-      });
-
-      // Stylist preview remains FB-style
-      const regenPreview = buildFacebookCaption(regenBase, getStylistName(stylist), getStylistHandle(stylist));
-
-      const preview = `
-      💇‍♀️ *MostlyPostly Preview (Regenerated)*
-
-      ${regenPreview}
-
-      Reply *APPROVE* to continue, *REGENERATE*, or *CANCEL* to start over.
-      `.trim();
-
-      await sendMessage.sendText(chatId, preview);
+      const portalToken = crypto.randomBytes(32).toString("hex");
+      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+      db.prepare(`INSERT INTO stylist_portal_tokens (id, post_id, token, expires_at) VALUES (?, ?, ?, ?)`)
+        .run(crypto.randomUUID(), postId, portalToken, expiresAt);
+      const portalUrl = `${process.env.PUBLIC_BASE_URL || ""}/stylist/${postId}?token=${portalToken}`;
+      await sendMessage.sendText(chatId, `Use this link to edit and regenerate your caption:\n${portalUrl}`);
     } catch (err) {
-      console.error("⚠️ [Router] Regeneration failed:", err);
-      await sendMessage.sendText(chatId, "⚠️ Could not regenerate caption. Try again later.");
+      console.error("⚠️ Could not generate portal token:", err.message);
+      await sendMessage.sendText(chatId, "Unable to generate your edit link. Please try sending a new photo.");
     }
     endTimer(start);
     return;
