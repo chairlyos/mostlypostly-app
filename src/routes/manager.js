@@ -115,7 +115,7 @@ router.get("/", requireAuth, async (req, res) => {
       `SELECT *
         FROM posts
         WHERE salon_id = ?
-          AND status NOT IN ('manager_pending', 'draft')
+          AND status NOT IN ('manager_pending', 'draft', 'cancelled')
         ORDER BY created_at DESC
        LIMIT 25`
     )
@@ -211,9 +211,17 @@ router.get("/", requireAuth, async (req, res) => {
 
               <div class="flex-1">
 
-                <p class="text-xs text-slate-400">
-                  Status: <span class="font-semibold">${esc(p.status)}</span> • Post #${esc(p.salon_post_number) || "—"}
-                </p>
+                <div class="flex items-center justify-between gap-2 mb-1">
+                  <p class="text-xs text-slate-400">
+                    Status: <span class="font-semibold">${esc(p.status)}</span> • Post #${esc(p.salon_post_number) || "—"}
+                  </p>
+                  ${p.status === "manager_approved" || p.status === "failed" ? `
+                    <a href="/manager/cancel-post?post=${p.id}"
+                       onclick="return confirm('Cancel this post and remove it from the queue?')"
+                       class="text-[11px] text-red-400 hover:text-red-300 shrink-0">
+                      Cancel
+                    </a>` : ""}
+                </div>
                 <p class="text-xs text-slate-500 mb-2">${esc(fmt(p.created_at))}</p>
 
                 <!-- Collapsed Caption -->
@@ -345,6 +353,17 @@ router.get("/cancel", requireAuth, (req, res) => {
 /* -------------------------------------------------------------
    DENY — FORM
 ------------------------------------------------------------- */
+router.get("/cancel-post", requireAuth, (req, res) => {
+  const id = req.query.post;
+  const salon_id = req.manager.salon_id;
+  if (id) {
+    db.prepare(
+      `UPDATE posts SET status='cancelled', scheduled_for=NULL WHERE id=? AND salon_id=?`
+    ).run(id, salon_id);
+  }
+  return res.redirect(`/manager?salon=${encodeURIComponent(salon_id)}`);
+});
+
 router.get("/deny", requireAuth, (req, res) => {
   const id = req.query.post;
 

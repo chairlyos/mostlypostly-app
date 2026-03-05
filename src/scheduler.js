@@ -268,18 +268,33 @@ export async function runSchedulerOnce() {
         } catch (err) {
           console.error(`❌ [${post.id}] Failed:`, err.message);
 
-          const min = salon.spacing_min ?? 20;
-          const max = salon.spacing_max ?? 45;
-          const retry = toSqliteTimestamp(
-            nowUtc.plus({ minutes: randomDelay(min, max) })
-          );
+          const newRetryCount = (post.retry_count || 0) + 1;
+          const MAX_RETRIES = 3;
 
-          db.prepare(
-            `UPDATE posts
-             SET status='manager_approved',
-                 scheduled_for=?
-             WHERE id=?`
-          ).run(retry, post.id);
+          if (newRetryCount >= MAX_RETRIES) {
+            console.error(`🚫 [${post.id}] Max retries reached — marking as failed`);
+            db.prepare(
+              `UPDATE posts
+               SET status='failed',
+                   retry_count=?,
+                   error_message=?
+               WHERE id=?`
+            ).run(newRetryCount, err.message.slice(0, 500), post.id);
+          } else {
+            const min = salon.spacing_min ?? 20;
+            const max = salon.spacing_max ?? 45;
+            const retry = toSqliteTimestamp(
+              nowUtc.plus({ minutes: randomDelay(min, max) })
+            );
+            db.prepare(
+              `UPDATE posts
+               SET status='manager_approved',
+                   scheduled_for=?,
+                   retry_count=?,
+                   error_message=?
+               WHERE id=?`
+            ).run(retry, newRetryCount, err.message.slice(0, 500), post.id);
+          }
         }
       }
     }
