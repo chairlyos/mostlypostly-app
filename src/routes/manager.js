@@ -160,7 +160,7 @@ router.get("/", requireAuth, async (req, res) => {
 
               <div class="flex-1">
                 <p class="text-xs text-slate-400 mb-1">
-                  Pending • Post #${esc(p.salon_post_number) || "—"}
+                  Pending • Post #${esc(p.salon_post_number) || "—"} • <span class="capitalize">${esc((p.post_type || "standard_post").replace(/_/g, " "))}</span>
                 </p>
 
                 <p class="text-sm whitespace-pre-line text-slate-100 leading-relaxed">

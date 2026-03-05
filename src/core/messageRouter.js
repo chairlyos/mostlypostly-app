@@ -99,6 +99,7 @@ import {
   findLatestDraft,
 } from "../core/storage.js";
 import { composeFinalCaption } from "./composeFinalCaption.js";
+import { classifyPostType } from "./classifyPostType.js";
 // 🧠 Import moderation utility directly
 import moderateAIOutput from "../utils/moderation.js";
 import { rehostTwilioMedia } from "../utils/rehostTwilioMedia.js";
@@ -463,6 +464,9 @@ async function processNewImageFlow({
   const imageUrl = imageUrls[0] || null;
   console.log(`📸 [Router] New image(s) received (consented): ${imageUrls.length} image(s)`);
 
+  // 0️⃣ Classify post type from message text
+  const postType = classifyPostType(text || "");
+
   // 1️⃣ Generate AI caption object
   // Hydrate salon with DB-backed config (tone, hashtags, rules, etc.)
   const fullSalon = getSalonPolicy(
@@ -514,12 +518,12 @@ async function processNewImageFlow({
   const previewCaption = buildFacebookCaption(baseCaption, stylistName, stylistHandle);
 
   // Save draft to memory AND DB so it survives a server restart
-  const draftPayload = { ...aiJson, final_caption: previewCaption, base_caption: baseCaption, image_urls: imageUrls };
+  const draftPayload = { ...aiJson, final_caption: previewCaption, base_caption: baseCaption, image_urls: imageUrls, post_type: postType };
 
   try {
     const savedDraft = savePost(
       chatId,
-      { ...stylist, image_url: imageUrl, image_urls: imageUrls, final_caption: previewCaption },
+      { ...stylist, image_url: imageUrl, image_urls: imageUrls, final_caption: previewCaption, post_type: postType },
       aiJson.caption,
       aiJson.hashtags || [],
       "draft",

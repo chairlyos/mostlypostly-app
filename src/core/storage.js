@@ -26,6 +26,8 @@ const insertPostStmt = db.prepare(`
 
     stylist_name,
     stylist_phone,
+    instagram_handle,
+    post_type,
 
     image_url,
     image_urls,
@@ -60,6 +62,8 @@ const insertPostStmt = db.prepare(`
 
     @stylist_name,
     @stylist_phone,
+    @instagram_handle,
+    @post_type,
 
     @image_url,
     @image_urls,
@@ -130,6 +134,8 @@ export function savePost(
 
     stylist_name: stylist.stylist_name || stylist.name || "Unknown Stylist",
     stylist_phone: String(chatId),
+    instagram_handle: stylist.instagram_handle || null,
+    post_type: stylist.post_type || "standard_post",
 
     image_url: stylist.image_url || null,
     image_urls: Array.isArray(stylist.image_urls) && stylist.image_urls.length
