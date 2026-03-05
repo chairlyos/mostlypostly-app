@@ -229,8 +229,8 @@ export async function runSchedulerOnce() {
           let fbResp = null;
           let igResp = null;
 
-          if (postType === "availability") {
-            // Availability → Instagram Story only (no Facebook story yet)
+          if (postType === "availability" || postType === "promotions") {
+            // Availability + Promotions → Instagram Story only (no Facebook story yet)
             const image = allImages[0] || post.image_url;
             igResp = await publishStoryToInstagram({
               salon_id: salon.slug,

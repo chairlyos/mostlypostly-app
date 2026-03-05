@@ -1,11 +1,14 @@
 // src/routes/manager.js — Restored MostlyPostly “Old Blue UI” Manager Dashboard
 import express from "express";
+import crypto from "crypto";
 import { db } from "../../db.js";
 import pageShell from "../ui/pageShell.js";
 import { DateTime } from "luxon";
 import { getSalonName } from "../core/salonLookup.js";
 import { handleManagerApproval } from "../core/messageRouter.js";
 import { rehostTwilioMedia } from "../utils/rehostTwilioMedia.js";
+import { buildPromotionImage } from "../core/buildPromotionImage.js";
+import { getSalonPolicy } from "../scheduler.js";
 
 const router = express.Router();
 
@@ -245,9 +248,15 @@ router.get("/", requireAuth, async (req, res) => {
      PAGE BODY (old layout)
   ------------------------------------------------------------- */
   const body = `
-      <h1 class="text-2xl font-bold mb-2 text-white">
-        Manager Dashboard — <span class="text-mpPrimary">${salonName}</span>
-      </h1>
+      <div class="flex items-center justify-between mb-2">
+        <h1 class="text-2xl font-bold text-white">
+          Manager Dashboard — <span class="text-mpPrimary">${salonName}</span>
+        </h1>
+        <a href="/manager/promotion/new"
+           class="px-4 py-2 bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-semibold rounded-lg text-sm">
+          + Create Promotion
+        </a>
+      </div>
       <p class="text-sm text-slate-400 mb-8">
         Logged in as ${mgrName} (${managerPhone})
       </p>
@@ -459,6 +468,159 @@ router.post("/edit/:id", requireAuth, (req, res) => {
   // Redirect back to manager for the appropriate salon
   const salonSlug = req.manager?.salon_id || "";
   return res.redirect(`/manager?salon=${salonSlug}`);
+});
+
+/* -------------------------------------------------------------
+   PROMOTION — FORM
+------------------------------------------------------------- */
+router.get("/promotion/new", requireAuth, (req, res) => {
+  const salon_id = req.manager.salon_id;
+
+  const body = `
+    <div class="max-w-lg mx-auto mt-8">
+      <div class="flex items-center gap-3 mb-6">
+        <a href="/manager" class="text-slate-400 hover:text-white text-sm">← Dashboard</a>
+      </div>
+
+      <div class="bg-slate-900 border border-slate-700 rounded-2xl p-6">
+        <h1 class="text-xl font-bold text-white mb-1">Create Promotion</h1>
+        <p class="text-sm text-slate-400 mb-6">
+          Fills automatically as an Instagram Story. Requires manager approval before posting.
+        </p>
+
+        <form method="POST" action="/manager/promotion/create" class="space-y-5">
+
+          <div>
+            <label class="block text-sm font-medium text-slate-300 mb-1">
+              Product or Service <span class="text-red-400">*</span>
+            </label>
+            <input name="product" required placeholder="e.g. Balayage, Keratin Treatment, Olaplex"
+              class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-yellow-500" />
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-slate-300 mb-1">
+              Discount <span class="text-slate-500 font-normal">(optional)</span>
+            </label>
+            <input name="discount" placeholder="e.g. 20%, $15 off, BOGO"
+              class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-yellow-500" />
+            <p class="text-xs text-slate-500 mt-1">Leave blank if no discount applies.</p>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-slate-300 mb-1">
+              Special Text <span class="text-slate-500 font-normal">(optional)</span>
+            </label>
+            <input name="special_text" placeholder="e.g. Limited time only!, Book before it's gone!"
+              class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-yellow-500" />
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-slate-300 mb-1">
+              Offer Expiration Date <span class="text-red-400">*</span>
+            </label>
+            <input type="date" name="expires_at" required
+              min="${new Date().toISOString().split("T")[0]}"
+              class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-yellow-500" />
+          </div>
+
+          <div class="pt-2 space-y-3">
+            <button type="submit"
+              class="w-full bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold py-3 rounded-xl text-sm">
+              Build &amp; Preview Promotion
+            </button>
+            <a href="/manager"
+              class="block text-center text-slate-400 hover:text-slate-200 text-sm py-2">
+              Cancel
+            </a>
+          </div>
+
+        </form>
+      </div>
+    </div>
+  `;
+
+  return res.send(pageShell({ title: "Create Promotion", current: "manager", salon_id, body }));
+});
+
+/* -------------------------------------------------------------
+   PROMOTION — CREATE (POST)
+------------------------------------------------------------- */
+router.post("/promotion/create", requireAuth, async (req, res) => {
+  const salon_id   = req.manager.salon_id;
+  const manager_id = req.manager.id;
+
+  const { product, discount, special_text, expires_at } = req.body;
+
+  if (!product?.trim() || !expires_at) {
+    return res.redirect("/manager/promotion/new");
+  }
+
+  try {
+    const fullSalon = getSalonPolicy(salon_id);
+    const salonName = fullSalon?.name || fullSalon?.salon_info?.salon_name || "the salon";
+
+    // Build the promotional story image
+    const imageUrl = await buildPromotionImage({
+      salonId:     salon_id,
+      salonName,
+      product:     product.trim(),
+      discount:    discount?.trim() || null,
+      specialText: special_text?.trim() || null,
+      expiresAt:   expires_at,
+    });
+
+    // Compose a text caption for the post record
+    const captionParts = [`${product.trim()} Promotion`];
+    if (discount?.trim()) captionParts.push(`${discount.trim()} off`);
+    if (special_text?.trim()) captionParts.push(special_text.trim());
+    captionParts.push(`Offer expires ${new Date(expires_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`);
+    captionParts.push("Book via link in bio.");
+    const caption = captionParts.join(" · ");
+
+    // Assign salon post number
+    const numRow = db.prepare(`SELECT MAX(salon_post_number) AS n FROM posts WHERE salon_id = ?`).get(salon_id);
+    const salon_post_number = (numRow?.n || 0) + 1;
+
+    // Save directly as manager_pending (manager created it, goes straight to approval queue)
+    const postId = crypto.randomUUID();
+    db.prepare(`
+      INSERT INTO posts (
+        id, salon_id, manager_id,
+        image_url, image_urls,
+        base_caption, final_caption,
+        post_type, promotion_expires_at,
+        status, salon_post_number,
+        created_at, updated_at
+      ) VALUES (
+        ?, ?, ?,
+        ?, ?,
+        ?, ?,
+        'promotions', ?,
+        'manager_pending', ?,
+        datetime('now'), datetime('now')
+      )
+    `).run(
+      postId, salon_id, manager_id,
+      imageUrl, JSON.stringify([imageUrl]),
+      caption, caption,
+      expires_at,
+      salon_post_number
+    );
+
+    console.log(`[Manager] Promotion created: ${postId} for ${salon_id}`);
+    return res.redirect("/manager");
+
+  } catch (err) {
+    console.error("❌ [Manager] Promotion create failed:", err.message);
+    const body = `
+      <div class="max-w-lg mx-auto mt-12 bg-red-950 border border-red-700 rounded-2xl p-6 text-red-300">
+        <p class="font-semibold mb-2">Failed to build promotion</p>
+        <p class="text-sm">${esc(err.message)}</p>
+        <a href="/manager/promotion/new" class="block mt-4 text-center text-blue-400 underline text-sm">Try again</a>
+      </div>`;
+    return res.send(pageShell({ title: "Error", current: "manager", salon_id, body }));
+  }
 });
 
 export default router;
