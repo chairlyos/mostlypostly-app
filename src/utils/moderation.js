@@ -52,7 +52,7 @@ export default async function moderateAIOutput(aiJson, userText = "", meta = {})
     if (!isContentSafe(aiJson.caption, aiJson.hashtags || [], userText)) {
       const reason = "static-check";
       log("⚠️ Local moderation block:", { text });
-      logModeration({ post_id: postId || "preview", salon_id: salonId, level: "block", reasons: [reason] });
+      logModeration({ post_id: postId || null, salon_id: salonId, level: "block", reasons: [reason] });
       logEvent({ event: "post_flagged_local", salon_id: salonId, post_id: postId, data: { reason, text } });
       return { safe: false, result: { ...aiJson, _meta: { type: "blocked-local", reason } } };
     }
@@ -71,7 +71,7 @@ export default async function moderateAIOutput(aiJson, userText = "", meta = {})
         .filter(([_, v]) => v === true)
         .map(([k]) => k);
       log("⚠️ AI moderation flagged:", { triggered });
-      logModeration({ post_id: postId || "preview", salon_id: salonId, level: "block", reasons: triggered });
+      logModeration({ post_id: postId || null, salon_id: salonId, level: "block", reasons: triggered });
       logEvent({ event: "post_flagged_ai", salon_id: salonId, post_id: postId, data: { categories: triggered } });
       return {
         safe: false,
@@ -80,7 +80,7 @@ export default async function moderateAIOutput(aiJson, userText = "", meta = {})
     }
 
     logEvent({ event: "post_moderation_passed", salon_id: salonId, post_id: postId, data: { categories } });
-    logModeration({ post_id: postId || "preview", salon_id: salonId, level: "info", reasons: ["pass"] });
+    logModeration({ post_id: postId || null, salon_id: salonId, level: "info", reasons: ["pass"] });
     return { safe: true, result: { ...aiJson, _meta: { type: "approved" } } };
   } catch (err) {
     console.error("⚠️ [Moderation] Error:", err.message);

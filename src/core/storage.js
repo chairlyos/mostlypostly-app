@@ -88,7 +88,7 @@ const insertPostStmt = db.prepare(`
 
 
 // ======================================================
-// 💾 Save a new post (DB + JSON mirror) — v1.3 schema
+// 💾 Save a new post — v1.3 schema
 // ======================================================
 export function savePost(
   chatId,
@@ -99,7 +99,6 @@ export function savePost(
   io = null,
   salon = null
 ) {
-  const posts = loadAllPosts();
   const now = new Date().toISOString();
   const id = crypto.randomUUID();
 
