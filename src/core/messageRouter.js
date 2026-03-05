@@ -100,6 +100,7 @@ import {
 } from "../core/storage.js";
 import { composeFinalCaption } from "./composeFinalCaption.js";
 import { classifyPostType } from "./classifyPostType.js";
+import { buildBeforeAfterCollage } from "./buildBeforeAfterCollage.js";
 // 🧠 Import moderation utility directly
 import moderateAIOutput from "../utils/moderation.js";
 import { rehostTwilioMedia } from "../utils/rehostTwilioMedia.js";
@@ -467,6 +468,30 @@ async function processNewImageFlow({
   // 0️⃣ Classify post type from message text
   const postType = classifyPostType(text || "");
 
+  // 0b️⃣ Before/After: build side-by-side collage, replace image list
+  let activeImageUrls = [...imageUrls];
+  let activeImageUrl  = imageUrl;
+
+  if (postType === "before_after") {
+    if (imageUrls.length < 2) {
+      await sendMessage.sendText(chatId,
+        "For a Before/After post please send exactly 2 photos — the Before photo first, then the After photo."
+      );
+      return;
+    }
+    try {
+      await sendMessage.sendText(chatId, "Building your Before/After collage… hang tight!");
+      const collageUrl = await buildBeforeAfterCollage(imageUrls.slice(0, 2), salon?.salon_id || "");
+      activeImageUrls  = [collageUrl];
+      activeImageUrl   = collageUrl;
+      console.log(`[Router] Before/After collage ready: ${collageUrl}`);
+    } catch (err) {
+      console.error("❌ [Router] Collage build failed:", err.message);
+      await sendMessage.sendText(chatId, "Sorry, we couldn't build the collage. Please try again.");
+      return;
+    }
+  }
+
   // 1️⃣ Generate AI caption object
   // Hydrate salon with DB-backed config (tone, hashtags, rules, etc.)
   const fullSalon = getSalonPolicy(
@@ -474,7 +499,7 @@ async function processNewImageFlow({
   );
 
   const aiJson = await generateCaption({
-    imageDataUrl: imageUrl,
+    imageDataUrl: activeImageUrl,
     notes: text || "",
     salon: fullSalon,
     stylist,
@@ -482,7 +507,7 @@ async function processNewImageFlow({
   });
 
 
-  aiJson.image_url = imageUrl;
+  aiJson.image_url = activeImageUrl;
   aiJson.original_notes = text;
 
   // 2️⃣ Extract the caption for moderation
@@ -518,12 +543,12 @@ async function processNewImageFlow({
   const previewCaption = buildFacebookCaption(baseCaption, stylistName, stylistHandle);
 
   // Save draft to memory AND DB so it survives a server restart
-  const draftPayload = { ...aiJson, final_caption: previewCaption, base_caption: baseCaption, image_urls: imageUrls, post_type: postType };
+  const draftPayload = { ...aiJson, final_caption: previewCaption, base_caption: baseCaption, image_urls: activeImageUrls, post_type: postType };
 
   try {
     const savedDraft = savePost(
       chatId,
-      { ...stylist, image_url: imageUrl, image_urls: imageUrls, final_caption: previewCaption, post_type: postType },
+      { ...stylist, image_url: activeImageUrl, image_urls: activeImageUrls, final_caption: previewCaption, post_type: postType },
       aiJson.caption,
       aiJson.hashtags || [],
       "draft",
