@@ -5,6 +5,7 @@ import pageShell from "../ui/pageShell.js";
 import { DateTime } from "luxon";
 import { getSalonName } from "../core/salonLookup.js";
 import { handleManagerApproval } from "../core/messageRouter.js";
+import { rehostTwilioMedia } from "../utils/rehostTwilioMedia.js";
 
 const router = express.Router();
 
@@ -16,6 +17,30 @@ function esc(str) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#x27;");
+}
+
+// Rehost any raw Twilio URLs in a post and persist the public URLs to DB
+async function ensurePublicImageUrls(p) {
+  const isTwilio = (u) => /^https:\/\/api\.twilio\.com/i.test(u || "");
+
+  let urls = [];
+  try { urls = JSON.parse(p.image_urls || "[]"); } catch { }
+  if (!urls.length && p.image_url) urls = [p.image_url];
+
+  if (!urls.some(isTwilio)) return p; // nothing to rehost
+
+  const rehosted = await Promise.all(
+    urls.map(u => isTwilio(u) ? rehostTwilioMedia(u, p.salon_id).catch(() => u) : Promise.resolve(u))
+  );
+
+  const newImageUrl = rehosted[0] || p.image_url;
+  const newImageUrls = JSON.stringify(rehosted);
+
+  db.prepare(`
+    UPDATE posts SET image_url = ?, image_urls = ?, updated_at = datetime('now') WHERE id = ?
+  `).run(newImageUrl, newImageUrls, p.id);
+
+  return { ...p, image_url: newImageUrl, image_urls: newImageUrls };
 }
 
 // Render image thumbnail(s) — single img or horizontal strip for multi-image posts
@@ -71,7 +96,7 @@ function requireAuth(req, res, next) {
 /* -------------------------------------------------------------
    GET /manager — OLD UI restored
 ------------------------------------------------------------- */
-router.get("/", requireAuth, (req, res) => {
+router.get("/", requireAuth, async (req, res) => {
   const salon_id = req.manager.salon_id;
   const managerPhone = req.manager.phone || "";
   const mgrName = req.manager.name || "Manager";
@@ -79,7 +104,7 @@ router.get("/", requireAuth, (req, res) => {
   const salonName = getSalonName(salon_id) || "Your Salon";
 
   // Fetch pending
-  const pending = db
+  const pendingRaw = db
     .prepare(
       `SELECT *
        FROM posts
@@ -89,7 +114,7 @@ router.get("/", requireAuth, (req, res) => {
     .all(salon_id);
 
   // Fetch recent (all except manager_pending)
-  const recent = db
+  const recentRaw = db
     .prepare(
       `SELECT *
         FROM posts
@@ -99,6 +124,12 @@ router.get("/", requireAuth, (req, res) => {
        LIMIT 25`
     )
     .all(salon_id);
+
+  // Rehost any raw Twilio URLs so browsers (Safari) can display them
+  const [pending, recent] = await Promise.all([
+    Promise.all(pendingRaw.map(p => ensurePublicImageUrls(p))),
+    Promise.all(recentRaw.map(p => ensurePublicImageUrls(p))),
+  ]);
 
   const fmt = (iso) => {
     try {

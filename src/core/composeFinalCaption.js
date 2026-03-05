@@ -67,7 +67,7 @@ export function composeFinalCaption({
     .trim();
 
   const ctaText = (cta || "").trim();
-  const handle = ((instagramHandle || salon?.salon_info?.instagram_handle || "") + "")
+  const handle = ((instagramHandle || "") + "")
     .replace(/^@+/, "")
     .trim();
   const creditName = (stylistName || "").trim();

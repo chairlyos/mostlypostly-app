@@ -252,23 +252,16 @@ router.post("/:id/submit", validateToken, async (req, res) => {
   }
 
   try {
-    // Rehost image so OpenAI can access it
-    const publicImageUrl = await rehostTwilioMedia(post.image_url, post.salon_id).catch(() => post.image_url);
-
     const fullSalon = getSalonPolicy(post.salon_id);
 
-    // Run AI one more time with the current base_caption as notes to keep tone consistent
-    const aiJson = await generateCaption({
-      imageDataUrl: publicImageUrl,
-      notes: post.base_caption || post.original_notes || "",
-      salon: fullSalon,
-      stylist: { stylist_name: post.stylist_name, name: post.stylist_name },
-      city: fullSalon?.city || "",
-    });
+    // Use the already-saved base_caption + hashtags from the regeneration step.
+    // Running AI again here would discard the stylist's curated hashtags.
+    let hashtags = [];
+    try { hashtags = JSON.parse(post.hashtags || "[]"); } catch { }
 
-    // Moderation
+    // Moderation on the existing caption
     const modResult = await moderateAIOutput(
-      { caption: aiJson.caption || "", hashtags: aiJson.hashtags || [] },
+      { caption: post.base_caption || "", hashtags },
       post.base_caption || "",
       { post_id: post.id, salon_id: post.salon_id }
     );
@@ -284,13 +277,10 @@ router.post("/:id/submit", validateToken, async (req, res) => {
       `));
     }
 
-    let hashtags = [];
-    try { hashtags = aiJson.hashtags || JSON.parse(post.hashtags || "[]"); } catch { }
-
     const finalCaption = composeFinalCaption({
-      caption: aiJson.caption,
+      caption: post.base_caption,
       hashtags,
-      cta: aiJson.cta || post.cta || "Book via link in bio.",
+      cta: post.cta || "Book via link in bio.",
       instagramHandle: null,
       stylistName: post.stylist_name || "",
       bookingUrl: fullSalon?.booking_url || fullSalon?.booking_link || "",
@@ -300,13 +290,12 @@ router.post("/:id/submit", validateToken, async (req, res) => {
 
     db.prepare(`
       UPDATE posts
-      SET base_caption  = ?,
-          final_caption = ?,
+      SET final_caption = ?,
           hashtags      = ?,
           status        = 'manager_pending',
           updated_at    = datetime('now')
       WHERE id = ?
-    `).run(aiJson.caption || post.base_caption, finalCaption, JSON.stringify(hashtags), post.id);
+    `).run(finalCaption, JSON.stringify(hashtags), post.id);
 
     db.prepare(`UPDATE stylist_portal_tokens SET used_at = datetime('now') WHERE post_id = ? AND token = ?`)
       .run(post.id, token);
