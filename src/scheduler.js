@@ -269,7 +269,7 @@ export async function runSchedulerOnce() {
                  ig_media_id=?,
                  published_at=datetime('now','utc')
              WHERE id=?`
-          ).run(fbResp?.post_id || null, igResp?.id || null, post.id);
+          ).run(fbResp?.id || null, igResp?.id || null, post.id);
 
           console.log(`✅ [${post.id}] Published`);
         } catch (err) {

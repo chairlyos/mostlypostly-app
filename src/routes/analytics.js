@@ -1,50 +1,40 @@
-// src/routes/analytics.js — Scheduler Analytics (multi-tenant auto-detect, site-aligned layout)
+// src/routes/analytics.js — Social performance analytics dashboard
 import express from "express";
 import { db } from "../../db.js";
 import { DateTime } from "luxon";
 import { getSalonPolicy } from "../scheduler.js";
-import { getAllSalons } from "../core/salonLookup.js";
-import { getSalonName } from "../core/salonLookup.js";
-
+import { getAllSalons, getSalonName } from "../core/salonLookup.js";
+import { syncSalonInsights } from "../core/fetchInsights.js";
 
 const router = express.Router();
 
-// ─────────────────────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────────────────────
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function appHost() {
-  return process.env.BASE_URL || "http://localhost:3000";
-}
-
-function navBar(current = "scheduler", salon_id = "") {
-  const qsSalon = salon_id ? `?salon=${encodeURIComponent(salon_id)}` : "";
-
+function navBar(current = "analytics", salon_id = "") {
+  const qs = salon_id ? `?salon=${encodeURIComponent(salon_id)}` : "";
   const link = (href, label, key) =>
     `<a href="${href}" class="${
       current === key
         ? "text-mpCharcoal border-b-2 border-mpAccent font-semibold"
         : "text-mpMuted hover:text-mpCharcoal"
     } transition px-1 pb-1">${label}</a>`;
-
   return `
 <header class="border-b border-mpBorder bg-white/90 backdrop-blur sticky top-0 z-30">
   <div class="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
     <div class="flex items-center justify-between py-3">
-      <a href="/manager${qsSalon}" aria-label="MostlyPostly manager home">
+      <a href="/manager${qs}" aria-label="MostlyPostly manager home">
         <img src="/public/logo/logo.png" alt="MostlyPostly" class="w-40 h-auto" />
       </a>
       <nav class="hidden items-center gap-8 text-sm font-medium md:flex">
-        ${link(`/manager${qsSalon}`, "Dashboard", "manager")}
-        ${link(`/dashboard${qsSalon}`, "Database", "database")}
-        ${link(`/analytics${qsSalon}`, "Analytics", "scheduler")}
-        ${link(`/manager/admin${qsSalon}`, "Admin", "admin")}
-        ${link(`/manager/logout${qsSalon}`, "Logout", "logout")}
+        ${link(`/manager${qs}`, "Dashboard", "manager")}
+        ${link(`/dashboard${qs}`, "Database", "database")}
+        ${link(`/analytics${qs}`, "Analytics", "analytics")}
+        ${link(`/manager/admin${qs}`, "Admin", "admin")}
+        ${link(`/manager/logout${qs}`, "Logout", "logout")}
       </nav>
     </div>
   </div>
-</header>
-`;
+</header>`;
 }
 
 function pageShell({ title, body, salon_id = "" }) {
@@ -76,63 +66,12 @@ function pageShell({ title, body, salon_id = "" }) {
   <style>body { font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif; }</style>
 </head>
 <body class="bg-mpBg text-mpCharcoal antialiased">
-  ${navBar("scheduler", salon_id)}
+  ${navBar("analytics", salon_id)}
   <main class="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
     ${body}
   </main>
 </body>
 </html>`;
-}
-
-function salonNameFromId(salonId) {
-  const policy = getSalonPolicy(salonId) || {};
-  return (
-    policy?.salon_info?.salon_name ||
-    policy?.salon_info?.name ||
-    policy?.name ||
-    salonId ||
-    "Salon"
-  );
-}
-
-function formatLocalTime(utcString, salonId) {
-  if (!utcString) return "—";
-  try {
-    const salonPolicy = getSalonPolicy(salonId) || {};
-    const tz = salonPolicy?.timezone || "America/Indiana/Indianapolis";
-    const parsedISO = DateTime.fromISO(utcString, { zone: "utc" });
-    const dt = parsedISO.isValid
-      ? parsedISO
-      : DateTime.fromSQL(utcString, { zone: "utc" });
-    if (!dt.isValid) return utcString;
-    return dt.setZone(tz).toFormat("MMM d, yyyy • h:mm a");
-  } catch {
-    return utcString;
-  }
-}
-
-function nextAvailableSlotUtcISO() {
-  const row = db
-    .prepare(
-      `
-      SELECT scheduled_for
-      FROM posts
-      WHERE status IN ('approved','queued')
-      ORDER BY datetime(scheduled_for) DESC
-      LIMIT 1
-    `
-    )
-    .get();
-
-  let dt;
-  if (row?.scheduled_for) {
-    dt = DateTime.fromISO(row.scheduled_for, { zone: "utc" });
-    if (!dt.isValid) {
-      dt = DateTime.fromSQL(row.scheduled_for, { zone: "utc" });
-    }
-  }
-  if (!dt || !dt.isValid) dt = DateTime.utc();
-  return dt.plus({ minutes: 30 }).toUTC().toISO({ suppressMilliseconds: true });
 }
 
 function resolveSalonId(req) {
@@ -148,170 +87,354 @@ function resolveSalonId(req) {
   return null;
 }
 
-// ─────────────────────────────────────────────────────────────
-// Route
-// ─────────────────────────────────────────────────────────────
+function fmt(n) {
+  if (n === null || n === undefined) return "0";
+  if (n >= 1000000) return (n / 1000000).toFixed(1) + "M";
+  if (n >= 1000) return (n / 1000).toFixed(1) + "K";
+  return String(Math.round(n));
+}
+
+function pct(n) {
+  if (!n || n === 0) return "—";
+  return Number(n).toFixed(1) + "%";
+}
+
+function statCard(label, value, sub) {
+  return `
+  <div class="rounded-2xl border border-mpBorder bg-white p-5 shadow-sm">
+    <p class="text-xs font-bold uppercase tracking-widest text-mpMuted">${label}</p>
+    <p class="mt-2 text-3xl font-extrabold text-mpCharcoal">${value}</p>
+    ${sub ? `<p class="mt-1 text-xs text-mpMuted">${sub}</p>` : ""}
+  </div>`;
+}
+
+function postTypeLabel(t) {
+  return { standard: "Standard", before_after: "Before & After", availability: "Availability", promotion: "Promotion" }[t] || t || "Standard";
+}
+
+// ─── GET /analytics ───────────────────────────────────────────────────────────
 
 router.get("/", (req, res) => {
   const salon_id = resolveSalonId(req);
+  const qs = salon_id ? `?salon=${encodeURIComponent(salon_id)}` : "";
+
   if (!salon_id) {
-    return res
-      .status(400)
-      .send(
-        pageShell({
-          title: "Missing salon ID",
-          salon_id: "",
-          body: `
-          <section class="mt-4 rounded-2xl border border-red-500/40 bg-red-950/40 px-4 py-4">
-            <p class="text-sm text-red-100">
-              ⚠️ No salon context detected. Access via a manager link (token) or add
-              <code class="rounded bg-slate-900 px-1 py-0.5 text-[11px] text-slate-200">?salon=&lt;your-salon-id&gt;</code>.
-            </p>
-          </section>
-        `,
-        })
-      );
+    return res.status(400).send(pageShell({
+      title: "Missing salon",
+      salon_id: "",
+      body: `<div class="rounded-2xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">
+        No salon context detected. Add <code>?salon=&lt;id&gt;</code> to the URL.
+      </div>`,
+    }));
   }
 
-  const salonName = salonNameFromId(salon_id);
-
-  const total = db
-    .prepare(`SELECT COUNT(*) as count FROM posts WHERE salon_id = ?`)
-    .get(salon_id).count;
-
-  const counts = {};
-  for (const s of ["manager_pending", "approved", "queued", "published", "denied"]) {
-    counts[s] = db
-      .prepare(
-        `SELECT COUNT(*) as c FROM posts WHERE salon_id = ? AND status=?`
-      )
-      .get(salon_id, s).c;
-  }
-
-  const lastTen = db
-    .prepare(
-      `SELECT stylist_name, status, datetime(created_at) as created
-       FROM posts
-       WHERE salon_id = ?
-       ORDER BY datetime(created_at) DESC
-       LIMIT 10`
-    )
-    .all(salon_id);
-
+  const salonName = getSalonName(salon_id);
   const salonPolicy = getSalonPolicy(salon_id) || {};
   const tz = salonPolicy?.timezone || "America/Indiana/Indianapolis";
-  const nextUtcSlot = nextAvailableSlotUtcISO();
-  const parsed = DateTime.fromISO(nextUtcSlot, { zone: "utc" });
-  const nextSlot = parsed.isValid
-    ? parsed.setZone(tz).toFormat("MMM d, yyyy • h:mm a")
-    : "—";
 
-  const cards = Object.entries({
-    Total: total,
-    Pending: counts.manager_pending,
-    Approved: counts.approved,
-    Queued: counts.queued,
-    Published: counts.published,
-    Denied: counts.denied,
-  })
-    .map(
-      ([label, val]) => `
-      <div class="rounded-2xl border border-slate-800 bg-slate-900/80 p-4 text-center shadow-md shadow-black/40">
-        <div class="text-2xl font-semibold text-mpPrimary">${val}</div>
-        <div class="mt-1 text-xs uppercase tracking-wide text-slate-400">${label}</div>
-      </div>`
-    )
-    .join("\n");
+  // Volume
+  const totalPublished = db.prepare(`SELECT COUNT(*) as c FROM posts WHERE salon_id=? AND status='published'`).get(salon_id).c;
+  const thisMonth = db.prepare(`
+    SELECT COUNT(*) as c FROM posts
+    WHERE salon_id=? AND status='published'
+      AND strftime('%Y-%m', published_at) = strftime('%Y-%m', 'now')
+  `).get(salon_id).c;
 
-  const recentRows = lastTen
-    .map(
-      (p) => `
-      <tr class="border-b border-slate-800/70 hover:bg-slate-900/80">
-        <td class="px-3 py-2 text-sm text-slate-100">${
-          p.stylist_name || "?"
-        }</td>
-        <td class="px-3 py-2 text-xs uppercase tracking-wide text-mpPrimary">${
-          p.status
-        }</td>
-        <td class="px-3 py-2 text-xs text-slate-300">${formatLocalTime(
-          p.created,
-          salon_id
-        )}</td>
-      </tr>`
-    )
-    .join("\n");
+  // Insight aggregates
+  const igAgg = db.prepare(`
+    SELECT SUM(impressions) as impressions, SUM(reach) as reach,
+           SUM(likes) as likes, SUM(comments) as comments, SUM(saves) as saves,
+           SUM(engaged_users) as engaged, AVG(engagement_rate) as avg_er, COUNT(*) as post_count
+    FROM post_insights pi JOIN posts p ON p.id=pi.post_id
+    WHERE p.salon_id=? AND pi.platform='instagram'
+  `).get(salon_id);
+
+  const fbAgg = db.prepare(`
+    SELECT SUM(impressions) as impressions, SUM(reach) as reach,
+           SUM(reactions) as reactions, SUM(link_clicks) as link_clicks,
+           SUM(engaged_users) as engaged, AVG(engagement_rate) as avg_er, COUNT(*) as post_count
+    FROM post_insights pi JOIN posts p ON p.id=pi.post_id
+    WHERE p.salon_id=? AND pi.platform='facebook'
+  `).get(salon_id);
+
+  const totalReach       = (igAgg?.reach || 0) + (fbAgg?.reach || 0);
+  const totalImpressions = (igAgg?.impressions || 0) + (fbAgg?.impressions || 0);
+  const totalEngaged     = (igAgg?.engaged || 0) + (fbAgg?.engaged || 0);
+  const combinedER       = totalReach > 0 ? (totalEngaged / totalReach) * 100 : 0;
+  const totalLinkClicks  = fbAgg?.link_clicks || 0;
+  const hasInsights      = (igAgg?.post_count || 0) + (fbAgg?.post_count || 0) > 0;
+
+  // Top posts by engagement
+  const topPosts = db.prepare(`
+    SELECT p.id, p.final_caption, p.post_type, p.stylist_name, p.published_at, p.image_url,
+           MAX(pi.engagement_rate) as top_er,
+           MAX(CASE WHEN pi.platform='instagram' THEN pi.likes    ELSE 0 END) as ig_likes,
+           MAX(CASE WHEN pi.platform='instagram' THEN pi.comments ELSE 0 END) as ig_comments,
+           MAX(CASE WHEN pi.platform='instagram' THEN pi.saves    ELSE 0 END) as ig_saves,
+           MAX(CASE WHEN pi.platform='instagram' THEN pi.reach    ELSE 0 END) as ig_reach,
+           MAX(CASE WHEN pi.platform='facebook'  THEN pi.reactions   ELSE 0 END) as fb_reactions,
+           MAX(CASE WHEN pi.platform='facebook'  THEN pi.link_clicks ELSE 0 END) as fb_clicks,
+           MAX(CASE WHEN pi.platform='facebook'  THEN pi.reach       ELSE 0 END) as fb_reach
+    FROM posts p JOIN post_insights pi ON pi.post_id=p.id
+    WHERE p.salon_id=?
+    GROUP BY p.id ORDER BY top_er DESC LIMIT 6
+  `).all(salon_id);
+
+  // Engagement by post type
+  const byType = db.prepare(`
+    SELECT p.post_type, COUNT(DISTINCT p.id) as count,
+           AVG(pi.engagement_rate) as avg_er, SUM(pi.reach) as total_reach
+    FROM posts p JOIN post_insights pi ON pi.post_id=p.id
+    WHERE p.salon_id=? GROUP BY p.post_type ORDER BY avg_er DESC
+  `).all(salon_id);
+
+  // Recent published posts
+  const recent = db.prepare(`
+    SELECT p.id, p.stylist_name, p.post_type, p.published_at, p.fb_post_id, p.ig_media_id,
+           pi_ig.engagement_rate as ig_er, pi_ig.likes as ig_likes, pi_ig.reach as ig_reach,
+           pi_ig.saves as ig_saves, pi_fb.reactions as fb_reactions,
+           pi_fb.link_clicks as fb_clicks, pi_fb.reach as fb_reach
+    FROM posts p
+    LEFT JOIN post_insights pi_ig ON pi_ig.post_id=p.id AND pi_ig.platform='instagram'
+    LEFT JOIN post_insights pi_fb ON pi_fb.post_id=p.id AND pi_fb.platform='facebook'
+    WHERE p.salon_id=? AND p.status='published'
+    ORDER BY datetime(p.published_at) DESC LIMIT 20
+  `).all(salon_id);
+
+  // ── HTML ──────────────────────────────────────────────────────────
+
+  const syncBanner = !hasInsights ? `
+    <div class="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-2xl border border-mpBorder bg-mpAccentLight px-5 py-4">
+      <div>
+        <p class="text-sm font-bold text-mpCharcoal">No social insights synced yet</p>
+        <p class="text-xs text-mpMuted mt-0.5">Click Sync to pull likes, reach, saves, and engagement from Facebook &amp; Instagram.</p>
+      </div>
+      <button onclick="runSync()" class="shrink-0 rounded-full bg-mpCharcoal px-5 py-2.5 text-sm font-semibold text-white hover:bg-mpCharcoalDark transition-colors">Sync Now</button>
+    </div>` : "";
+
+  const summaryCards = `
+  <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6">
+    ${statCard("Published Posts", fmt(totalPublished), `${thisMonth} this month`)}
+    ${statCard("Total Reach", fmt(totalReach), "FB + Instagram")}
+    ${statCard("Total Impressions", fmt(totalImpressions), "FB + Instagram")}
+    ${statCard("Combined Eng. Rate", pct(combinedER), "Engaged / reach")}
+  </div>
+  <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-8">
+    ${statCard("IG Likes", fmt(igAgg?.likes || 0), "All time")}
+    ${statCard("IG Comments", fmt(igAgg?.comments || 0), "All time")}
+    ${statCard("IG Saves", fmt(igAgg?.saves || 0), "All time")}
+    ${statCard("Book Now Clicks", fmt(totalLinkClicks), "Link clicks from FB posts")}
+  </div>`;
+
+  const platformSplit = `
+  <div class="grid gap-4 sm:grid-cols-2 mb-8">
+    <div class="rounded-2xl border border-mpBorder bg-white p-6 shadow-sm">
+      <div class="flex items-center gap-2 mb-4">
+        <div class="h-8 w-8 rounded-lg bg-gradient-to-br from-purple-500 to-pink-400 flex items-center justify-center text-white text-xs font-bold">IG</div>
+        <h3 class="font-bold text-mpCharcoal">Instagram</h3>
+        <span class="ml-auto text-xs text-mpMuted">${igAgg?.post_count || 0} posts synced</span>
+      </div>
+      <div class="grid grid-cols-3 gap-3 text-center">
+        <div><p class="text-xl font-extrabold text-mpCharcoal">${fmt(igAgg?.reach || 0)}</p><p class="text-[10px] uppercase tracking-wide text-mpMuted mt-0.5">Reach</p></div>
+        <div><p class="text-xl font-extrabold text-mpCharcoal">${fmt(igAgg?.likes || 0)}</p><p class="text-[10px] uppercase tracking-wide text-mpMuted mt-0.5">Likes</p></div>
+        <div><p class="text-xl font-extrabold text-mpAccent">${pct(igAgg?.avg_er || 0)}</p><p class="text-[10px] uppercase tracking-wide text-mpMuted mt-0.5">Eng. Rate</p></div>
+      </div>
+    </div>
+    <div class="rounded-2xl border border-mpBorder bg-white p-6 shadow-sm">
+      <div class="flex items-center gap-2 mb-4">
+        <div class="h-8 w-8 rounded-lg bg-blue-600 flex items-center justify-center text-white text-xs font-bold">FB</div>
+        <h3 class="font-bold text-mpCharcoal">Facebook</h3>
+        <span class="ml-auto text-xs text-mpMuted">${fbAgg?.post_count || 0} posts synced</span>
+      </div>
+      <div class="grid grid-cols-3 gap-3 text-center">
+        <div><p class="text-xl font-extrabold text-mpCharcoal">${fmt(fbAgg?.reach || 0)}</p><p class="text-[10px] uppercase tracking-wide text-mpMuted mt-0.5">Reach</p></div>
+        <div><p class="text-xl font-extrabold text-mpCharcoal">${fmt(fbAgg?.reactions || 0)}</p><p class="text-[10px] uppercase tracking-wide text-mpMuted mt-0.5">Reactions</p></div>
+        <div><p class="text-xl font-extrabold text-mpAccent">${pct(fbAgg?.avg_er || 0)}</p><p class="text-[10px] uppercase tracking-wide text-mpMuted mt-0.5">Eng. Rate</p></div>
+      </div>
+    </div>
+  </div>`;
+
+  const topPostsHtml = topPosts.length > 0 ? `
+  <div class="mb-8">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-base font-bold text-mpCharcoal">Top Performing Posts</h2>
+      <span class="text-xs text-mpMuted">By engagement rate</span>
+    </div>
+    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      ${topPosts.map((p, i) => {
+        const caption = (p.final_caption || "").slice(0, 90) + (p.final_caption?.length > 90 ? "…" : "");
+        const pubDate = p.published_at ? DateTime.fromSQL(p.published_at, { zone: "utc" }).setZone(tz).toFormat("MMM d") : "—";
+        const medals = ["🥇","🥈","🥉"];
+        return `
+        <div class="rounded-2xl border border-mpBorder bg-white p-4 shadow-sm flex flex-col gap-3">
+          ${p.image_url
+            ? `<img src="${p.image_url}" alt="" class="w-full h-36 object-cover rounded-xl" />`
+            : `<div class="w-full h-36 rounded-xl bg-mpBg flex items-center justify-center text-mpMuted text-xs">No image</div>`}
+          <div>
+            <div class="flex items-center gap-2 mb-1">
+              ${medals[i] ? `<span>${medals[i]}</span>` : ""}
+              <span class="rounded-full bg-mpAccentLight px-2 py-0.5 text-[10px] font-bold text-mpAccent uppercase">${postTypeLabel(p.post_type)}</span>
+              <span class="ml-auto text-[10px] text-mpMuted">${pubDate}</span>
+            </div>
+            <p class="text-xs text-mpMuted leading-relaxed line-clamp-2">${caption}</p>
+          </div>
+          <div class="grid grid-cols-3 gap-2 text-center border-t border-mpBorder pt-3">
+            <div><p class="text-sm font-bold text-mpCharcoal">${fmt((p.ig_reach || 0) + (p.fb_reach || 0))}</p><p class="text-[10px] text-mpMuted">Reach</p></div>
+            <div><p class="text-sm font-bold text-mpCharcoal">${fmt((p.ig_likes || 0) + (p.fb_reactions || 0))}</p><p class="text-[10px] text-mpMuted">Likes</p></div>
+            <div><p class="text-sm font-bold text-mpAccent">${pct(p.top_er)}</p><p class="text-[10px] text-mpMuted">Eng. %</p></div>
+          </div>
+        </div>`;
+      }).join("")}
+    </div>
+  </div>` : "";
+
+  const byTypeHtml = byType.length > 0 ? `
+  <div class="mb-8 rounded-2xl border border-mpBorder bg-white shadow-sm overflow-hidden">
+    <div class="px-5 py-4 border-b border-mpBorder">
+      <h2 class="text-base font-bold text-mpCharcoal">Engagement by Content Type</h2>
+      <p class="text-xs text-mpMuted mt-0.5">Which types of posts resonate most with your audience.</p>
+    </div>
+    <table class="w-full text-sm">
+      <thead class="bg-mpBg text-xs uppercase tracking-wide text-mpMuted">
+        <tr>
+          <th class="px-5 py-3 text-left">Content Type</th>
+          <th class="px-5 py-3 text-right">Posts</th>
+          <th class="px-5 py-3 text-right">Total Reach</th>
+          <th class="px-5 py-3 text-right">Avg Eng. Rate</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${byType.map(row => `
+        <tr class="border-t border-mpBorder hover:bg-mpBg/60">
+          <td class="px-5 py-3 font-medium text-mpCharcoal">${postTypeLabel(row.post_type)}</td>
+          <td class="px-5 py-3 text-right text-mpMuted">${row.count}</td>
+          <td class="px-5 py-3 text-right text-mpMuted">${fmt(row.total_reach)}</td>
+          <td class="px-5 py-3 text-right font-semibold text-mpAccent">${pct(row.avg_er)}</td>
+        </tr>`).join("")}
+      </tbody>
+    </table>
+  </div>` : "";
+
+  const recentTable = `
+  <div class="rounded-2xl border border-mpBorder bg-white shadow-sm overflow-hidden">
+    <div class="flex items-center justify-between px-5 py-4 border-b border-mpBorder">
+      <div>
+        <h2 class="text-base font-bold text-mpCharcoal">Recent Published Posts</h2>
+        <p class="text-xs text-mpMuted mt-0.5">Last 20 posts with performance data.</p>
+      </div>
+      <button onclick="runSync()" id="syncBtn" class="rounded-full border border-mpBorder bg-mpBg px-4 py-1.5 text-xs font-semibold text-mpCharcoal hover:border-mpAccent hover:bg-white transition-colors">
+        Sync Insights
+      </button>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-mpBg text-xs uppercase tracking-wide text-mpMuted">
+          <tr>
+            <th class="px-4 py-3 text-left">Stylist</th>
+            <th class="px-4 py-3 text-left">Type</th>
+            <th class="px-4 py-3 text-center">Platforms</th>
+            <th class="px-4 py-3 text-right">Reach</th>
+            <th class="px-4 py-3 text-right">Likes</th>
+            <th class="px-4 py-3 text-right">Saves</th>
+            <th class="px-4 py-3 text-right">Eng. %</th>
+            <th class="px-4 py-3 text-right">Link Clicks</th>
+            <th class="px-4 py-3 text-left">Published</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${recent.map(p => {
+            const pubDate = p.published_at ? DateTime.fromSQL(p.published_at, { zone: "utc" }).setZone(tz).toFormat("MMM d, h:mm a") : "—";
+            const platforms = [
+              p.ig_media_id ? `<span class="text-[10px] rounded bg-gradient-to-br from-purple-500 to-pink-400 text-white px-1.5 py-0.5 font-bold">IG</span>` : "",
+              p.fb_post_id  ? `<span class="text-[10px] rounded bg-blue-600 text-white px-1.5 py-0.5 font-bold">FB</span>` : "",
+            ].filter(Boolean).join(" ");
+            return `
+            <tr class="border-t border-mpBorder hover:bg-mpBg/60">
+              <td class="px-4 py-3 font-medium text-mpCharcoal">${p.stylist_name || "?"}</td>
+              <td class="px-4 py-3 text-xs text-mpMuted">${postTypeLabel(p.post_type)}</td>
+              <td class="px-4 py-3 text-center">${platforms || "<span class='text-mpMuted text-xs'>—</span>"}</td>
+              <td class="px-4 py-3 text-right text-mpMuted">${fmt((p.ig_reach || 0) + (p.fb_reach || 0))}</td>
+              <td class="px-4 py-3 text-right text-mpMuted">${fmt(p.ig_likes || 0)}</td>
+              <td class="px-4 py-3 text-right text-mpMuted">${fmt(p.ig_saves || 0)}</td>
+              <td class="px-4 py-3 text-right font-semibold ${p.ig_er ? "text-mpAccent" : "text-mpMuted"}">${pct(p.ig_er)}</td>
+              <td class="px-4 py-3 text-right text-mpMuted">${fmt(p.fb_clicks || 0)}</td>
+              <td class="px-4 py-3 text-xs text-mpMuted">${pubDate}</td>
+            </tr>`;
+          }).join("") || `<tr><td colspan="9" class="px-4 py-8 text-center text-mpMuted text-sm">No published posts yet.</td></tr>`}
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+
+  const syncScript = `
+  <div id="sync-toast" class="fixed bottom-6 right-6 hidden z-50">
+    <div class="rounded-2xl bg-mpCharcoal text-white px-5 py-3 text-sm font-medium shadow-xl"></div>
+  </div>
+  <script>
+    async function runSync() {
+      const btn = document.getElementById('syncBtn');
+      const toast = document.getElementById('sync-toast');
+      const msg = toast.querySelector('div');
+      if (btn) { btn.textContent = 'Syncing...'; btn.disabled = true; }
+      try {
+        const res = await fetch('/analytics/sync${qs}', { method: 'POST' });
+        const data = await res.json();
+        msg.textContent = res.ok ? 'Synced ' + data.synced + ' insight records.' : 'Error: ' + (data.error || 'unknown');
+        toast.classList.remove('hidden');
+        setTimeout(() => { toast.classList.add('hidden'); if (res.ok) location.reload(); }, 2500);
+      } catch(e) {
+        msg.textContent = 'Sync failed: ' + e.message;
+        toast.classList.remove('hidden');
+        setTimeout(() => toast.classList.add('hidden'), 3000);
+      } finally {
+        if (btn) { btn.textContent = 'Sync Insights'; btn.disabled = false; }
+      }
+    }
+  </script>`;
 
   const body = `
-    <section class="mb-8">
-      <h1 class="text-2xl font-semibold text-white">
-          Scheduler Analytics — <span class="text-mpPrimary">${getSalonName(salon_id)}</span>
-      </h1>
-      <p class="mt-1 text-sm text-slate-400">
-        Overview of post statuses and the next scheduling window for this salon.
-      </p>
-    </section>
-
-    <section class="mb-6 grid gap-4 md:grid-cols-[1.1fr,0.9fr]">
-      <div class="space-y-4">
-        <div class="rounded-2xl border border-slate-800 bg-slate-900/80 px-4 py-4 text-sm text-slate-200">
-          <div class="flex items-center justify-between gap-4">
-            <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Next Scheduler Slot</p>
-            <span class="inline-flex items-center rounded-full bg-slate-800 px-3 py-1 text-[11px] text-slate-200">
-              ${tz}
-            </span>
-          </div>
-          <p class="mt-2 text-base font-medium text-white">${nextSlot}</p>
-          <p class="mt-1 text-xs text-slate-400">
-            Based on your salon’s configured posting window.
-          </p>
-        </div>
-
-        <div class="grid grid-cols-2 gap-3 md:grid-cols-3">
-          ${cards}
-        </div>
+    <div class="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <div>
+        <h1 class="text-2xl font-extrabold text-mpCharcoal">Analytics — <span class="text-mpAccent">${salonName}</span></h1>
+        <p class="mt-1 text-sm text-mpMuted">Social performance across Facebook and Instagram.</p>
       </div>
-
-      <div class="rounded-2xl border border-slate-800 bg-slate-900/80 px-4 py-4">
-        <h2 class="text-sm font-semibold text-white">At a Glance</h2>
-        <p class="mt-2 text-xs text-slate-300">
-          Use this page to quickly check:
-        </p>
-        <ul class="mt-2 space-y-1 text-xs text-slate-200">
-          <li>• How many posts are pending, approved, queued, or published</li>
-          <li>• When the scheduler will run next</li>
-          <li>• Recent posting activity by your team</li>
-        </ul>
-      </div>
-    </section>
-
-    <section class="rounded-2xl border border-slate-800 bg-slate-900/80">
-      <div class="border-b border-slate-800 px-4 py-3">
-        <h2 class="text-sm font-semibold text-white">Recent Activity</h2>
-        <p class="mt-1 text-xs text-slate-400">
-          Last 10 posts created for this salon.
-        </p>
-      </div>
-      <div class="overflow-x-auto px-4 py-3">
-        <table class="w-full border-collapse text-sm">
-          <thead class="bg-slate-900/90 text-xs uppercase tracking-wide text-slate-400">
-            <tr>
-              <th class="px-3 py-2 text-left">Stylist</th>
-              <th class="px-3 py-2 text-left">Status</th>
-              <th class="px-3 py-2 text-left">Created</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${
-              recentRows ||
-              "<tr><td colspan='3' class='px-3 py-4 text-center text-sm text-slate-400'>No recent posts.</td></tr>"
-            }
-          </tbody>
-        </table>
-      </div>
-    </section>
+      <button onclick="runSync()" class="shrink-0 rounded-full bg-mpCharcoal px-5 py-2.5 text-sm font-semibold text-white hover:bg-mpCharcoalDark transition-colors">
+        Sync Insights
+      </button>
+    </div>
+    ${syncBanner}
+    ${summaryCards}
+    ${platformSplit}
+    ${topPostsHtml}
+    ${byTypeHtml}
+    ${recentTable}
+    ${syncScript}
   `;
 
   res.send(pageShell({ title: `Analytics — ${salonName}`, body, salon_id }));
+});
+
+// ─── POST /analytics/sync ─────────────────────────────────────────────────────
+
+router.post("/sync", async (req, res) => {
+  const salon_id = resolveSalonId(req);
+  if (!salon_id) return res.status(400).json({ error: "No salon context" });
+
+  const salonPolicy = getSalonPolicy(salon_id) || {};
+  const salon = {
+    slug: salon_id,
+    facebook_page_token:
+      salonPolicy.facebook_page_token ||
+      salonPolicy?.salon_info?.facebook_page_token ||
+      process.env.FACEBOOK_PAGE_TOKEN,
+  };
+
+  try {
+    const result = await syncSalonInsights(salon);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 export default router;
