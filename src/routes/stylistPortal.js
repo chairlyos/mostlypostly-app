@@ -119,6 +119,7 @@ router.get("/:id", validateToken, async (req, res) => {
 
   const token = req.query.token;
   const justRegenerated = req.query.regen === "1";
+  const justSwapped = req.query.swapped === "1";
   const displayUrls = resolveDisplayUrls(post);
 
   // Build the locked full-post preview
@@ -133,6 +134,15 @@ router.get("/:id", validateToken, async (req, res) => {
     ${renderImages(displayUrls)}
 
     ${justRegenerated ? `<div class="bg-green-900/40 border border-green-700 rounded-xl px-4 py-2 text-green-300 text-sm mb-4">Caption regenerated with your input!</div>` : ""}
+    ${justSwapped ? `<div class="bg-green-900/40 border border-green-700 rounded-xl px-4 py-2 text-green-300 text-sm mb-4">Before/After positions swapped!</div>` : ""}
+
+    ${post.post_type === "before_after" ? `
+    <form method="POST" action="/stylist/${esc(post.id)}/swap?token=${esc(token)}" class="mb-4">
+      <button type="submit"
+        class="w-full bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-300 font-medium py-2.5 rounded-xl text-sm transition-colors">
+        ⇄ Swap Before / After
+      </button>
+    </form>` : ""}
 
     <!-- Current caption preview (locked) -->
     <div class="bg-slate-900 border border-slate-700 rounded-2xl p-4 mb-6">
@@ -167,6 +177,52 @@ router.get("/:id", validateToken, async (req, res) => {
       </button>
     </form>
   `));
+});
+
+// -------------------------------------------------------
+// POST /:id/swap  — swap Before/After image positions, rebuild collage
+// -------------------------------------------------------
+router.post("/:id/swap", validateToken, async (req, res) => {
+  const post = db.prepare("SELECT * FROM posts WHERE id = ?").get(req.params.id);
+  if (!post) return res.status(404).send(errorPage("Post not found."));
+
+  const token = req.query.token;
+
+  try {
+    let urls = [];
+    try { urls = JSON.parse(post.image_urls || "[]"); } catch { }
+    if (!urls.length && post.image_url) urls = [post.image_url];
+
+    if (urls.length < 2) {
+      return res.redirect(`/stylist/${post.id}?token=${token}`);
+    }
+
+    const { buildBeforeAfterCollage } = await import("../core/buildBeforeAfterCollage.js");
+
+    // Flip the order and rebuild
+    const [first, second] = urls;
+    const collageUrl = await buildBeforeAfterCollage([second, first], post.salon_id);
+
+    db.prepare(`
+      UPDATE posts
+      SET image_url  = ?,
+          image_urls = ?,
+          updated_at = datetime('now')
+      WHERE id = ?
+    `).run(collageUrl, JSON.stringify([collageUrl]), post.id);
+
+    return res.redirect(`/stylist/${post.id}?token=${token}&swapped=1`);
+  } catch (err) {
+    console.error("❌ [Portal] Swap error:", err.message);
+    return res.send(shell("Error", `
+      <div class="bg-red-950 border border-red-700 rounded-2xl p-6 mb-4">
+        <p class="text-red-300 font-semibold mb-2">Swap failed</p>
+        <p class="text-slate-400 text-sm">${esc(err.message)}</p>
+      </div>
+      <a href="/stylist/${esc(post.id)}?token=${esc(token)}"
+        class="block text-center text-blue-400 text-sm underline">Go back</a>
+    `));
+  }
 });
 
 // -------------------------------------------------------
