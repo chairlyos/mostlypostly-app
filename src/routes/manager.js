@@ -244,18 +244,25 @@ router.get("/", requireAuth, async (req, res) => {
                 <p class="text-xs text-slate-500 mb-2">${esc(fmt(p.created_at))}</p>
 
                 <!-- Collapsed Caption -->
-                <p class="text-sm text-slate-300 leading-relaxed line-clamp-2">
+                <p class="caption-preview text-sm text-slate-300 leading-relaxed line-clamp-2">
                   ${caption.replace(/<br\/>/g, " ")}
                 </p>
 
                 <a href="#" class="text-xs text-blue-400 hover:underline"
-                  onclick="this.closest('.recent-card').querySelector('.full-caption').classList.toggle('hidden'); return false;">
+                  onclick="
+                    var card = this.closest('.recent-card');
+                    var full = card.querySelector('.full-caption');
+                    var preview = card.querySelector('.caption-preview');
+                    var expanded = full.classList.toggle('hidden');
+                    preview.classList.toggle('hidden', !expanded);
+                    this.textContent = expanded ? 'Show more' : 'Show less';
+                    return false;">
                   Show more
                 </a>
 
                 <!-- Expanded Caption -->
                 <div class="full-caption hidden mt-2 text-sm text-slate-200 whitespace-pre-line leading-relaxed">
-                  ${caption}
+                  ${caption.replace(/<br\/>/g, "\n")}
                 </div>
 
               </div>

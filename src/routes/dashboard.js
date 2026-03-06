@@ -228,6 +228,7 @@ router.get("/", (req, res) => {
 
   const range = (req.query.range || "all").toLowerCase();
   const statusParam = (req.query.status || "all").toLowerCase();
+  const postTypeParam = (req.query.post_type || "all").toLowerCase();
   const stylist = (req.query.stylist || "").trim().toLowerCase();
   const search = (req.query.search || "").trim().toLowerCase();
   const start = req.query.start || "";
@@ -256,6 +257,10 @@ router.get("/", (req, res) => {
   if (search) {
     sql += ` AND (LOWER(final_caption) LIKE ?)`;
     params.push(`%${search}%`);
+  }
+  if (postTypeParam !== "all") {
+    sql += ` AND LOWER(post_type) = ?`;
+    params.push(postTypeParam);
   }
 
   sql += ` ORDER BY datetime(created_at) DESC LIMIT 1000`;
@@ -333,6 +338,19 @@ router.get("/", (req, res) => {
                   `<option value="${s}" ${
                     statusParam === s ? "selected" : ""
                   }>${s === "all" ? "All statuses" : s}</option>`
+              )
+              .join("")}
+          </select>
+        </div>
+        <div class="flex flex-col gap-1">
+          <label class="text-[11px] uppercase tracking-wide text-slate-400">Type</label>
+          <select name="post_type" class="rounded-md border border-slate-700 bg-slate-950 px-2 py-1.5 text-xs focus:border-mpPrimary focus:outline-none focus:ring-1 focus:ring-mpPrimary">
+            ${["all","standard_post","before_after","availability","promotions","products"]
+              .map(
+                (t) =>
+                  `<option value="${t}" ${
+                    postTypeParam === t ? "selected" : ""
+                  }>${t === "all" ? "All types" : t.replace(/_/g, " ").replace(/\b\w/g, (m) => m.toUpperCase())}</option>`
               )
               .join("")}
           </select>

@@ -1219,6 +1219,36 @@ export async function handleIncomingMessage({
   }
 
 
+  // Availability posts don't require an image — route them directly
+  if (!primaryImageUrl && classifyPostType(text || "") === "availability") {
+    const alreadyOptedIn =
+      stylist?.compliance_opt_in ||
+      stylist?.consent?.sms_opt_in ||
+      (stylist?.role === "manager" &&
+        (stylist?.compliance_opt_in || stylist?.consent?.sms_opt_in));
+
+    if (!alreadyOptedIn && consentSessions.get(chatId)?.status !== "granted") {
+      await queueConsentAndPrompt(chatId, [], text, sendMessage, stylist);
+      endTimer(start);
+      return;
+    }
+
+    await processNewImageFlow({
+      chatId,
+      text,
+      imageUrls: [],
+      drafts,
+      generateCaption,
+      moderateAIOutput,
+      sendMessage,
+      stylist,
+      salon
+    });
+
+    endTimer(start);
+    return;
+  }
+
   // NEW PHOTO — Consented?
   if (primaryImageUrl) {
   const alreadyOptedIn =
