@@ -276,7 +276,7 @@ router.get("/", requireAuth, async (req, res) => {
   ------------------------------------------------------------- */
   const body = `
       <div class="flex items-center justify-between mb-2">
-        <h1 class="text-2xl font-bold text-white">
+        <h1 class="text-2xl font-extrabold text-mpCharcoal">
           Manager Dashboard — <span class="text-mpAccent">${salonName}</span>
         </h1>
         <a href="/manager/promotion/new"
@@ -288,10 +288,10 @@ router.get("/", requireAuth, async (req, res) => {
         Logged in as ${mgrName} (${managerPhone})
       </p>
 
-      <h2 class="text-xl font-semibold mb-3 text-white">Pending Approval</h2>
+      <h2 class="text-xl font-bold text-mpCharcoal mb-3">Pending Approval</h2>
       ${pendingCards}
 
-      <h2 class="text-xl font-semibold mt-10 mb-3 text-white">Recent Activity</h2>
+      <h2 class="text-xl font-bold text-mpCharcoal mt-10 mb-3">Recent Activity</h2>
       ${recentCards}
   `;
 
@@ -395,7 +395,7 @@ router.get("/deny", requireAuth, (req, res) => {
 
   const body = `
     <div class="max-w-md mx-auto bg-white border border-mpBorder rounded-xl p-6 mt-12">
-      <h1 class="text-lg font-bold text-white mb-4">Deny Post</h1>
+      <h1 class="text-lg font-bold text-mpCharcoal mb-4">Deny Post</h1>
 
       <form method="POST" action="/manager/deny" class="space-y-4">
         <input type="hidden" name="post_id" value="${esc(id)}" />
@@ -454,7 +454,7 @@ router.get("/edit/:id", requireAuth, (req, res) => {
 
   const body = `
     <div class="max-w-lg mx-auto bg-white border border-mpBorder rounded-xl p-6 mt-12">
-      <h1 class="text-lg font-bold text-white mb-4">Edit Caption</h1>
+      <h1 class="text-lg font-bold text-mpCharcoal mb-4">Edit Caption</h1>
 
       <form method="POST" action="/manager/edit/${id}" class="space-y-4">
         <textarea
@@ -521,7 +521,7 @@ router.get("/promotion/new", requireAuth, (req, res) => {
       </div>
 
       <div class="bg-white border border-mpBorder rounded-2xl p-6">
-        <h1 class="text-xl font-bold text-white mb-1">Create Promotion</h1>
+        <h1 class="text-xl font-bold text-mpCharcoal mb-1">Create Promotion</h1>
         <p class="text-sm text-mpMuted mb-6">
           Fills automatically as an Instagram Story. Requires manager approval before posting.
         </p>

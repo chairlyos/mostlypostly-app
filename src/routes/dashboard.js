@@ -296,12 +296,10 @@ router.get("/", (req, res) => {
 
   const body = `
     <section class="mb-8">
-      <h1 class="text-2xl font-semibold text-white">
+      <h1 class="text-2xl font-extrabold text-mpCharcoal">
         Database — <span class="text-mpAccent">${getSalonName(salon_id)}</span>
       </h1>
-      <p class="mt-1 text-sm text-mpMuted">
-        Filter and export your posts for this salon.
-      </p>
+      <p class="mt-1 text-sm text-mpMuted">Filter and export your posts for this salon.</p>
     </section>
 
     <section class="mb-6 rounded-2xl border border-mpBorder bg-white px-4 py-4">
