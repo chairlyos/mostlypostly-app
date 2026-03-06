@@ -23,9 +23,13 @@ export async function parseAvailabilitySlots(text) {
   if (!apiKey) return [text]; // fallback: treat whole text as one slot
 
   const systemPrompt = `You extract appointment availability from a stylist's message.
-Return ONLY a JSON array of concise slot strings. Each string should be short (max 30 chars).
-Examples: ["Tue Mar 5 · 10am–12pm", "Wed Mar 6 · 2pm–4pm", "Thu Mar 7 · 9am–11am"]
-If no clear times, return the message split into short lines.`;
+Return ONLY a JSON array of concise slot strings. Each string should be max 35 chars.
+Format each slot as: "Day: Time for Service" (e.g. "Friday: 2pm for Color Service")
+If no service is mentioned, use: "Day: Time" (e.g. "Friday: 2pm")
+If a time range is given, use: "Friday: 2pm–4pm for Color"
+Use the actual day name (Monday, Tuesday, etc.) not a date number.
+Examples: ["Friday: 2pm for Color Service", "Saturday: 10am–12pm", "Monday: 3pm for Highlights"]
+If no clear times exist, return the message split into short meaningful lines.`;
 
   try {
     const resp = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -254,8 +258,17 @@ export async function buildAvailabilityImage({ text, stylistName, salonName, sal
         .resize(W, H, { fit: "cover", position: "center" })
         .toBuffer();
     } catch (err) {
-      console.warn("[Availability] Background fetch failed, using solid fallback:", err.message);
-      bgLayer = null;
+      console.warn("[Availability] Background fetch failed, trying DALL-E:", err.message);
+      // Photo URL unreachable (e.g. ephemeral file gone after deploy) — fall through to DALL-E
+      const dalleUrl = await generateDalleBackground();
+      if (dalleUrl) {
+        try {
+          const buf = await fetchBuffer(dalleUrl);
+          bgLayer = await sharp(buf)
+            .resize(W, H, { fit: "cover", position: "center" })
+            .toBuffer();
+        } catch { bgLayer = null; }
+      }
     }
   }
 
