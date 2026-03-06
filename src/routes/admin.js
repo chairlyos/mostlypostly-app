@@ -217,7 +217,7 @@ dbStylists.forEach((s) => {
 
       <td class="px-3 py-2 text-xs text-zinc-300 text-right">
         <button
-          class="text-xs text-indigo-400 hover:text-indigo-300 underline"
+          class="text-xs text-mpAccent hover:text-mpCharcoal underline"
           onclick='window.admin.openEditStylist({
             id: ${JSON.stringify(s.id)},
             name: ${JSON.stringify(s.name)},
@@ -234,25 +234,25 @@ dbStylists.forEach((s) => {
   // Build Admin Page HTML
   const body = `
     <section class="mb-6">
-      <h1 class="text-2xl font-bold mb-2">Admin — <span class="text-mpPrimary">${
+      <h1 class="text-2xl font-bold mb-2">Admin — <span class="text-mpAccent">${
         info.name
       }</span></h1>
-      <p class="text-sm text-zinc-400">Manage social connections, posting rules, and team configuration.</p>
+      <p class="text-sm text-mpMuted">Manage social connections, posting rules, and team configuration.</p>
     </section>
 
     <!-- SOCIAL CONNECTIONS -->
     <section class="mb-6 grid gap-4 md:grid-cols-[1.2fr,0.8fr]">
 
       <!-- Facebook & Instagram -->
-      <div class="rounded-2xl border border-slate-800 bg-slate-900/70 px-4 py-4">
+      <div class="rounded-2xl border border-mpBorder bg-white px-4 py-4">
         <h2 class="text-sm font-semibold text-zinc-50 mb-2">Facebook & Instagram</h2>
         <dl class="space-y-1 text-xs text-zinc-300">
           <div class="flex justify-between">
-            <dt class="text-zinc-400">Facebook Page ID</dt>
+            <dt class="text-mpMuted">Facebook Page ID</dt>
             <dd>${salonRow.facebook_page_id || "Not configured"}</dd>
           </div>
           <div class="flex justify-between">
-            <dt class="text-zinc-400">Instagram Handle</dt>
+            <dt class="text-mpMuted">Instagram Handle</dt>
             <dd>${
               salonRow.instagram_handle
                 ? "@" + salonRow.instagram_handle
@@ -260,19 +260,19 @@ dbStylists.forEach((s) => {
             }</dd>
           </div>
           <div class="flex justify-between">
-            <dt class="text-zinc-400">Facebook Page Token</dt>
+            <dt class="text-mpMuted">Facebook Page Token</dt>
             <dd>${salonRow.facebook_page_token ? "Stored ✓" : "Not configured"}</dd>
           </div>
 
           <div class="flex justify-between">
-            <dt class="text-zinc-400">Instagram Business ID</dt>
+            <dt class="text-mpMuted">Instagram Business ID</dt>
             <dd>${salonRow.instagram_business_id || "Not configured"}</dd>
           </div>
         </dl>
 
         <div class="mt-4">
           <a href="/auth/facebook/login?salon=${salon_id}"
-             class="inline-flex items-center px-3 py-2 rounded-md text-sm font-medium bg-blue-600 text-white hover:bg-blue-700">
+             class="inline-flex items-center px-3 py-2 rounded-md text-sm font-medium bg-mpCharcoal text-white hover:bg-mpCharcoalDark">
             Connect / Refresh Facebook & Instagram
           </a>
         </div>
@@ -282,42 +282,42 @@ dbStylists.forEach((s) => {
       </div>
 
       <!-- Salon Info -->
-      <div class="rounded-2xl border border-slate-800 bg-slate-900/70 px-4 py-4">
+      <div class="rounded-2xl border border-mpBorder bg-white px-4 py-4">
         <div class="flex items-center justify-between mb-2">
           <h2 class="text-sm font-semibold text-zinc-50">Business Info</h2>
-          <button onclick="window.admin.openSalonInfo()" class="text-slate-400 hover:text-white text-xs">✏️</button>
+          <button onclick="window.admin.openSalonInfo()" class="text-mpMuted hover:text-mpCharcoal text-xs">✏️</button>
         </div>
 
         <dl class="space-y-1 text-xs text-zinc-300">
 
-          <div class="flex justify-between"><dt class="text-zinc-400">Name</dt><dd>${
+          <div class="flex justify-between"><dt class="text-mpMuted">Name</dt><dd>${
             info.name
           }</dd></div>
 
-          <div class="flex justify-between"><dt class="text-zinc-400">City</dt><dd>${
+          <div class="flex justify-between"><dt class="text-mpMuted">City</dt><dd>${
             info.city
           }</dd></div>
 
-          <div class="flex justify-between"><dt class="text-zinc-400">State</dt><dd>${
+          <div class="flex justify-between"><dt class="text-mpMuted">State</dt><dd>${
             info.state
           }</dd></div>
 
-          <div class="flex justify-between"><dt class="text-zinc-400">Website</dt><dd>${
+          <div class="flex justify-between"><dt class="text-mpMuted">Website</dt><dd>${
             info.website
               ? `<a href="${info.website}" target="_blank" class="underline text-blue-400">Visit</a>`
               : "Not set"
           }</dd></div>
 
-          <div class="flex justify-between"><dt class="text-zinc-400">Industry</dt><dd>${
+          <div class="flex justify-between"><dt class="text-mpMuted">Industry</dt><dd>${
             info.industry
           }</dd></div>
 
-          <div class="flex justify-between"><dt class="text-zinc-400">Timezone</dt><dd>${
+          <div class="flex justify-between"><dt class="text-mpMuted">Timezone</dt><dd>${
             info.timezone
           }</dd></div>
 
           <div class="flex justify-between">
-            <dt class="text-zinc-400">Booking URL</dt>
+            <dt class="text-mpMuted">Booking URL</dt>
             <dd>${
               info.booking_url
                 ? `<a href="${info.booking_url}" target="_blank" class="underline text-blue-400">Visit</a>`
@@ -325,19 +325,19 @@ dbStylists.forEach((s) => {
             }</dd>
           </div>
 
-          <div class="flex justify-between"><dt class="text-zinc-400">Tone Profile</dt><dd>${
+          <div class="flex justify-between"><dt class="text-mpMuted">Tone Profile</dt><dd>${
             info.tone_profile
           }</dd></div>
 
           <!-- Hashtags -->
           <div class="flex flex-col gap-1 mt-2">
             <div class="flex justify-between mb-1">
-              <dt class="text-zinc-400">Default Hashtags</dt>
-              <button onclick="window.admin.openHashtags()" class="text-slate-400 hover:text-white text-xs">✏️</button>
+              <dt class="text-mpMuted">Default Hashtags</dt>
+              <button onclick="window.admin.openHashtags()" class="text-mpMuted hover:text-mpCharcoal text-xs">✏️</button>
             </div>
             <dd class="flex flex-wrap gap-1">
               <!-- Primary salon tag (locked) -->
-              <span class="inline-flex bg-slate-800 px-2 py-0.5 rounded-full text-[11px] font-semibold">
+              <span class="inline-flex bg-mpBg px-2 py-0.5 rounded-full text-[11px] font-semibold">
                 ${info.default_hashtags[0] || ""}
               </span>
 
@@ -346,7 +346,7 @@ dbStylists.forEach((s) => {
                 .slice(1)
                 .map(
                   (tag) =>
-                    `<span class="inline-flex bg-slate-800 px-2 py-0.5 rounded-full text-[11px]">${tag}</span>`
+                    `<span class="inline-flex bg-mpBg px-2 py-0.5 rounded-full text-[11px]">${tag}</span>`
                 )
                 .join("")}
             </dd>
@@ -360,55 +360,55 @@ dbStylists.forEach((s) => {
     <!-- POSTING RULES -->
     <section class="mb-6 grid gap-4 md:grid-cols-2">
       <!-- Posting Window -->
-      <div class="rounded-2xl border border-slate-800 bg-slate-900/70 px-4 py-4">
+      <div class="rounded-2xl border border-mpBorder bg-white px-4 py-4">
         <div class="flex items-center justify-between mb-2">
           <h2 class="text-sm font-semibold text-zinc-50">Posting Rules</h2>
-          <button onclick="window.admin.openPostingRules()" class="text-slate-400 hover:text-white text-xs">✏️</button>
+          <button onclick="window.admin.openPostingRules()" class="text-mpMuted hover:text-mpCharcoal text-xs">✏️</button>
         </div>
           <p class="text-xs text-zinc-300 mb-3">
             MostlyPostly only posts inside your configured window (business local time).
           </p>
         <dl class="space-y-1 text-xs text-zinc-300">
           <div class="flex justify-between">
-            <dt class="text-zinc-400">Posting Window Start</dt>
+            <dt class="text-mpMuted">Posting Window Start</dt>
             <dd>${fmtTime(settings.posting_window.start)}</dd>
           </div>
           <div class="flex justify-between">
-            <dt class="text-zinc-400">Posting Window End</dt>
+            <dt class="text-mpMuted">Posting Window End</dt>
             <dd>${fmtTime(settings.posting_window.end)}</dd>
           </div>
           <div class="flex justify-between">
-              <dt class="text-zinc-400">Random Delay</dt>
+              <dt class="text-mpMuted">Random Delay</dt>
             <dd>${settings.random_delay_minutes.min}–${settings.random_delay_minutes.max} min</dd>
           </div>
         </dl>
       </div>
 
       <!-- Manager Rules -->
-      <div class="rounded-2xl border border-slate-800 bg-slate-900/70 px-4 py-4">
+      <div class="rounded-2xl border border-mpBorder bg-white px-4 py-4">
         <div class="flex items-center justify-between mb-2">
           <h2 class="text-sm font-semibold text-zinc-50">Manager Rules</h2>
-          <button onclick="window.admin.openManagerRules()" class="text-slate-400 hover:text-white text-xs">✏️</button>
+          <button onclick="window.admin.openManagerRules()" class="text-mpMuted hover:text-mpCharcoal text-xs">✏️</button>
         </div>
 
         <dl class="space-y-1 text-xs text-zinc-300">
           <div class="flex justify-between">
-            <dt class="text-zinc-400">Require Manager Approval</dt>
+            <dt class="text-mpMuted">Require Manager Approval</dt>
             <dd>${salonRow.require_manager_approval ? "Enabled" : "Disabled"}</dd>
           </div>
 
           <div class="flex justify-between">
-            <dt class="text-zinc-400">Notify member on approval</dt>
+            <dt class="text-mpMuted">Notify member on approval</dt>
             <dd>${salonRow.notify_on_approval ? "Enabled" : "Disabled"}</dd>
           </div>
 
           <div class="flex justify-between">
-            <dt class="text-zinc-400">Notify member on denial</dt>
+            <dt class="text-mpMuted">Notify member on denial</dt>
             <dd>${salonRow.notify_on_denial ? "Enabled" : "Disabled"}</dd>
           </div>
 
           <div class="flex justify-between">
-            <dt class="text-zinc-400">Auto Publish</dt>
+            <dt class="text-mpMuted">Auto Publish</dt>
             <dd>${info.auto_publish ? "Enabled" : "Disabled"}</dd>
           </div>
         </dl>
@@ -417,7 +417,7 @@ dbStylists.forEach((s) => {
 
     <!-- TEAM MEMBERS -->
     <section class="mb-6">
-      <div class="rounded-2xl border border-slate-800 bg-slate-900/70 px-4 py-4">
+      <div class="rounded-2xl border border-mpBorder bg-white px-4 py-4">
         <div class="mb-3">
           <div class="flex justify-between mb-1">
             <h2 class="text-sm font-semibold text-zinc-50">Registered Team Members</h2>
@@ -428,14 +428,14 @@ dbStylists.forEach((s) => {
               + Add
             </button>
           </div>
-          <p class="text-[11px] text-zinc-400">
+          <p class="text-[11px] text-mpMuted">
             Managers and members who can receive SMS and post through MostlyPostly.
           </p>
         </div>
 
         <div class="overflow-x-auto">
           <table class="w-full border-collapse text-xs">
-            <thead class="bg-slate-950 text-zinc-400">
+            <thead class="bg-white text-mpMuted">
               <tr>
                 <th class="px-3 py-2 text-left">Name</th>
                 <th class="px-3 py-2 text-left">Role</th>
@@ -463,13 +463,13 @@ dbStylists.forEach((s) => {
           class="hidden fixed inset-0 z-50 flex items-center justify-center p-6">
           <div
             id="admin-modal-panel"
-            class="relative w-full max-w-lg rounded-2xl bg-slate-900 border border-slate-700 p-6 shadow-xl">
+            class="relative w-full max-w-lg rounded-2xl bg-white border border-mpBorder p-6 shadow-xl">
 
             <!-- PERMANENT CLOSE BUTTON (NOT OVERWRITTEN) -->
             <button
               id="admin-modal-close"
               type="button"
-              class="absolute top-3 right-3 text-lg text-slate-300 hover:text-white">
+              class="absolute top-3 right-3 text-lg text-mpMuted hover:text-mpCharcoal">
               ✕
             </button>
 
@@ -527,35 +527,35 @@ dbStylists.forEach((s) => {
     return `
     <section class="mb-10">
       <h2 class="text-lg font-semibold text-white mb-1">My Stylist Profile</h2>
-      <p class="text-sm text-slate-400 mb-4">Used when you post content as a stylist (photo, IG handle, availability posts, etc.)</p>
+      <p class="text-sm text-mpMuted mb-4">Used when you post content as a stylist (photo, IG handle, availability posts, etc.)</p>
 
       <form method="POST" action="/manager/admin/update-my-profile?salon=${salon_id}"
             enctype="multipart/form-data"
-            class="bg-slate-900 border border-slate-700 rounded-2xl p-5 space-y-4">
+            class="bg-white border border-mpBorder rounded-2xl p-5 space-y-4">
 
         ${currentPhoto ? `
           <div class="flex items-center gap-3">
-            <img src="${currentPhoto}" class="w-16 h-16 rounded-lg object-cover border border-slate-700" />
-            <span class="text-xs text-slate-400">Current photo — upload a new one to replace</span>
+            <img src="${currentPhoto}" class="w-16 h-16 rounded-lg object-cover border border-mpBorder" />
+            <span class="text-xs text-mpMuted">Current photo — upload a new one to replace</span>
           </div>` : ""}
 
         <div>
-          <label class="block text-xs text-slate-400 mb-1">Profile Photo</label>
+          <label class="block text-xs text-mpMuted mb-1">Profile Photo</label>
           <input type="file" name="manager_photo" accept="image/*"
-            class="w-full text-sm text-slate-300 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:bg-slate-700 file:text-slate-100 hover:file:bg-slate-600" />
+            class="w-full text-sm text-mpMuted file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:bg-mpBorder file:text-mpCharcoal hover:file:bg-mpBorder" />
         </div>
 
         <div class="grid grid-cols-2 gap-4">
           <div>
-            <label class="block text-xs text-slate-400 mb-1">Instagram Handle</label>
+            <label class="block text-xs text-mpMuted mb-1">Instagram Handle</label>
             <input name="instagram_handle" value="${currentHandle}"
               placeholder="yourhandle (no @)"
-              class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100" />
+              class="w-full bg-mpBg border border-mpBorder rounded-lg px-3 py-2 text-sm text-mpCharcoal" />
           </div>
           <div>
-            <label class="block text-xs text-slate-400 mb-1">Preferred Music Genre</label>
+            <label class="block text-xs text-mpMuted mb-1">Preferred Music Genre</label>
             <select name="preferred_music_genre"
-              class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100">
+              class="w-full bg-mpBg border border-mpBorder rounded-lg px-3 py-2 text-sm text-mpCharcoal">
               <option value="">None</option>
               ${["Pop", "Country", "Hip-Hop", "R&B", "Rock", "Latin", "EDM"].map(g =>
                 `<option value="${g}" ${currentMusic === g ? "selected" : ""}>${g}</option>`
@@ -565,13 +565,13 @@ dbStylists.forEach((s) => {
         </div>
 
         <div>
-          <label class="block text-xs text-slate-400 mb-1">Specialties <span class="text-slate-500">(comma separated)</span></label>
+          <label class="block text-xs text-mpMuted mb-1">Specialties <span class="text-mpMuted">(comma separated)</span></label>
           <input name="specialties" value="${currentSpecialties}"
             placeholder="e.g. Balayage, Color, Extensions"
-            class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100" />
+            class="w-full bg-mpBg border border-mpBorder rounded-lg px-3 py-2 text-sm text-mpCharcoal" />
         </div>
 
-        <button class="w-full bg-indigo-600 hover:bg-indigo-700 rounded-lg py-2 text-sm font-semibold text-white">
+        <button class="w-full bg-mpCharcoal hover:bg-mpCharcoalDark rounded-lg py-2 text-sm font-semibold text-white">
           Save Profile
         </button>
       </form>
@@ -597,19 +597,19 @@ dbStylists.forEach((s) => {
 
     const photoCards = stockPhotos.length
       ? stockPhotos.map(p => `
-          <div class="flex items-center gap-3 bg-slate-800 rounded-xl p-3">
-            <img src="${p.url}" class="w-16 h-16 rounded-lg object-cover border border-slate-700 flex-shrink-0" />
+          <div class="flex items-center gap-3 bg-mpBg rounded-xl p-3">
+            <img src="${p.url}" class="w-16 h-16 rounded-lg object-cover border border-mpBorder flex-shrink-0" />
             <div class="flex-1 min-w-0">
-              <p class="text-sm text-slate-100 font-medium truncate">${p.label || "Unlabeled"}</p>
-              <p class="text-xs text-slate-400">${p.stylist_name ? "Stylist: " + p.stylist_name : "Salon-wide"}</p>
+              <p class="text-sm text-mpCharcoal font-medium truncate">${p.label || "Unlabeled"}</p>
+              <p class="text-xs text-mpMuted">${p.stylist_name ? "Stylist: " + p.stylist_name : "Salon-wide"}</p>
             </div>
             <form method="POST" action="/manager/admin/stock-photos/delete?salon=${salon_id}" class="flex-shrink-0">
               <input type="hidden" name="photo_id" value="${p.id}" />
-              <button class="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded hover:bg-slate-700">Remove</button>
+              <button class="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded hover:bg-mpBorder">Remove</button>
             </form>
           </div>
         `).join("")
-      : `<p class="text-slate-500 text-sm italic">No stock photos uploaded yet.</p>`;
+      : `<p class="text-mpMuted text-sm italic">No stock photos uploaded yet.</p>`;
 
     const stylistOptions = stylists.map(s =>
       `<option value="${s.id}">${s.name}</option>`
@@ -618,7 +618,7 @@ dbStylists.forEach((s) => {
     return `
     <section class="mb-10">
       <h2 class="text-lg font-semibold text-white mb-1">Stock Photos</h2>
-      <p class="text-sm text-slate-400 mb-4">Used for availability posts. Upload salon-wide or per-stylist background photos.</p>
+      <p class="text-sm text-mpMuted mb-4">Used for availability posts. Upload salon-wide or per-stylist background photos.</p>
 
       <div class="space-y-3 mb-6">
         ${photoCards}
@@ -626,20 +626,20 @@ dbStylists.forEach((s) => {
 
       <form method="POST" action="/manager/admin/stock-photos/upload?salon=${salon_id}"
             enctype="multipart/form-data"
-            class="bg-slate-900 border border-slate-700 rounded-2xl p-5 space-y-3">
-        <h3 class="text-sm font-semibold text-slate-200">Upload New Stock Photo</h3>
+            class="bg-white border border-mpBorder rounded-2xl p-5 space-y-3">
+        <h3 class="text-sm font-semibold text-mpCharcoal">Upload New Stock Photo</h3>
         <input type="file" name="stock_photo" accept="image/*" required
-          class="w-full text-sm text-slate-300 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:bg-slate-700 file:text-slate-100 hover:file:bg-slate-600" />
+          class="w-full text-sm text-mpMuted file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:bg-mpBorder file:text-mpCharcoal hover:file:bg-mpBorder" />
         <input name="label" placeholder="Label (e.g. Salon Interior, Spring Backdrop)"
-          class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100" />
+          class="w-full bg-mpBg border border-mpBorder rounded-lg px-3 py-2 text-sm text-mpCharcoal" />
         <div>
-          <label class="block text-xs text-slate-400 mb-1">Link to a stylist (optional — leave blank for salon-wide)</label>
-          <select name="stylist_id" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100">
+          <label class="block text-xs text-mpMuted mb-1">Link to a stylist (optional — leave blank for salon-wide)</label>
+          <select name="stylist_id" class="w-full bg-mpBg border border-mpBorder rounded-lg px-3 py-2 text-sm text-mpCharcoal">
             <option value="">Salon-wide</option>
             ${stylistOptions}
           </select>
         </div>
-        <button class="w-full bg-blue-600 hover:bg-blue-700 rounded-lg py-2 text-sm font-semibold text-white">
+        <button class="w-full bg-mpCharcoal hover:bg-mpCharcoalDark rounded-lg py-2 text-sm font-semibold text-white">
           Upload Stock Photo
         </button>
       </form>

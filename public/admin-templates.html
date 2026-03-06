@@ -13,22 +13,22 @@
 
     <!-- NAME -->
     <div>
-      <label class="text-xs text-slate-400">Salon Name</label>
+      <label class="text-xs font-semibold text-mpMuted">Salon Name</label>
       <input data-field="name" name="name"
-             class="w-full mt-1 p-2 bg-slate-800 rounded" value="{{name}}" />
+             class="w-full mt-1 border border-mpBorder bg-mpBg rounded-lg px-3 py-2 text-sm text-mpCharcoal focus:border-mpAccent focus:outline-none focus:ring-2 focus:ring-mpAccent/20" value="{{name}}" />
     </div>
 
     <!-- CITY -->
     <div>
-      <label class="text-xs text-slate-400">City</label>
+      <label class="text-xs font-semibold text-mpMuted">City</label>
       <input data-field="city" name="city"
-             class="w-full mt-1 p-2 bg-slate-800 rounded" value="{{city}}" />
+             class="w-full mt-1 border border-mpBorder bg-mpBg rounded-lg px-3 py-2 text-sm text-mpCharcoal focus:border-mpAccent focus:outline-none focus:ring-2 focus:ring-mpAccent/20" value="{{city}}" />
     </div>
 
     <!-- STATE -->
     <div>
-      <label class="text-xs text-slate-400">State</label>
-      <select data-field="state" name="state" class="w-full mt-1 p-2 bg-slate-800 rounded uppercase">
+      <label class="text-xs font-semibold text-mpMuted">State</label>
+      <select data-field="state" name="state" class="w-full mt-1 border border-mpBorder bg-mpBg rounded-lg px-3 py-2 text-sm text-mpCharcoal focus:border-mpAccent focus:outline-none focus:ring-2 focus:ring-mpAccent/20 uppercase">
         <option value="">Select State</option>
         <option value="AL">AL</option><option value="AK">AK</option><option value="AZ">AZ</option><option value="AR">AR</option>
         <option value="CA">CA</option><option value="CO">CO</option><option value="CT">CT</option><option value="DE">DE</option>
@@ -48,23 +48,23 @@
 
     <!-- WEBSITE -->
     <div>
-      <label class="text-xs text-slate-400">Website</label>
+      <label class="text-xs font-semibold text-mpMuted">Website</label>
       <input data-field="website" name="website"
-             class="w-full mt-1 p-2 bg-slate-800 rounded" value="{{website}}" />
+             class="w-full mt-1 border border-mpBorder bg-mpBg rounded-lg px-3 py-2 text-sm text-mpCharcoal focus:border-mpAccent focus:outline-none focus:ring-2 focus:ring-mpAccent/20" value="{{website}}" />
     </div>
 
     <!-- BOOKING URL -->
     <div>
-      <label class="text-xs text-slate-400">Booking URL</label>
+      <label class="text-xs font-semibold text-mpMuted">Booking URL</label>
       <input data-field="booking_url" name="booking_url"
-             class="w-full mt-1 p-2 bg-slate-800 rounded" value="{{booking_url}}" />
+             class="w-full mt-1 border border-mpBorder bg-mpBg rounded-lg px-3 py-2 text-sm text-mpCharcoal focus:border-mpAccent focus:outline-none focus:ring-2 focus:ring-mpAccent/20" value="{{booking_url}}" />
     </div>
 
     <!-- INDUSTRY -->
     <div>
-      <label class="text-xs text-slate-400">Industry</label>
+      <label class="text-xs font-semibold text-mpMuted">Industry</label>
       <select data-field="industry" name="industry"
-              class="w-full mt-1 p-2 bg-slate-800 rounded">
+              class="w-full mt-1 border border-mpBorder bg-mpBg rounded-lg px-3 py-2 text-sm text-mpCharcoal focus:border-mpAccent focus:outline-none focus:ring-2 focus:ring-mpAccent/20">
         <option value="Hair Salon">Hair Salon</option>
         <option value="Beauty Salon">Beauty Salon</option>
         <option value="Nail Salon">Nail Salon</option>
@@ -76,9 +76,9 @@
 
     <!-- TIMEZONE -->
     <div>
-      <label class="text-xs text-slate-400">Timezone</label>
+      <label class="text-xs font-semibold text-mpMuted">Timezone</label>
       <select data-field="timezone" name="timezone"
-              class="w-full mt-1 p-2 bg-slate-800 rounded">
+              class="w-full mt-1 border border-mpBorder bg-mpBg rounded-lg px-3 py-2 text-sm text-mpCharcoal focus:border-mpAccent focus:outline-none focus:ring-2 focus:ring-mpAccent/20">
 
         <option value="America/New_York">Eastern (US & Canada)</option>
         <option value="America/Chicago">Central (US & Canada)</option>
@@ -93,9 +93,9 @@
 
     <!-- TONE PROFILE -->
     <div>
-      <label class="text-xs text-slate-400">Tone Profile</label>
+      <label class="text-xs font-semibold text-mpMuted">Tone Profile</label>
       <select data-field="tone_profile" name="tone_profile"
-              class="w-full mt-1 p-2 bg-slate-800 rounded">
+              class="w-full mt-1 border border-mpBorder bg-mpBg rounded-lg px-3 py-2 text-sm text-mpCharcoal focus:border-mpAccent focus:outline-none focus:ring-2 focus:ring-mpAccent/20">
         <option value="Professional">Professional</option>
         <option value="Fun & Energetic">Fun & Energetic</option>
         <option value="Clean & Modern">Clean & Modern</option>
@@ -106,7 +106,7 @@
       </select>
     </div>
 
-    <button class="w-full bg-indigo-600 hover:bg-indigo-700 rounded p-2 mt-4">
+    <button class="w-full bg-mpCharcoal hover:bg-mpCharcoalDark text-white font-semibold rounded-full py-2.5 mt-4 transition-colors">
       Save Changes
     </button>
   </form>
@@ -125,9 +125,9 @@
     <div class="grid grid-cols-2 gap-4">
 
       <div>
-        <label class="text-xs text-slate-400">Posting Window Start</label>
+        <label class="text-xs font-semibold text-mpMuted">Posting Window Start</label>
         <select data-field="posting_start_time" name="posting_start_time"
-                class="w-full mt-1 p-2 bg-slate-800 rounded">
+                class="w-full mt-1 border border-mpBorder bg-mpBg rounded-lg px-3 py-2 text-sm text-mpCharcoal focus:border-mpAccent focus:outline-none focus:ring-2 focus:ring-mpAccent/20">
           <option value="07:00">7:00 AM</option>
           <option value="08:00">8:00 AM</option>
           <option value="09:00">9:00 AM</option>
@@ -148,9 +148,9 @@
       </div>
 
       <div>
-        <label class="text-xs text-slate-400">Posting Window End</label>
+        <label class="text-xs font-semibold text-mpMuted">Posting Window End</label>
         <select data-field="posting_end_time" name="posting_end_time"
-                class="w-full mt-1 p-2 bg-slate-800 rounded">
+                class="w-full mt-1 border border-mpBorder bg-mpBg rounded-lg px-3 py-2 text-sm text-mpCharcoal focus:border-mpAccent focus:outline-none focus:ring-2 focus:ring-mpAccent/20">
           <option value="07:00">7:00 AM</option>
           <option value="08:00">8:00 AM</option>
           <option value="09:00">9:00 AM</option>
@@ -175,18 +175,18 @@
     <!-- SPACING -->
     <div class="grid grid-cols-2 gap-4">
       <div>
-        <label class="text-xs text-slate-400">Spacing Min (minutes)</label>
+        <label class="text-xs font-semibold text-mpMuted">Spacing Min (minutes)</label>
         <input data-field="spacing_min" name="spacing_min" type="number"
-               class="w-full mt-1 p-2 bg-slate-800 rounded" value="{{spacing_min}}" />
+               class="w-full mt-1 border border-mpBorder bg-mpBg rounded-lg px-3 py-2 text-sm text-mpCharcoal focus:border-mpAccent focus:outline-none focus:ring-2 focus:ring-mpAccent/20" value="{{spacing_min}}" />
       </div>
       <div>
-        <label class="text-xs text-slate-400">Spacing Max (minutes)</label>
+        <label class="text-xs font-semibold text-mpMuted">Spacing Max (minutes)</label>
         <input data-field="spacing_max" name="spacing_max" type="number"
-               class="w-full mt-1 p-2 bg-slate-800 rounded" value="{{spacing_max}}" />
+               class="w-full mt-1 border border-mpBorder bg-mpBg rounded-lg px-3 py-2 text-sm text-mpCharcoal focus:border-mpAccent focus:outline-none focus:ring-2 focus:ring-mpAccent/20" value="{{spacing_max}}" />
       </div>
     </div>
 
-    <button class="w-full bg-indigo-600 hover:bg-indigo-700 rounded p-2 mt-4">Save</button>
+    <button class="w-full bg-mpCharcoal hover:bg-mpCharcoalDark text-white font-semibold rounded-full py-2.5 mt-4 transition-colors">Save</button>
   </form>
 </template>
 
@@ -200,27 +200,27 @@
     <input type="hidden" name="salon_id" value="{{salon_id}}" />
 
     <div>
-      <label class="text-xs text-slate-400">Require Manager Approval</label>
+      <label class="text-xs font-semibold text-mpMuted">Require Manager Approval</label>
       <select data-field="require_manager_approval" name="require_manager_approval"
-              class="w-full mt-1 p-2 bg-slate-800 rounded">
+              class="w-full mt-1 border border-mpBorder bg-mpBg rounded-lg px-3 py-2 text-sm text-mpCharcoal focus:border-mpAccent focus:outline-none focus:ring-2 focus:ring-mpAccent/20">
         <option value="0">Disabled</option>
         <option value="1">Enabled</option>
       </select>
     </div>
 
     <div>
-      <label class="text-xs text-slate-400">Notify Member on Approval</label>
+      <label class="text-xs font-semibold text-mpMuted">Notify Member on Approval</label>
       <select data-field="notify_on_approval" name="notify_on_approval"
-              class="w-full mt-1 p-2 bg-slate-800 rounded">
+              class="w-full mt-1 border border-mpBorder bg-mpBg rounded-lg px-3 py-2 text-sm text-mpCharcoal focus:border-mpAccent focus:outline-none focus:ring-2 focus:ring-mpAccent/20">
         <option value="0">Disabled</option>
         <option value="1">Enabled</option>
       </select>
     </div>
 
     <div>
-      <label class="text-xs text-slate-400">Notify Member on Denial</label>
+      <label class="text-xs font-semibold text-mpMuted">Notify Member on Denial</label>
       <select data-field="notify_on_denial" name="notify_on_denial"
-              class="w-full mt-1 p-2 bg-slate-800 rounded">
+              class="w-full mt-1 border border-mpBorder bg-mpBg rounded-lg px-3 py-2 text-sm text-mpCharcoal focus:border-mpAccent focus:outline-none focus:ring-2 focus:ring-mpAccent/20">
         <option value="0">Disabled</option>
         <option value="1">Enabled</option>
       </select>
@@ -228,15 +228,15 @@
 
     <!-- AUTO PUBLISH -->
     <div>
-      <label class="text-xs text-slate-400">Auto Publish</label>
+      <label class="text-xs font-semibold text-mpMuted">Auto Publish</label>
       <select data-field="auto_publish" name="auto_publish"
-              class="w-full mt-1 p-2 bg-slate-800 rounded">
+              class="w-full mt-1 border border-mpBorder bg-mpBg rounded-lg px-3 py-2 text-sm text-mpCharcoal focus:border-mpAccent focus:outline-none focus:ring-2 focus:ring-mpAccent/20">
         <option value="0">Disabled</option>
         <option value="1">Enabled</option>
       </select>
     </div>
 
-    <button class="w-full bg-indigo-600 hover:bg-indigo-700 rounded p-2 mt-4">
+    <button class="w-full bg-mpCharcoal hover:bg-mpCharcoalDark text-white font-semibold rounded-full py-2.5 mt-4 transition-colors">
       Save
     </button>
   </form>
@@ -252,35 +252,35 @@
     <input type="hidden" name="salon_id" value="{{salon_id}}" />
 
     <div>
-      <label class="text-xs text-slate-400">Full Name</label>
+      <label class="text-xs font-semibold text-mpMuted">Full Name</label>
       <input data-field="name" name="name"
-             class="w-full mt-1 p-2 bg-slate-800 rounded" />
+             class="w-full mt-1 border border-mpBorder bg-mpBg rounded-lg px-3 py-2 text-sm text-mpCharcoal focus:border-mpAccent focus:outline-none focus:ring-2 focus:ring-mpAccent/20" />
     </div>
 
     <div>
-      <label class="text-xs text-slate-400">Phone</label>
+      <label class="text-xs font-semibold text-mpMuted">Phone</label>
       <input data-field="phone" name="phone"
-             class="w-full mt-1 p-2 bg-slate-800 rounded" />
+             class="w-full mt-1 border border-mpBorder bg-mpBg rounded-lg px-3 py-2 text-sm text-mpCharcoal focus:border-mpAccent focus:outline-none focus:ring-2 focus:ring-mpAccent/20" />
     </div>
 
     <div>
-      <label class="text-xs text-slate-400">Instagram Handle</label>
+      <label class="text-xs font-semibold text-mpMuted">Instagram Handle</label>
       <div class="flex items-center gap-1 mt-1">
-        <span class="text-sm text-slate-500">@</span>
+        <span class="text-sm text-mpMuted">@</span>
         <input data-field="instagram_handle" name="instagram_handle"
-               class="w-full p-2 bg-slate-800 rounded" />
+               class="w-full border border-mpBorder bg-mpBg rounded-lg px-3 py-2 text-sm text-mpCharcoal focus:border-mpAccent focus:outline-none focus:ring-2 focus:ring-mpAccent/20" />
       </div>
     </div>
 
     <!-- SPECIALTIES -->
     <div>
-      <label class="text-xs text-slate-400">Specialties</label>
+      <label class="text-xs font-semibold text-mpMuted">Specialties</label>
       <div id="specialties-rows" class="space-y-2 mt-2"></div>
       <input id="specialties-json" name="specialties_json" type="hidden" />
-      <p class="text-[11px] text-slate-500">Up to 5 specialties.</p>
+      <p class="text-[11px] text-mpMuted">Up to 5 specialties.</p>
     </div>
 
-    <button class="w-full bg-indigo-600 hover:bg-indigo-700 rounded p-2 mt-4">
+    <button class="w-full bg-mpCharcoal hover:bg-mpCharcoalDark text-white font-semibold rounded-full py-2.5 mt-4 transition-colors">
       Add Stylist
     </button>
   </form>
@@ -307,49 +307,49 @@
 
       <!-- Photo upload -->
       <div>
-        <label class="text-xs text-slate-400">Profile Photo</label>
+        <label class="text-xs font-semibold text-mpMuted">Profile Photo</label>
         <input type="file" name="stylist_photo" accept="image/*"
-          class="w-full mt-1 text-sm text-slate-300 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:bg-slate-700 file:text-slate-100 hover:file:bg-slate-600" />
+          class="w-full mt-1 text-sm text-mpMuted file:mr-3 file:py-1.5 file:px-3 file:rounded-full file:border-0 file:text-xs file:bg-mpBg file:text-mpCharcoal file:border file:border-mpBorder hover:file:bg-white cursor-pointer" />
       </div>
 
       <!-- Name -->
       <div>
-        <label class="text-xs text-slate-400">Full Name</label>
+        <label class="text-xs font-semibold text-mpMuted">Full Name</label>
         <input data-field="name" name="name"
-          class="w-full mt-1 p-2 bg-slate-800 rounded text-slate-100" />
+          class="w-full mt-1 border border-mpBorder bg-mpBg rounded-lg px-3 py-2 text-sm text-mpCharcoal focus:border-mpAccent focus:outline-none focus:ring-2 focus:ring-mpAccent/20" />
       </div>
 
       <!-- Phone -->
       <div>
-        <label class="text-xs text-slate-400">Phone</label>
+        <label class="text-xs font-semibold text-mpMuted">Phone</label>
         <input data-field="phone" name="phone"
-          class="w-full mt-1 p-2 bg-slate-800 rounded text-slate-100" />
+          class="w-full mt-1 border border-mpBorder bg-mpBg rounded-lg px-3 py-2 text-sm text-mpCharcoal focus:border-mpAccent focus:outline-none focus:ring-2 focus:ring-mpAccent/20" />
       </div>
 
       <!-- Instagram -->
       <div>
-        <label class="text-xs text-slate-400">Instagram Handle</label>
+        <label class="text-xs font-semibold text-mpMuted">Instagram Handle</label>
         <div class="flex items-center gap-1 mt-1">
-          <span class="text-sm text-slate-500">@</span>
+          <span class="text-sm text-mpMuted">@</span>
           <input data-field="instagram_handle" name="instagram_handle"
-            class="w-full p-2 bg-slate-800 rounded text-slate-100" />
+            class="w-full border border-mpBorder bg-mpBg rounded-lg px-3 py-2 text-sm text-mpCharcoal focus:border-mpAccent focus:outline-none focus:ring-2 focus:ring-mpAccent/20" />
         </div>
       </div>
 
       <!-- Specialties -->
       <div>
-        <label class="text-xs text-slate-400">Specialties</label>
+        <label class="text-xs font-semibold text-mpMuted">Specialties</label>
         <div id="edit-specialties-rows" class="space-y-2 mt-2"></div>
         <input type="hidden" id="edit-specialties-json"
           data-field="specialties_json" name="specialties_json" />
-        <p class="text-[11px] text-slate-500 mt-1">Up to 5 specialties.</p>
+        <p class="text-[11px] text-mpMuted mt-1">Up to 5 specialties.</p>
       </div>
 
-      <button class="w-full bg-indigo-600 hover:bg-indigo-700 rounded p-2 text-sm font-semibold">
+      <button class="w-full bg-mpCharcoal hover:bg-mpCharcoalDark text-white font-semibold rounded-full py-2.5 transition-colors">
         Save Profile
       </button>
       <button type="button" onclick="window.admin.deleteCurrentMember()"
-        class="w-full bg-red-900/60 hover:bg-red-800 rounded p-2 text-sm text-red-300">
+        class="w-full border border-red-200 bg-red-50 hover:bg-red-100 text-red-600 rounded-full py-2.5 text-sm transition-colors">
         Delete Member
       </button>
     </form>
@@ -369,20 +369,20 @@
 
     <!-- SALON TAG -->
     <div>
-      <label class="text-xs text-slate-400">Salon Tag</label>
+      <label class="text-xs font-semibold text-mpMuted">Salon Tag</label>
       <p data-field="salon_tag_display"
-         class="mt-1 inline-flex items-center rounded-full bg-slate-800 px-2 py-1 text-[11px]"></p>
+         class="mt-1 inline-flex items-center rounded-full bg-mpAccentLight border border-mpBorder px-2 py-1 text-[11px] text-mpCharcoal"></p>
     </div>
 
     <!-- CUSTOM TAGS -->
     <div>
-      <label class="text-xs text-slate-400">Custom Hashtags</label>
+      <label class="text-xs font-semibold text-mpMuted">Custom Hashtags</label>
       <div id="hashtags-rows" class="space-y-2 mt-2"></div>
       <input id="hashtags-json" name="hashtags_json" type="hidden" />
-      <p class="text-[11px] text-slate-500">Up to 4 hashtags.</p>
+      <p class="text-[11px] text-mpMuted">Up to 4 hashtags.</p>
     </div>
 
-    <button class="w-full bg-indigo-600 hover:bg-indigo-700 rounded p-2 mt-4">
+    <button class="w-full bg-mpCharcoal hover:bg-mpCharcoalDark text-white font-semibold rounded-full py-2.5 mt-4 transition-colors">
       Save
     </button>
   </form>

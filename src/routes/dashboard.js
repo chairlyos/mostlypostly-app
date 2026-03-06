@@ -202,10 +202,10 @@ router.get("/", (req, res) => {
           current: "database",
           salon_id: "",
           body: `
-          <section class="mt-4 rounded-2xl border border-red-500/40 bg-red-950/40 px-4 py-4">
-            <p class="text-sm text-red-100">
+          <section class="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-4">
+            <p class="text-sm text-red-700">
               ⚠️ No salon context detected. Access this page using your manager link, or add
-              <code class="rounded bg-slate-900 px-1 py-0.5 text-[11px] text-slate-200">?salon=&lt;your-salon-id&gt;</code> to the URL.
+              <code class="rounded bg-white px-1 py-0.5 text-[11px] text-mpCharcoal">?salon=&lt;your-salon-id&gt;</code> to the URL.
             </p>
           </section>
         `,
@@ -266,11 +266,11 @@ router.get("/", (req, res) => {
   }
 
   const postTypeColors = {
-    standard_post: "bg-slate-700 text-slate-200",
-    before_after:  "bg-purple-900 text-purple-200",
-    products:      "bg-green-900 text-green-200",
-    promotions:    "bg-yellow-900 text-yellow-200",
-    availability:  "bg-blue-900 text-blue-200",
+    standard_post: "bg-mpBorder text-mpCharcoal",
+    before_after:  "bg-purple-100 text-purple-700",
+    products:      "bg-green-100 text-green-700",
+    promotions:    "bg-yellow-100 text-yellow-700",
+    availability:  "bg-mpAccentLight text-mpAccent",
   };
 
   const rows = posts
@@ -280,15 +280,15 @@ router.get("/", (req, res) => {
         const ptLabel = pt.replace(/_/g, " ");
         const ptColor = postTypeColors[pt] || postTypeColors.standard_post;
         return `
-      <tr class="border-b border-slate-800/70 hover:bg-slate-900/80">
-        <td class="px-3 py-2 text-xs text-slate-300">#${p.salon_post_number ?? "—"}</td>
-        <td class="px-3 py-2 text-sm text-slate-100">${p.stylist_name || "—"}</td>
-        <td class="px-3 py-2 text-xs uppercase tracking-wide text-mpPrimary">${p.status}</td>
+      <tr class="border-b border-mpBorder hover:bg-mpBg">
+        <td class="px-3 py-2 text-xs text-mpMuted">#${p.salon_post_number ?? "—"}</td>
+        <td class="px-3 py-2 text-sm text-mpCharcoal">${p.stylist_name || "—"}</td>
+        <td class="px-3 py-2 text-xs uppercase tracking-wide text-mpAccent">${p.status}</td>
         <td class="px-3 py-2 text-xs">
           <span class="inline-block rounded px-2 py-0.5 text-xs font-medium capitalize ${ptColor}">${ptLabel}</span>
         </td>
-        <td class="px-3 py-2 text-xs text-slate-300">${formatLocalTime(p.created_at, salon_id)}</td>
-        <td class="px-3 py-2 text-xs text-slate-300">${formatLocalTime(p.scheduled_for, salon_id)}</td>
+        <td class="px-3 py-2 text-xs text-mpMuted">${formatLocalTime(p.created_at, salon_id)}</td>
+        <td class="px-3 py-2 text-xs text-mpMuted">${formatLocalTime(p.scheduled_for, salon_id)}</td>
       </tr>`;
       }
     )
@@ -297,19 +297,19 @@ router.get("/", (req, res) => {
   const body = `
     <section class="mb-8">
       <h1 class="text-2xl font-semibold text-white">
-        Database — <span class="text-mpPrimary">${getSalonName(salon_id)}</span>
+        Database — <span class="text-mpAccent">${getSalonName(salon_id)}</span>
       </h1>
-      <p class="mt-1 text-sm text-slate-400">
+      <p class="mt-1 text-sm text-mpMuted">
         Filter and export your posts for this salon.
       </p>
     </section>
 
-    <section class="mb-6 rounded-2xl border border-slate-800 bg-slate-900/70 px-4 py-4">
-      <form class="grid gap-3 text-xs text-slate-200 sm:grid-cols-2 lg:grid-cols-4" method="GET">
+    <section class="mb-6 rounded-2xl border border-mpBorder bg-white px-4 py-4">
+      <form class="grid gap-3 text-xs text-mpCharcoal sm:grid-cols-2 lg:grid-cols-4" method="GET">
         <input type="hidden" name="salon" value="${salon_id}" />
         <div class="flex flex-col gap-1">
-          <label class="text-[11px] uppercase tracking-wide text-slate-400">Range</label>
-          <select name="range" class="rounded-md border border-slate-700 bg-slate-950 px-2 py-1.5 text-xs focus:border-mpPrimary focus:outline-none focus:ring-1 focus:ring-mpPrimary">
+          <label class="text-[11px] uppercase tracking-wide text-mpMuted">Range</label>
+          <select name="range" class="rounded-md border border-mpBorder bg-white px-2 py-1.5 text-xs focus:border-mpAccent focus:outline-none focus:ring-1 focus:ring-mpAccent">
             ${["all","today","yesterday","this week","last week","this month","last month","this year","last year","custom"]
               .map(
                 (r) =>
@@ -321,8 +321,8 @@ router.get("/", (req, res) => {
           </select>
         </div>
         <div class="flex flex-col gap-1">
-          <label class="text-[11px] uppercase tracking-wide text-slate-400">Status</label>
-          <select name="status" class="rounded-md border border-slate-700 bg-slate-950 px-2 py-1.5 text-xs focus:border-mpPrimary focus:outline-none focus:ring-1 focus:ring-mpPrimary">
+          <label class="text-[11px] uppercase tracking-wide text-mpMuted">Status</label>
+          <select name="status" class="rounded-md border border-mpBorder bg-white px-2 py-1.5 text-xs focus:border-mpAccent focus:outline-none focus:ring-1 focus:ring-mpAccent">
             ${["all","manager_pending","approved","queued","published","denied"]
               .map(
                 (s) =>
@@ -334,8 +334,8 @@ router.get("/", (req, res) => {
           </select>
         </div>
         <div class="flex flex-col gap-1">
-          <label class="text-[11px] uppercase tracking-wide text-slate-400">Type</label>
-          <select name="post_type" class="rounded-md border border-slate-700 bg-slate-950 px-2 py-1.5 text-xs focus:border-mpPrimary focus:outline-none focus:ring-1 focus:ring-mpPrimary">
+          <label class="text-[11px] uppercase tracking-wide text-mpMuted">Type</label>
+          <select name="post_type" class="rounded-md border border-mpBorder bg-white px-2 py-1.5 text-xs focus:border-mpAccent focus:outline-none focus:ring-1 focus:ring-mpAccent">
             ${["all","standard_post","before_after","availability","promotions","products"]
               .map(
                 (t) =>
@@ -347,47 +347,47 @@ router.get("/", (req, res) => {
           </select>
         </div>
         <div class="flex flex-col gap-1">
-          <label class="text-[11px] uppercase tracking-wide text-slate-400">Stylist</label>
+          <label class="text-[11px] uppercase tracking-wide text-mpMuted">Stylist</label>
           <input
             type="text"
             name="stylist"
             value="${stylist || ""}"
             placeholder="Name"
-            class="rounded-md border border-slate-700 bg-slate-950 px-2 py-1.5 text-xs text-slate-100 placeholder:text-slate-500 focus:border-mpPrimary focus:outline-none focus:ring-1 focus:ring-mpPrimary"
+            class="rounded-md border border-mpBorder bg-white px-2 py-1.5 text-xs text-mpCharcoal placeholder:text-mpMuted focus:border-mpAccent focus:outline-none focus:ring-1 focus:ring-mpAccent"
           />
         </div>
         <div class="flex flex-col gap-1">
-          <label class="text-[11px] uppercase tracking-wide text-slate-400">Search caption</label>
+          <label class="text-[11px] uppercase tracking-wide text-mpMuted">Search caption</label>
           <input
             type="text"
             name="search"
             value="${search || ""}"
             placeholder="Keyword"
-            class="rounded-md border border-slate-700 bg-slate-950 px-2 py-1.5 text-xs text-slate-100 placeholder:text-slate-500 focus:border-mpPrimary focus:outline-none focus:ring-1 focus:ring-mpPrimary"
+            class="rounded-md border border-mpBorder bg-white px-2 py-1.5 text-xs text-mpCharcoal placeholder:text-mpMuted focus:border-mpAccent focus:outline-none focus:ring-1 focus:ring-mpAccent"
           />
         </div>
         <div class="flex flex-col gap-1">
-          <label class="text-[11px] uppercase tracking-wide text-slate-400">Start (custom)</label>
+          <label class="text-[11px] uppercase tracking-wide text-mpMuted">Start (custom)</label>
           <input
             type="date"
             name="start"
             value="${start}"
-            class="rounded-md border border-slate-700 bg-slate-950 px-2 py-1.5 text-xs text-slate-100 placeholder:text-slate-500 focus:border-mpPrimary focus:outline-none focus:ring-1 focus:ring-mpPrimary"
+            class="rounded-md border border-mpBorder bg-white px-2 py-1.5 text-xs text-mpCharcoal placeholder:text-mpMuted focus:border-mpAccent focus:outline-none focus:ring-1 focus:ring-mpAccent"
           />
         </div>
         <div class="flex flex-col gap-1">
-          <label class="text-[11px] uppercase tracking-wide text-slate-400">End (custom)</label>
+          <label class="text-[11px] uppercase tracking-wide text-mpMuted">End (custom)</label>
           <input
             type="date"
             name="end"
             value="${end}"
-            class="rounded-md border border-slate-700 bg-slate-950 px-2 py-1.5 text-xs text-slate-100 placeholder:text-slate-500 focus:border-mpPrimary focus:outline-none focus:ring-1 focus:ring-mpPrimary"
+            class="rounded-md border border-mpBorder bg-white px-2 py-1.5 text-xs text-mpCharcoal placeholder:text-mpMuted focus:border-mpAccent focus:outline-none focus:ring-1 focus:ring-mpAccent"
           />
         </div>
         <div class="flex items-end gap-2 sm:col-span-2 lg:col-span-2">
           <button
             type="submit"
-            class="inline-flex items-center justify-center rounded-full bg-mpPrimary px-4 py-1.5 text-xs font-semibold text-white shadow-md shadow-mpPrimary/40 hover:bg-mpPrimaryDark"
+            class="inline-flex items-center justify-center rounded-full bg-mpAccent px-4 py-1.5 text-xs font-semibold text-white shadow-md hover:bg-[#c47867]"
           >
             Apply Filters
           </button>
@@ -395,7 +395,7 @@ router.get("/", (req, res) => {
             href="/dashboard?salon=${encodeURIComponent(
               salon_id
             )}"
-            class="text-[11px] text-slate-400 hover:text-slate-200"
+            class="text-[11px] text-mpMuted hover:text-mpCharcoal"
           >
             Reset
           </a>
@@ -411,7 +411,7 @@ router.get("/", (req, res) => {
   )}&search=${encodeURIComponent(search)}&start=${encodeURIComponent(
     start
   )}&end=${encodeURIComponent(end)}"
-            class="ml-auto inline-flex items-center justify-center rounded-full border border-slate-600 px-4 py-1.5 text-[11px] font-medium text-slate-200 hover:border-mpPrimary hover:text-white"
+            class="ml-auto inline-flex items-center justify-center rounded-full border border-mpBorder px-4 py-1.5 text-[11px] font-medium text-mpCharcoal hover:border-mpAccent hover:text-mpCharcoal"
           >
             Download CSV
           </a>
@@ -419,10 +419,10 @@ router.get("/", (req, res) => {
       </form>
     </section>
 
-    <section class="rounded-2xl border border-slate-800 bg-slate-900/70">
+    <section class="rounded-2xl border border-mpBorder bg-white">
       <div class="overflow-x-auto rounded-2xl">
         <table class="w-full border-collapse text-sm">
-          <thead class="bg-slate-900/90 text-xs uppercase tracking-wide text-slate-400">
+          <thead class="bg-mpBg text-xs uppercase tracking-wide text-mpMuted">
             <tr>
               <th class="px-3 py-2 text-left">ID</th>
               <th class="px-3 py-2 text-left">Stylist</th>
@@ -435,7 +435,7 @@ router.get("/", (req, res) => {
           <tbody>
             ${
               rows ||
-              "<tr><td colspan='5' class='px-3 py-4 text-center text-sm text-slate-400'>No posts in this range.</td></tr>"
+              "<tr><td colspan='5' class='px-3 py-4 text-center text-sm text-mpMuted'>No posts in this range.</td></tr>"
             }
           </tbody>
         </table>

@@ -43,7 +43,7 @@ const BROKEN_IMG_PLACEHOLDER = `
   onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"
 `;
 function placeholderDiv(cls) {
-  return `<div class="${cls} rounded-lg bg-slate-800 border border-slate-700 flex-col items-center justify-center gap-1 text-slate-600" style="display:none">
+  return `<div class="${cls} rounded-lg bg-mpBg border border-mpBorder flex-col items-center justify-center gap-1 text-mpMuted" style="display:none">
     <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4-4 4 4 4-6 4 6M4 4h16v16H4z"/></svg>
     <span class="text-[9px] uppercase tracking-wide">Expired</span>
   </div>`;
@@ -54,13 +54,13 @@ function imageStrip(p, thumbClass = "w-32 h-32") {
   let urls = [];
   try { urls = JSON.parse(p.image_urls || "[]"); } catch { }
   if (!urls.length && p.image_url) urls = [p.image_url];
-  if (!urls.length) return `<div class="${thumbClass} rounded-lg bg-slate-800 border border-slate-700"></div>`;
+  if (!urls.length) return `<div class="${thumbClass} rounded-lg bg-mpBg border border-mpBorder"></div>`;
 
   const displayUrls = urls.map(toProxyUrl);
 
   if (displayUrls.length === 1) {
     return `<div class="relative ${thumbClass} flex-shrink-0">
-      <img src="${esc(displayUrls[0])}" class="w-full h-full rounded-lg object-cover border border-slate-700" ${BROKEN_IMG_PLACEHOLDER} />
+      <img src="${esc(displayUrls[0])}" class="w-full h-full rounded-lg object-cover border border-mpBorder" ${BROKEN_IMG_PLACEHOLDER} />
       ${placeholderDiv("w-full h-full absolute inset-0")}
     </div>`;
   }
@@ -72,11 +72,11 @@ function imageStrip(p, thumbClass = "w-32 h-32") {
       <div class="flex gap-1">
         ${displayUrls.map(u => `
           <div class="relative ${stripThumb} flex-shrink-0">
-            <img src="${esc(u)}" class="w-full h-full rounded-lg object-cover border border-slate-700" ${BROKEN_IMG_PLACEHOLDER} />
+            <img src="${esc(u)}" class="w-full h-full rounded-lg object-cover border border-mpBorder" ${BROKEN_IMG_PLACEHOLDER} />
             ${placeholderDiv("w-full h-full absolute inset-0")}
           </div>`).join("")}
       </div>
-      <span class="text-xs text-slate-400 text-center">${urls.length} photos</span>
+      <span class="text-xs text-mpMuted text-center">${urls.length} photos</span>
     </div>
   `;
 }
@@ -162,23 +162,23 @@ router.get("/", requireAuth, async (req, res) => {
   ------------------------------------------------------------- */
   const pendingCards =
     pending.length === 0
-      ? `<p class="text-slate-300 text-sm">No pending posts.</p>`
+      ? `<p class="text-mpMuted text-sm">No pending posts.</p>`
       : pending
           .map((p) => {
             const caption = esc(p.final_caption || p.caption || "")
               .replace(/\n/g, "<br/>");
 
             return `
-          <div class="rounded-xl bg-slate-900 border border-slate-800 p-5 mb-5">
+          <div class="rounded-xl bg-white border border-mpBorder p-5 mb-5">
             <div class="flex gap-4">
               ${imageStrip(p, "w-32 h-32")}
 
               <div class="flex-1">
-                <p class="text-xs text-slate-400 mb-1">
+                <p class="text-xs text-mpMuted mb-1">
                   Pending • Post #${esc(p.salon_post_number) || "—"} • <span class="capitalize">${esc((p.post_type || "standard_post").replace(/_/g, " "))}</span>
                 </p>
 
-                <p class="text-sm whitespace-pre-line text-slate-100 leading-relaxed">
+                <p class="text-sm whitespace-pre-line text-mpCharcoal leading-relaxed">
                   ${caption}
                 </p>
 
@@ -190,7 +190,7 @@ router.get("/", requireAuth, async (req, res) => {
                   </a>
 
                   <a href="/manager/post-now?post=${p.id}"
-                     class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 rounded text-xs text-white">
+                     class="px-3 py-1.5 bg-mpCharcoal hover:bg-mpCharcoalDark rounded text-xs text-white">
                     Post Now
                   </a>
 
@@ -217,13 +217,13 @@ router.get("/", requireAuth, async (req, res) => {
   ------------------------------------------------------------- */
   const recentCards =
   recent.length === 0
-    ? `<div class="text-slate-500 text-sm italic">No recent posts.</div>`
+    ? `<div class="text-mpMuted text-sm italic">No recent posts.</div>`
     : recent.map((p) => {
         const caption = esc(p.final_caption || p.caption || "")
           .replace(/\n/g, "<br/>");
 
           return `
-          <div class="recent-card rounded-xl bg-slate-900 border border-slate-800 p-4 mb-4">
+          <div class="recent-card rounded-xl bg-white border border-mpBorder p-4 mb-4">
 
             <div class="flex gap-4">
               ${imageStrip(p, "w-24 h-24")}
@@ -231,7 +231,7 @@ router.get("/", requireAuth, async (req, res) => {
               <div class="flex-1">
 
                 <div class="flex items-center justify-between gap-2 mb-1">
-                  <p class="text-xs text-slate-400">
+                  <p class="text-xs text-mpMuted">
                     Status: <span class="font-semibold">${esc(p.status)}</span> • Post #${esc(p.salon_post_number) || "—"}
                   </p>
                   ${p.status === "manager_approved" || p.status === "failed" ? `
@@ -241,10 +241,10 @@ router.get("/", requireAuth, async (req, res) => {
                       Cancel
                     </a>` : ""}
                 </div>
-                <p class="text-xs text-slate-500 mb-2">${esc(fmt(p.created_at))}</p>
+                <p class="text-xs text-mpMuted mb-2">${esc(fmt(p.created_at))}</p>
 
                 <!-- Collapsed Caption -->
-                <p class="caption-preview text-sm text-slate-300 leading-relaxed line-clamp-2">
+                <p class="caption-preview text-sm text-mpMuted leading-relaxed line-clamp-2">
                   ${caption.replace(/<br\/>/g, " ")}
                 </p>
 
@@ -261,7 +261,7 @@ router.get("/", requireAuth, async (req, res) => {
                 </a>
 
                 <!-- Expanded Caption -->
-                <div class="full-caption hidden mt-2 text-sm text-slate-200 whitespace-pre-line leading-relaxed">
+                <div class="full-caption hidden mt-2 text-sm text-mpCharcoal whitespace-pre-line leading-relaxed">
                   ${caption.replace(/<br\/>/g, "\n")}
                 </div>
 
@@ -277,14 +277,14 @@ router.get("/", requireAuth, async (req, res) => {
   const body = `
       <div class="flex items-center justify-between mb-2">
         <h1 class="text-2xl font-bold text-white">
-          Manager Dashboard — <span class="text-mpPrimary">${salonName}</span>
+          Manager Dashboard — <span class="text-mpAccent">${salonName}</span>
         </h1>
         <a href="/manager/promotion/new"
-           class="px-4 py-2 bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-semibold rounded-lg text-sm">
+           class="px-4 py-2 bg-mpCharcoal hover:bg-mpCharcoalDark text-white font-semibold rounded-lg text-sm">
           + Create Promotion
         </a>
       </div>
-      <p class="text-sm text-slate-400 mb-8">
+      <p class="text-sm text-mpMuted mb-8">
         Logged in as ${mgrName} (${managerPhone})
       </p>
 
@@ -394,17 +394,17 @@ router.get("/deny", requireAuth, (req, res) => {
   const id = req.query.post;
 
   const body = `
-    <div class="max-w-md mx-auto bg-slate-900 border border-slate-800 rounded-xl p-6 mt-12">
+    <div class="max-w-md mx-auto bg-white border border-mpBorder rounded-xl p-6 mt-12">
       <h1 class="text-lg font-bold text-white mb-4">Deny Post</h1>
 
       <form method="POST" action="/manager/deny" class="space-y-4">
         <input type="hidden" name="post_id" value="${esc(id)}" />
 
         <div>
-          <label class="text-xs text-slate-400">Reason</label>
+          <label class="text-xs text-mpMuted">Reason</label>
           <textarea
             name="reason"
-            class="w-full p-3 rounded-lg bg-slate-800 border border-slate-700 text-slate-100 h-32"
+            class="w-full p-3 rounded-lg bg-mpBg border border-mpBorder text-mpCharcoal h-32"
             required
           ></textarea>
         </div>
@@ -453,21 +453,21 @@ router.get("/edit/:id", requireAuth, (req, res) => {
   if (!post) return res.redirect("/manager");
 
   const body = `
-    <div class="max-w-lg mx-auto bg-slate-900 border border-slate-800 rounded-xl p-6 mt-12">
+    <div class="max-w-lg mx-auto bg-white border border-mpBorder rounded-xl p-6 mt-12">
       <h1 class="text-lg font-bold text-white mb-4">Edit Caption</h1>
 
       <form method="POST" action="/manager/edit/${id}" class="space-y-4">
         <textarea
           name="caption"
-          class="w-full p-3 rounded-lg bg-slate-800 border border-slate-700 text-slate-100 h-48"
+          class="w-full p-3 rounded-lg bg-mpBg border border-mpBorder text-mpCharcoal h-48"
         >${esc(post.final_caption || post.caption || "")}</textarea>
 
-        <button class="w-full bg-blue-600 hover:bg-blue-700 p-3 rounded-lg text-sm font-semibold">
+        <button class="w-full bg-mpCharcoal hover:bg-mpCharcoalDark p-3 rounded-lg text-sm font-semibold">
           Save Changes
         </button>
       </form>
         <a href="/manager?salon=${req.manager.salon_id}"
-          class="w-full block text-center bg-slate-700 hover:bg-slate-600 p-3 rounded-lg text-sm font-semibold text-white">
+          class="w-full block text-center bg-mpBg hover:bg-white border border-mpBorder p-3 rounded-lg text-sm font-semibold text-mpCharcoal">
           Cancel
         </a>
     </div>
@@ -517,58 +517,58 @@ router.get("/promotion/new", requireAuth, (req, res) => {
   const body = `
     <div class="max-w-lg mx-auto mt-8">
       <div class="flex items-center gap-3 mb-6">
-        <a href="/manager" class="text-slate-400 hover:text-white text-sm">← Dashboard</a>
+        <a href="/manager" class="text-mpMuted hover:text-mpCharcoal text-sm">← Dashboard</a>
       </div>
 
-      <div class="bg-slate-900 border border-slate-700 rounded-2xl p-6">
+      <div class="bg-white border border-mpBorder rounded-2xl p-6">
         <h1 class="text-xl font-bold text-white mb-1">Create Promotion</h1>
-        <p class="text-sm text-slate-400 mb-6">
+        <p class="text-sm text-mpMuted mb-6">
           Fills automatically as an Instagram Story. Requires manager approval before posting.
         </p>
 
         <form method="POST" action="/manager/promotion/create" class="space-y-5">
 
           <div>
-            <label class="block text-sm font-medium text-slate-300 mb-1">
+            <label class="block text-sm font-medium text-mpMuted mb-1">
               Product or Service <span class="text-red-400">*</span>
             </label>
             <input name="product" required placeholder="e.g. Balayage, Keratin Treatment, Olaplex"
-              class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-yellow-500" />
+              class="w-full bg-mpBg border border-mpBorder rounded-xl px-4 py-2.5 text-sm text-mpCharcoal focus:outline-none focus:ring-2 focus:ring-yellow-500" />
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-slate-300 mb-1">
-              Discount <span class="text-slate-500 font-normal">(optional)</span>
+            <label class="block text-sm font-medium text-mpMuted mb-1">
+              Discount <span class="text-mpMuted font-normal">(optional)</span>
             </label>
             <input name="discount" placeholder="e.g. 20%, $15 off, BOGO"
-              class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-yellow-500" />
-            <p class="text-xs text-slate-500 mt-1">Leave blank if no discount applies.</p>
+              class="w-full bg-mpBg border border-mpBorder rounded-xl px-4 py-2.5 text-sm text-mpCharcoal focus:outline-none focus:ring-2 focus:ring-yellow-500" />
+            <p class="text-xs text-mpMuted mt-1">Leave blank if no discount applies.</p>
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-slate-300 mb-1">
-              Special Text <span class="text-slate-500 font-normal">(optional)</span>
+            <label class="block text-sm font-medium text-mpMuted mb-1">
+              Special Text <span class="text-mpMuted font-normal">(optional)</span>
             </label>
             <input name="special_text" placeholder="e.g. Limited time only!, Book before it's gone!"
-              class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-yellow-500" />
+              class="w-full bg-mpBg border border-mpBorder rounded-xl px-4 py-2.5 text-sm text-mpCharcoal focus:outline-none focus:ring-2 focus:ring-yellow-500" />
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-slate-300 mb-1">
+            <label class="block text-sm font-medium text-mpMuted mb-1">
               Offer Expiration Date <span class="text-red-400">*</span>
             </label>
             <input type="date" name="expires_at" required
               min="${new Date().toISOString().split("T")[0]}"
-              class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-yellow-500" />
+              class="w-full bg-mpBg border border-mpBorder rounded-xl px-4 py-2.5 text-sm text-mpCharcoal focus:outline-none focus:ring-2 focus:ring-yellow-500" />
           </div>
 
           <div class="pt-2 space-y-3">
             <button type="submit"
-              class="w-full bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold py-3 rounded-xl text-sm">
+              class="w-full bg-mpCharcoal hover:bg-mpCharcoalDark text-white font-bold py-3 rounded-xl text-sm">
               Build &amp; Preview Promotion
             </button>
             <a href="/manager"
-              class="block text-center text-slate-400 hover:text-slate-200 text-sm py-2">
+              class="block text-center text-mpMuted hover:text-mpCharcoal text-sm py-2">
               Cancel
             </a>
           </div>
