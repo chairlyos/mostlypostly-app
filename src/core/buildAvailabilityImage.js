@@ -166,11 +166,19 @@ function buildOverlaySvg({ slots, stylistName, salonName, bookingCta, instagramH
 
   const font = `'Open Sans', Arial, Helvetica, sans-serif`;
 
-  // Slot rows — centered lower on the image
+  // Studio 500 brand palette
+  const NAVY    = "#03263B";
+  const TEAL    = "#64B8B1";
+  const CORAL   = "#FF6663";
+  const L_BLUE  = "#BDDAE6";
+
+  // Slot rows — teal pill background, white text
   const slotRows = slots.map((slot, i) => `
     <g>
       <rect x="60" y="${slotsStartY + i * slotLineHeight}" width="${W - 120}" height="72"
-        rx="14" fill="rgba(255,255,255,0.15)" />
+        rx="14" fill="${TEAL}" fill-opacity="0.30" />
+      <line x1="60" y1="${slotsStartY + i * slotLineHeight}" x2="60" y2="${slotsStartY + i * slotLineHeight + 72}"
+        stroke="${TEAL}" stroke-width="6" stroke-linecap="round"/>
       <text x="${W / 2}" y="${slotsStartY + i * slotLineHeight + 49}"
         font-family="${font}" font-size="38" font-weight="800"
         fill="white" text-anchor="middle">${escSvg(slot)}</text>
@@ -181,55 +189,54 @@ function buildOverlaySvg({ slots, stylistName, salonName, bookingCta, instagramH
     <svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
       <defs>
         <style>${FONT_FACE}</style>
+        <!-- Navy-heavy gradient so photo shows through in the middle -->
         <linearGradient id="grad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%"   stop-color="rgba(0,0,0,0.45)" />
-          <stop offset="40%"  stop-color="rgba(0,0,0,0.20)" />
-          <stop offset="70%"  stop-color="rgba(0,0,0,0.25)" />
-          <stop offset="100%" stop-color="rgba(0,0,0,0.65)" />
+          <stop offset="0%"   stop-color="${NAVY}" stop-opacity="0.88" />
+          <stop offset="35%"  stop-color="${NAVY}" stop-opacity="0.30" />
+          <stop offset="65%"  stop-color="${NAVY}" stop-opacity="0.30" />
+          <stop offset="100%" stop-color="${NAVY}" stop-opacity="0.92" />
         </linearGradient>
       </defs>
       <rect width="${W}" height="${H}" fill="url(#grad)" />
 
-      <!-- Salon name -->
+      <!-- Salon name — light blue -->
       <text x="${W / 2}" y="560"
         font-family="${font}" font-size="48" font-weight="800"
-        fill="rgba(255,255,255,0.90)" text-anchor="middle" letter-spacing="6">
+        fill="${L_BLUE}" text-anchor="middle" letter-spacing="6">
         ${escSvg(salonName.toUpperCase())}
       </text>
 
-      <!-- "NOW BOOKING" header -->
+      <!-- "NOW BOOKING" — white with teal underline bar -->
       <text x="${W / 2}" y="690"
         font-family="${font}" font-size="100" font-weight="800"
         fill="white" text-anchor="middle" letter-spacing="2">
         NOW BOOKING
       </text>
-
-      <!-- Divider -->
-      <line x1="80" y1="730" x2="${W - 80}" y2="730" stroke="rgba(255,255,255,0.50)" stroke-width="3"/>
+      <rect x="200" y="706" width="${W - 400}" height="6" rx="3" fill="${TEAL}" />
 
       <!-- Availability slots -->
       ${slotRows}
 
-      <!-- Stylist name -->
-      <text x="${W / 2}" y="${H - 210}"
+      <!-- Stylist name — white -->
+      <text x="${W / 2}" y="${H - 215}"
         font-family="${font}" font-size="46" font-weight="800"
         fill="white" text-anchor="middle">
         ${escSvg(stylistName)}
       </text>
 
       ${instagramHandle ? `
-      <!-- Instagram handle badge -->
-      <rect x="${W / 2 - 175}" y="${H - 192}" width="350" height="50" rx="25"
-        fill="rgba(255,255,255,0.22)" />
-      <text x="${W / 2}" y="${H - 157}"
+      <!-- Instagram handle — teal pill -->
+      <rect x="${W / 2 - 180}" y="${H - 196}" width="360" height="52" rx="26"
+        fill="${TEAL}" fill-opacity="0.30" />
+      <text x="${W / 2}" y="${H - 159}"
         font-family="${font}" font-size="30" font-weight="800"
-        fill="rgba(255,255,255,0.95)" text-anchor="middle">
+        fill="${L_BLUE}" text-anchor="middle">
         @${escSvg(instagramHandle.replace(/^@/, ""))}
       </text>` : ""}
 
-      <!-- Booking CTA -->
-      <rect x="100" y="${H - 118}" width="${W - 200}" height="78" rx="39"
-        fill="rgba(255,255,255,0.20)" />
+      <!-- Booking CTA — coral pill -->
+      <rect x="100" y="${H - 120}" width="${W - 200}" height="80" rx="40"
+        fill="${CORAL}" />
       <text x="${W / 2}" y="${H - 68}"
         font-family="${font}" font-size="34" font-weight="800"
         fill="white" text-anchor="middle">
