@@ -567,6 +567,7 @@ async function processNewImageFlow({
     notes: text || "",
     salon: fullSalon,
     stylist,
+    postType,
     city: stylist?.city || ""
   });
 

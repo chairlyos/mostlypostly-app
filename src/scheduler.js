@@ -207,11 +207,17 @@ export async function runSchedulerOnce() {
             throw new Error("Missing Facebook credentials in salons table");
           }
 
-          // Resolve all image URLs (multi-image carousel support)
-          const rawUrls = (() => {
-            try { return JSON.parse(post.image_urls || "[]"); } catch { return []; }
-          })();
-          const allRaw = rawUrls.length ? rawUrls : (post.image_url ? [post.image_url] : []);
+          // Resolve image URLs — before_after posts store originals in image_urls but publish the collage (image_url)
+          const postType = post.post_type || "standard_post";
+          let allRaw;
+          if (postType === "before_after") {
+            allRaw = post.image_url ? [post.image_url] : [];
+          } else {
+            const rawUrls = (() => {
+              try { return JSON.parse(post.image_urls || "[]"); } catch { return []; }
+            })();
+            allRaw = rawUrls.length ? rawUrls : (post.image_url ? [post.image_url] : []);
+          }
 
           // Rehost any Twilio-signed URLs
           const allImages = await Promise.all(
@@ -223,7 +229,6 @@ export async function runSchedulerOnce() {
           );
 
           const isMulti = allImages.length > 1;
-          const postType = post.post_type || "standard_post";
           console.log(`📸 [Scheduler] Publishing ${allImages.length} image(s) for post ${post.id} (${postType}, ${isMulti ? "carousel" : "single"})`);
 
           let fbResp = null;

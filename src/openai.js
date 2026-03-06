@@ -47,6 +47,7 @@ export async function generateCaption({
   salon = {},
   stylist = {},
   city = "",
+  postType = "standard_post",
 }) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
@@ -79,12 +80,17 @@ export async function generateCaption({
 Use word choice, energy, and phrasing that clearly reflects this style.`
   : "";
 
+  const postTypeInstruction = postType === "before_after"
+    ? `This is a Before & After transformation post. The caption MUST reference the transformation — use words like "transformation", "before & after", "glow up", or similar. Celebrate the change.`
+    : "";
+
   console.log("🧠 [OpenAI] Tone applied:", salon?.tone || "default");
 
   const systemPrompt = `
 You are MostlyPostly, an AI assistant that writes social media captions for salons.
 
 ${toneInstruction}
+${postTypeInstruction}
 
 Your reply MUST be a single JSON object. No comments. No code fences.
 
