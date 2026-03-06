@@ -149,7 +149,7 @@ async function fetchBuffer(url) {
 // ─────────────────────────────────────────────────────────
 // Build the availability story image
 // ─────────────────────────────────────────────────────────
-function buildOverlaySvg({ slots, stylistName, salonName, bookingCta }) {
+function buildOverlaySvg({ slots, stylistName, salonName, bookingCta, instagramHandle }) {
   const slotLineHeight = 90;
   const slotsStartY = 980;
 
@@ -204,10 +204,20 @@ function buildOverlaySvg({ slots, stylistName, salonName, bookingCta }) {
         ${escSvg(stylistName)}
       </text>
 
+      ${instagramHandle ? `
+      <!-- Instagram handle badge -->
+      <rect x="${W / 2 - 160}" y="${H - 182}" width="320" height="46" rx="23"
+        fill="rgba(255,255,255,0.20)" />
+      <text x="${W / 2}" y="${H - 150}"
+        font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="600"
+        fill="rgba(255,255,255,0.90)" text-anchor="middle">
+        @${escSvg(instagramHandle.replace(/^@/, ""))}
+      </text>` : ""}
+
       <!-- Booking CTA -->
-      <rect x="120" y="${H - 160}" width="${W - 240}" height="76" rx="38"
+      <rect x="120" y="${H - 110}" width="${W - 240}" height="72" rx="36"
         fill="rgba(255,255,255,0.18)" />
-      <text x="${W / 2}" y="${H - 112}"
+      <text x="${W / 2}" y="${H - 64}"
         font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="600"
         fill="white" text-anchor="middle">
         ${escSvg(bookingCta || "Book via link in bio.")}
@@ -236,7 +246,7 @@ function escSvg(str) {
  * @param {string}   opts.bookingCta
  * @returns {Promise<string>}  Public URL of the saved story image
  */
-export async function buildAvailabilityImage({ text, stylistName, salonName, salonId, stylistId, bookingCta, submittedImageUrl }) {
+export async function buildAvailabilityImage({ text, stylistName, salonName, salonId, stylistId, instagramHandle, bookingCta, submittedImageUrl }) {
   console.log("[Availability] Building story image…");
 
   // 1. Parse slots
@@ -277,7 +287,7 @@ export async function buildAvailabilityImage({ text, stylistName, salonName, sal
   }
 
   // 4. Build SVG overlay
-  const overlay = buildOverlaySvg({ slots, stylistName, salonName, bookingCta });
+  const overlay = buildOverlaySvg({ slots, stylistName, salonName, bookingCta, instagramHandle });
 
   // 5. Composite
   const finalBuf = await sharp(bgLayer)

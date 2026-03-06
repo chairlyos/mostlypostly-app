@@ -510,6 +510,7 @@ async function processNewImageFlow({
         salonName,
         salonId: salon?.salon_id || salon?.id || "",
         stylistId: stylist?.stylist_id || stylist?.id || null,
+        instagramHandle: stylist?.instagram_handle || null,
         bookingCta,
         submittedImageUrl: imageUrls[0] || null,
       });
