@@ -142,6 +142,7 @@ function writeSalonJson(salon_id) {
 --------------------------------------------------------- */
 
 function pageTemplate({ step, stepLabel, content }) {
+  const backRoute = step === 2 ? "salon" : step === 3 ? "brand" : step === 4 ? "rules" : step === 5 ? "manager" : "stylists";
   return `
   <!DOCTYPE html>
   <html lang="en">
@@ -149,57 +150,98 @@ function pageTemplate({ step, stepLabel, content }) {
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Onboarding – Step ${step}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      body { font-family: ‘Plus Jakarta Sans’, ui-sans-serif, system-ui, sans-serif !important; background: #FDF8F6 !important; color: #2B2D35 !important; }
+
+      /* Override dark Tailwind classes used in step content */
+      .bg-slate-950, .bg-slate-900, .bg-slate-800 { background-color: #FFFFFF !important; }
+      .border-slate-700, .border-slate-800 { border-color: #EDE7E4 !important; }
+      .text-slate-100, .text-slate-200, .text-slate-300 { color: #2B2D35 !important; }
+      .text-slate-400, .text-slate-500 { color: #7A7C85 !important; }
+      .text-indigo-400, .text-blue-400 { color: #D4897A !important; }
+      .bg-indigo-600, .bg-blue-600 { background-color: #2B2D35 !important; }
+      .hover\\:bg-indigo-700:hover, .hover\\:bg-blue-700:hover { background-color: #1a1c22 !important; }
+      .ring-indigo-500, .focus\\:ring-indigo-500:focus { --tw-ring-color: rgba(212,137,122,0.3) !important; }
+      .border-indigo-500:focus, .focus\\:border-indigo-500:focus { border-color: #D4897A !important; }
+
+      /* Form inputs */
+      input:not([type=checkbox]):not([type=radio]):not([type=file]),
+      select, textarea {
+        background: #FDF8F6 !important;
+        color: #2B2D35 !important;
+        border: 1px solid #EDE7E4 !important;
+        border-radius: 8px !important;
+        font-family: inherit !important;
+      }
+      input:not([type=checkbox]):not([type=radio]):not([type=file]):focus,
+      select:focus, textarea:focus {
+        border-color: #D4897A !important;
+        box-shadow: 0 0 0 3px rgba(212,137,122,0.15) !important;
+        outline: none !important;
+      }
+
+      /* Buttons */
+      button[type=submit], input[type=submit] {
+        background: #2B2D35 !important;
+        color: #fff !important;
+        border-radius: 999px !important;
+        font-family: inherit !important;
+        font-weight: 700 !important;
+        border: none !important;
+        cursor: pointer !important;
+        transition: background 0.2s !important;
+      }
+      button[type=submit]:hover { background: #1a1c22 !important; }
+
+      /* Tag/badge chips */
+      .bg-slate-800.border.border-slate-700 { background: #F2DDD9 !important; border-color: #D4897A !important; color: #2B2D35 !important; }
+      .hover\\:border-indigo-500:hover { border-color: #D4897A !important; }
+      .border-red-500 { border-color: #ef4444 !important; }
+
+      /* File input */
+      .file\\:bg-slate-700 { background: #EDE7E4 !important; }
+      .file\\:text-slate-100 { color: #2B2D35 !important; }
+    </style>
   </head>
 
-  <body class="bg-slate-950 text-slate-100">
+  <body>
+    <!-- Header -->
+    <header style="background:#fff;border-bottom:1px solid #EDE7E4;padding:12px 24px;">
+      <img src="/public/logo/logo.png" alt="MostlyPostly" style="height:36px;width:auto;" />
+    </header>
 
     <div class="mx-auto max-w-5xl py-10 px-4 flex gap-12">
 
-      <!-- Left -->
+      <!-- Left sidebar -->
       <div class="w-1/3">
-        <h1 class="text-3xl font-bold mb-4">Welcome to MostlyPostly</h1>
-        <p class="text-slate-300 mb-6">Let’s set up your salon profile.</p>
+        <h1 class="text-2xl font-extrabold mb-2" style="color:#2B2D35;">Set up your salon</h1>
+        <p style="color:#7A7C85;font-size:14px;margin-bottom:24px;line-height:1.6;">Let’s get MostlyPostly configured for your team. It only takes a few minutes.</p>
 
-        <div class="mb-8">
-          <div class="text-sm text-slate-400 mb-2">Step ${step} of 7</div>
-          <div class="w-full bg-slate-800 h-2 rounded">
-            <div class="bg-indigo-500 h-2 rounded" style="width: ${(step / 6) * 100}%"></div>
+        <div class="mb-6">
+          <div style="font-size:12px;font-weight:600;color:#7A7C85;margin-bottom:8px;">Step ${step} of 7</div>
+          <div style="width:100%;background:#EDE7E4;height:6px;border-radius:99px;overflow:hidden;">
+            <div style="background:#D4897A;height:6px;border-radius:99px;width:${Math.round((step / 7) * 100)}%;transition:width 0.3s;"></div>
           </div>
         </div>
 
-        <h2 class="text-xl font-semibold">${stepLabel}</h2>
+        <h2 class="text-lg font-bold" style="color:#2B2D35;">${stepLabel}</h2>
       </div>
 
-      <!-- Right -->
+      <!-- Right content -->
       <div class="w-2/3">
-        <div class="bg-slate-900 border border-slate-700 rounded-xl p-6">
+        <div style="background:#fff;border:1px solid #EDE7E4;border-radius:16px;padding:28px;box-shadow:0 2px 12px rgba(43,45,53,0.05);">
 
           ${content}
 
-          ${
-            step > 1
-              ? `<a href="/onboarding/${
-                  step === 2
-                    ? "salon"
-                    : step === 3
-                    ? "brand"
-                    : step === 4
-                    ? "rules"
-                    : step === 5
-                    ? "manager"
-                    : "stylists"
-                }"
-                    class="inline-block mt-6 text-slate-300 hover:text-white text-sm underline">
-                  ← Back
-                </a>`
-              : ""
-          }
+          ${step > 1 ? `<a href="/onboarding/${backRoute}" style="display:inline-block;margin-top:20px;font-size:13px;color:#7A7C85;text-decoration:underline;">← Back</a>` : ""}
         </div>
       </div>
 
     </div>
-
   </body>
   </html>
   `;

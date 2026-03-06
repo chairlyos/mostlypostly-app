@@ -21,31 +21,23 @@ function navBar(current = "scheduler", salon_id = "") {
   const qsSalon = salon_id ? `?salon=${encodeURIComponent(salon_id)}` : "";
 
   const link = (href, label, key) =>
-    `<a href="${href}" 
-      class="hover:text-white ${
-        current === key ? "text-white" : "text-slate-300"
-      } transition">
-      ${label}
-    </a>`;
+    `<a href="${href}" class="${
+      current === key
+        ? "text-mpCharcoal border-b-2 border-mpAccent font-semibold"
+        : "text-mpMuted hover:text-mpCharcoal"
+    } transition px-1 pb-1">${label}</a>`;
 
   return `
-<header class="border-b border-slate-800/80 bg-slate-950/80 backdrop-blur">
+<header class="border-b border-mpBorder bg-white/90 backdrop-blur sticky top-0 z-30">
   <div class="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-    <div class="flex items-center justify-between py-4">
-
-      <!-- Updated MP Logo -->
-      <a href="/manager${qsSalon}" class="flex items-center gap-2" aria-label="MostlyPostly manager home">
-        <div class="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-tr from-mpPrimary to-mpAccent text-xs font-semibold text-white shadow-md shadow-mpPrimary/40">
-          MP
-        </div>
-        <span class="text-lg font-semibold tracking-tight text-white">MostlyPostly</span>
+    <div class="flex items-center justify-between py-3">
+      <a href="/manager${qsSalon}" aria-label="MostlyPostly manager home">
+        <img src="/public/logo/logo.png" alt="MostlyPostly" class="w-40 h-auto" />
       </a>
-
-      <!-- Desktop Nav -->
-      <nav class="hidden items-center gap-8 text-sm font-medium text-slate-200 md:flex" aria-label="Primary navigation">
-        ${link(`/manager${qsSalon}`, "Manager", "manager")}
+      <nav class="hidden items-center gap-8 text-sm font-medium md:flex">
+        ${link(`/manager${qsSalon}`, "Dashboard", "manager")}
         ${link(`/dashboard${qsSalon}`, "Database", "database")}
-        ${link(`/analytics${qsSalon}`, "Scheduler Analytics", "scheduler")}
+        ${link(`/analytics${qsSalon}`, "Analytics", "scheduler")}
         ${link(`/manager/admin${qsSalon}`, "Admin", "admin")}
         ${link(`/manager/logout${qsSalon}`, "Logout", "logout")}
       </nav>
@@ -59,31 +51,31 @@ function pageShell({ title, body, salon_id = "" }) {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
-  <!-- Basic Meta -->
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>${title}</title>
-  <meta name="description" content="MostlyPostly scheduler analytics for salon posts." />
-
-  <!-- TailwindCSS CDN -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Tailwind config to match marketing site -->
   <script>
     tailwind.config = {
       theme: {
         extend: {
+          fontFamily: { sans: ['"Plus Jakarta Sans"', 'ui-sans-serif', 'system-ui', 'sans-serif'] },
           colors: {
-            mpPrimary: "#6366F1",
-            mpPrimaryDark: "#4F46E5",
-            mpAccent: "#F97316",
-            mpBg: "#020617"
+            mpCharcoal: "#2B2D35", mpCharcoalDark: "#1a1c22",
+            mpAccent: "#D4897A", mpAccentLight: "#F2DDD9",
+            mpBg: "#FDF8F6", mpCard: "#FFFFFF",
+            mpBorder: "#EDE7E4", mpMuted: "#7A7C85",
           }
         }
       }
     };
   </script>
+  <style>body { font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif; }</style>
 </head>
-<body class="bg-slate-950 text-slate-50 antialiased">
+<body class="bg-mpBg text-mpCharcoal antialiased">
   ${navBar("scheduler", salon_id)}
   <main class="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
     ${body}

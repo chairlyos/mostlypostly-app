@@ -81,201 +81,247 @@ router.get("/login", (req, res) => {
   <meta charset="UTF-8" />
   <title>Manager Login — MostlyPostly</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
-
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
   <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      margin: 0;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-      background: #0F172A;
-      color: #F8FAFC;
-    }
-
-    /* Split screen */
-    .split-wrapper {
-      display: flex;
+      font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+      background: #FDF8F6;
+      color: #2B2D35;
       min-height: 100vh;
     }
+    .split-wrapper { display: flex; min-height: 100vh; }
 
+    /* ── LEFT PANEL ── */
     .left-panel {
       flex: 1;
-      background: linear-gradient(180deg, #1E293B 0%, #0F172A 100%);
+      background: #2B2D35;
       position: relative;
       overflow: hidden;
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 40px;
+      padding: 48px 44px;
+      gap: 28px;
     }
 
-    /* Abstract glowing shapes */
-    .glow {
+    /* subtle dot grid background */
+    .left-panel::before {
+      content: '';
       position: absolute;
+      inset: 0;
+      background-image: radial-gradient(circle, rgba(212,137,122,0.18) 1px, transparent 1px);
+      background-size: 28px 28px;
+      pointer-events: none;
+    }
+
+    /* warm glow blob */
+    .left-panel::after {
+      content: '';
+      position: absolute;
+      width: 400px; height: 400px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(212,137,122,0.22) 0%, transparent 70%);
+      bottom: -100px; right: -100px;
+      pointer-events: none;
+    }
+
+    .left-logo { width: 260px; height: auto; filter: brightness(0) invert(1); position: relative; z-index: 1; }
+
+    .left-tagline {
+      font-size: 14px;
+      color: rgba(255,255,255,0.55);
+      text-align: center;
+      max-width: 280px;
+      line-height: 1.7;
+      position: relative; z-index: 1;
+    }
+
+    /* Stat pills row */
+    .stat-row {
+      display: flex;
+      gap: 10px;
+      position: relative; z-index: 1;
+    }
+    .stat-pill {
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.1);
       border-radius: 999px;
-      filter: blur(80px);
-      opacity: 0.35;
+      padding: 6px 14px;
+      font-size: 11px;
+      font-weight: 600;
+      color: rgba(255,255,255,0.8);
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }
-    .glow-1 { width: 300px; height: 300px; top: -40px; left: -40px; background: #3B82F6; }
-    .glow-2 { width: 260px; height: 260px; bottom: -40px; right: -20px; background: #4F46E5; }
+    .stat-dot { width: 6px; height: 6px; border-radius: 50%; background: #D4897A; }
 
-    /* Floating fake UI card */
-    .fake-card {
-      background: #1E293B;
-      padding: 24px;
-      width: 320px;
-      border-radius: 14px;
-      box-shadow: 0 8px 30px rgba(0,0,0,0.35);
-      border: 1px solid rgba(255,255,255,0.06);
-    }
-
-    .fake-title {
-      height: 16px;
-      width: 80%;
-      background: rgba(255,255,255,0.08);
-      border-radius: 4px;
-      margin-bottom: 14px;
-    }
-
-    .fake-img {
+    /* Activity chart card */
+    .chart-card {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 18px;
+      padding: 20px 22px;
       width: 100%;
-      height: 180px;
-      background: rgba(255,255,255,0.12);
-      border-radius: 8px;
-      margin-bottom: 14px;
+      max-width: 320px;
+      position: relative; z-index: 1;
     }
-
-    .fake-lines div {
-      height: 10px;
+    .chart-label {
+      font-size: 10px;
+      font-weight: 700;
+      color: rgba(255,255,255,0.4);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 16px;
+    }
+    .chart-bars {
+      display: flex;
+      align-items: flex-end;
+      gap: 7px;
+      height: 80px;
+    }
+    .bar-wrap {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+      height: 100%;
+      justify-content: flex-end;
+    }
+    .bar {
       width: 100%;
-      background: rgba(255,255,255,0.08);
-      border-radius: 4px;
-      margin-bottom: 8px;
+      border-radius: 5px 5px 0 0;
+      background: rgba(212,137,122,0.35);
+      transition: background 0.2s;
+    }
+    .bar.active { background: #D4897A; }
+    .bar-day {
+      font-size: 9px;
+      font-weight: 600;
+      color: rgba(255,255,255,0.3);
+    }
+    .chart-summary {
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .chart-summary-num { font-size: 20px; font-weight: 800; color: #fff; }
+    .chart-summary-label { font-size: 10px; color: rgba(255,255,255,0.4); margin-top: 1px; }
+    .chart-badge {
+      font-size: 10px;
+      font-weight: 700;
+      background: rgba(212,137,122,0.2);
+      color: #D4897A;
+      border-radius: 999px;
+      padding: 4px 10px;
     }
 
-    /* Right panel (login) */
+    /* ── RIGHT PANEL ── */
     .right-panel {
       flex: 1;
-      background: #FFFFFF;
-      color: #1E293B;
+      background: #fff;
       display: flex;
       align-items: center;
       justify-content: center;
       padding: 32px;
     }
-
-    .login-card {
-      width: 100%;
-      max-width: 400px;
-      background: #FFFFFF;
-      padding: 42px;
-      border-radius: 16px;
-      border: 1px solid rgba(15,23,42,0.12);
-      box-shadow: 0 10px 40px rgba(0,0,0,0.08);
-    }
-
-    .login-btn {
-      background: #3B82F6;
-      color: #FFFFFF;
-      font-weight: 600;
-      border-radius: 999px;
-      padding: 12px 0;
-      width: 100%;
-      margin-top: 10px;
-      transition: 0.2s;
-      box-shadow: 0 4px 14px rgba(59,130,246,0.35);
-    }
-    .login-btn:hover {
-      background: #2563EB;
-    }
-
+    .login-card { width: 100%; max-width: 400px; }
+    .login-card h1 { font-size: 24px; font-weight: 800; color: #2B2D35; margin-bottom: 6px; }
+    .login-card .sub { font-size: 13px; color: #7A7C85; margin-bottom: 28px; }
+    label { display: block; font-size: 12px; font-weight: 600; color: #2B2D35; margin-bottom: 5px; }
     .input-box {
-      width: 100%;
-      border-radius: 8px;
-      padding: 12px;
-      border: 1px solid #CBD5E1;
-      margin-top: 4px;
-      font-size: 14px;
+      width: 100%; border-radius: 10px; padding: 11px 14px;
+      border: 1px solid #EDE7E4; background: #FDF8F6;
+      font-size: 14px; color: #2B2D35; margin-bottom: 16px; font-family: inherit;
     }
-    .input-box:focus {
-      border-color: #3B82F6;
-      outline: none;
-      box-shadow: 0 0 0 2px rgba(59,130,246,0.25);
+    .input-box:focus { border-color: #D4897A; outline: none; box-shadow: 0 0 0 3px rgba(212,137,122,0.15); }
+    .login-btn {
+      background: #2B2D35; color: #fff; font-weight: 700; border-radius: 999px;
+      padding: 13px 0; width: 100%; font-size: 14px; border: none;
+      cursor: pointer; transition: background 0.2s; font-family: inherit;
     }
+    .login-btn:hover { background: #1a1c22; }
+    .divider { border: none; border-top: 1px solid #EDE7E4; margin: 22px 0; }
+    .footer-links { text-align: center; font-size: 13px; color: #7A7C85; }
+    .footer-links a { color: #D4897A; font-weight: 600; text-decoration: none; }
+    .footer-links a:hover { text-decoration: underline; }
+    .forgot { display: block; text-align: center; font-size: 12px; color: #7A7C85; margin-top: 12px; }
+    .forgot:hover { color: #2B2D35; }
 
-    /* Mobile stack */
-    @media(max-width: 900px) {
-      .split-wrapper {
-        flex-direction: column;
-      }
-      .left-panel {
-        min-height: 220px;
-      }
+    @media(max-width: 768px) {
+      .split-wrapper { flex-direction: column; }
+      .left-panel { min-height: 240px; padding: 32px 24px; gap: 20px; }
+      .chart-card, .stat-row { display: none; }
     }
   </style>
 </head>
-
 <body>
-
 <div class="split-wrapper">
 
-  <!-- LEFT SPLIT PANEL -->
+  <!-- LEFT PANEL -->
   <div class="left-panel">
-    <div class="glow glow-1"></div>
-    <div class="glow glow-2"></div>
+    <img src="/public/logo/logo.png" alt="MostlyPostly" class="left-logo" />
+    <p class="left-tagline">AI social media for salons. Text a photo, get a polished post on Facebook &amp; Instagram.</p>
 
-    <div class="fake-card">
-      <div class="fake-title"></div>
-      <div class="fake-img"></div>
-      <div class="fake-lines">
-        <div></div>
-        <div style="width: 90%;"></div>
-        <div style="width: 70%;"></div>
+    <!-- Stat pills -->
+    <div class="stat-row">
+      <div class="stat-pill"><span class="stat-dot"></span> Auto-posting live</div>
+      <div class="stat-pill"><span class="stat-dot"></span> FB &amp; Instagram</div>
+    </div>
+
+    <!-- Activity chart -->
+    <div class="chart-card">
+      <div class="chart-label">Posts published — this week</div>
+      <div class="chart-bars">
+        <div class="bar-wrap"><div class="bar" style="height:35%"></div><span class="bar-day">M</span></div>
+        <div class="bar-wrap"><div class="bar" style="height:60%"></div><span class="bar-day">T</span></div>
+        <div class="bar-wrap"><div class="bar" style="height:45%"></div><span class="bar-day">W</span></div>
+        <div class="bar-wrap"><div class="bar" style="height:80%"></div><span class="bar-day">T</span></div>
+        <div class="bar-wrap"><div class="bar active" style="height:100%"></div><span class="bar-day">F</span></div>
+        <div class="bar-wrap"><div class="bar" style="height:55%"></div><span class="bar-day">S</span></div>
+        <div class="bar-wrap"><div class="bar" style="height:25%"></div><span class="bar-day">S</span></div>
+      </div>
+      <div class="chart-summary">
+        <div>
+          <div class="chart-summary-num">24</div>
+          <div class="chart-summary-label">posts this week</div>
+        </div>
+        <div class="chart-badge">↑ 18% vs last week</div>
       </div>
     </div>
   </div>
 
-  <!-- RIGHT LOGIN PANEL -->
+  <!-- RIGHT PANEL -->
   <div class="right-panel">
     <div class="login-card">
+      <h1>Welcome back</h1>
+      <p class="sub">Sign in to your MostlyPostly account.</p>
 
-      <h1 class="text-xl font-semibold mb-1 text-center">Welcome</h1>
-      <p class="text-sm text-center text-slate-500 mb-6">Sign in to your account.</p>
-
-      <form method="POST" action="/manager/login" class="space-y-5">
-
-        <div>
-          <label class="text-xs font-medium text-slate-600">Email address</label>
-          <input type="email" name="email" class="input-box" placeholder="Enter your email" required>
-        </div>
-
-        <div>
-          <label class="text-xs font-medium text-slate-600">Password</label>
-          <input type="password" name="password" class="input-box" placeholder="Enter your password" required>
-        </div>
-
-        <button type="submit" class="login-btn">Log in</button>
+      <form method="POST" action="/manager/login">
+        <label>Email address</label>
+        <input type="email" name="email" class="input-box" placeholder="you@yoursalon.com" required />
+        <label>Password</label>
+        <input type="password" name="password" class="input-box" placeholder="••••••••" required />
+        <button type="submit" class="login-btn">Log in →</button>
       </form>
 
-      <div class="mt-4 text-center">
-        <a href="/manager/forgot-password" class="text-xs text-blue-600 hover:underline">
-          Forgot your password?
-        </a>
+      <a href="/manager/forgot-password" class="forgot">Forgot your password?</a>
+      <hr class="divider" />
+      <div class="footer-links">
+        New to MostlyPostly? <a href="/manager/signup">Sign up</a>
       </div>
-
-      <div class="my-6 border-t border-slate-200"></div>
-
-      <div class="text-center text-sm">
-        <span class="text-slate-600">Not using MostlyPostly?</span>
-        <a href="/manager/signup" class="font-semibold text-blue-600 underline hover:text-blue-800">
-          Sign Up
-        </a>
-      </div>
-
     </div>
   </div>
 
 </div>
-
 </body>
 </html>
   `);
@@ -293,258 +339,136 @@ router.get("/signup", (req, res) => {
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Create Account — MostlyPostly</title>
-
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet" />
-
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
   <style>
-    body {
-      margin: 0;
-      background: #0F172A;
-      color: #F8FAFC;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif; background: #FDF8F6; color: #2B2D35; min-height: 100vh; }
+    .split-wrapper { display: flex; min-height: 100vh; }
 
-    .split-wrapper {
-      display: flex;
-      min-height: 100vh;
-    }
-
+    /* Left panel — matches login */
     .left-panel {
-      flex: 1;
-      padding: 4rem 3rem;
-      background: linear-gradient(180deg, #1E293B 0%, #0F172A 100%);
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      gap: 2.5rem;
+      flex: 1; background: #2B2D35; position: relative; overflow: hidden;
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; padding: 48px 44px; gap: 24px;
     }
+    .left-panel::before {
+      content: ''; position: absolute; inset: 0;
+      background-image: radial-gradient(circle, rgba(212,137,122,0.18) 1px, transparent 1px);
+      background-size: 28px 28px; pointer-events: none;
+    }
+    .left-panel::after {
+      content: ''; position: absolute; width: 400px; height: 400px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(212,137,122,0.22) 0%, transparent 70%);
+      bottom: -100px; right: -100px; pointer-events: none;
+    }
+    .left-logo { width: 260px; height: auto; filter: brightness(0) invert(1); position: relative; z-index: 1; }
+    .left-tagline { font-size: 14px; color: rgba(255,255,255,0.55); text-align: center; max-width: 280px; line-height: 1.7; position: relative; z-index: 1; }
 
-    .mp-logo {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
+    .feat-list { width: 100%; max-width: 320px; display: flex; flex-direction: column; gap: 12px; position: relative; z-index: 1; }
+    .feat-item {
+      display: flex; align-items: flex-start; gap: 12px;
+      background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px; padding: 14px 16px;
     }
-    .mp-logo-icon {
-      height: 44px;
-      width: 44px;
-      border-radius: 12px;
-      background: linear-gradient(135deg, #f59e0b, #6366F1);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 0.95rem;
-      font-weight: 600;
-      color: white;
-    }
-    .mp-logo-text {
-      font-size: 1.5rem;
-      font-weight: 600;
-      color: #FFFFFF;
-    }
+    .feat-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+    .feat-title { font-size: 13px; font-weight: 700; color: #fff; margin-bottom: 2px; }
+    .feat-desc { font-size: 11px; color: rgba(255,255,255,0.5); line-height: 1.5; }
 
-    .feat {
-      background: rgba(255,255,255,0.05);
-      border: 1px solid rgba(255,255,255,0.06);
-      padding: 1.2rem;
-      border-radius: 0.9rem;
-      backdrop-filter: blur(4px);
-    }
-
-    .feat h3 {
-      font-size: 1.05rem;
-      font-weight: 600;
-      margin-bottom: 0.25rem;
-    }
-
-    .feat p {
-      font-size: 0.85rem;
-      color: #CBD5E1;
-      line-height: 1.35;
-    }
-
-    .right-panel {
-      flex: 1;
-      background: white;
-      color: #1E293B;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 2rem;
-    }
-
-    .signup-card {
-      width: 100%;
-      max-width: 430px;
-      padding: 2.75rem;
-      background: #FFFFFF;
-      border-radius: 1.25rem;
-      border: 1px solid rgba(15,23,42,0.12);
-      box-shadow: 0 10px 40px rgba(0,0,0,0.08);
-    }
-
+    /* Right panel */
+    .right-panel { flex: 1; background: #fff; display: flex; align-items: center; justify-content: center; padding: 32px; overflow-y: auto; }
+    .signup-card { width: 100%; max-width: 420px; }
+    .signup-card h1 { font-size: 24px; font-weight: 800; color: #2B2D35; margin-bottom: 6px; }
+    .signup-card .sub { font-size: 13px; color: #7A7C85; margin-bottom: 28px; }
+    label { display: block; font-size: 12px; font-weight: 600; color: #2B2D35; margin-bottom: 5px; }
     .input-box {
-      width: 100%;
-      border-radius: 0.5rem;
-      padding: 12px;
-      border: 1px solid #CBD5E1;
-      margin-top: 4px;
-      font-size: 14px;
+      width: 100%; border-radius: 10px; padding: 11px 14px;
+      border: 1px solid #EDE7E4; background: #FDF8F6;
+      font-size: 14px; color: #2B2D35; margin-bottom: 16px; font-family: inherit;
     }
-
-    .input-box:focus {
-      border-color: #3B82F6;
-      outline: none;
-      box-shadow: 0 0 0 2px rgba(59,130,246,0.25);
-    }
-
+    .input-box:focus { border-color: #D4897A; outline: none; box-shadow: 0 0 0 3px rgba(212,137,122,0.15); }
+    .check-row { display: flex; align-items: flex-start; gap: 10px; font-size: 13px; color: #7A7C85; margin-bottom: 12px; }
+    .check-row input { margin-top: 2px; accent-color: #D4897A; }
+    .check-row a { color: #D4897A; font-weight: 600; text-decoration: none; }
+    .check-row a:hover { text-decoration: underline; }
     .signup-btn {
-      width: 100%;
-      background: #6366F1;
-      border-radius: 999px;
-      padding: 12px;
-      font-weight: 600;
-      color: #FFFFFF;
-      margin-top: 0.75rem;
+      background: #2B2D35; color: #fff; font-weight: 700; border-radius: 999px;
+      padding: 13px 0; width: 100%; font-size: 14px; border: none;
+      cursor: pointer; transition: background 0.2s; font-family: inherit; margin-top: 4px;
     }
+    .signup-btn:hover { background: #1a1c22; }
+    .divider { border: none; border-top: 1px solid #EDE7E4; margin: 20px 0; }
+    .footer-links { text-align: center; font-size: 13px; color: #7A7C85; }
+    .footer-links a { color: #D4897A; font-weight: 600; text-decoration: none; }
+    .footer-links a:hover { text-decoration: underline; }
 
-    .signup-btn:hover {
-      background: #4F46E5;
-    }
-
-    @media(max-width: 900px) {
-      .split-wrapper {
-        flex-direction: column;
-      }
+    @media(max-width: 768px) {
+      .split-wrapper { flex-direction: column; }
+      .left-panel { min-height: 200px; padding: 32px 24px; gap: 16px; }
+      .feat-list { display: none; }
     }
   </style>
 </head>
-
 <body>
-
 <div class="split-wrapper">
 
-  <!-- LEFT PANEL: LOGO + FEATURE CALLOUTS -->
   <div class="left-panel">
-    <div class="mp-logo">
-      <div class="mp-logo-icon">MP</div>
-      <div class="mp-logo-text">MostlyPostly</div>
-    </div>
-
-    <div class="feat">
-      <h3>AI That Writes for Stylists</h3>
-      <p>Turn any photo into a ready-to-post caption with hashtags & a “Book Now” CTA — all automatically.</p>
-    </div>
-
-    <div class="feat">
-      <h3>Zero Learning Curve</h3>
-      <p>Stylists simply text a photo. You approve. MostlyPostly handles the rest.</p>
-    </div>
-
-    <div class="feat">
-      <h3>Stress-Free Posting</h3>
-      <p>Auto-publishing to Facebook & Instagram keeps your salon active every week — hands free.</p>
+    <img src="/public/logo/logo.png" alt="MostlyPostly" class="left-logo" />
+    <p class="left-tagline">Everything your salon needs to stay consistent and visible online — on autopilot.</p>
+    <div class="feat-list">
+      <div class="feat-item">
+        <span class="feat-icon">📸</span>
+        <div><div class="feat-title">Text a photo, get a post</div><div class="feat-desc">AI writes captions, hashtags &amp; CTAs tailored to salon work.</div></div>
+      </div>
+      <div class="feat-item">
+        <span class="feat-icon">✅</span>
+        <div><div class="feat-title">Manager approval built in</div><div class="feat-desc">Nothing goes live without your sign-off — from any device.</div></div>
+      </div>
+      <div class="feat-item">
+        <span class="feat-icon">🎨</span>
+        <div><div class="feat-title">Your brand, every post</div><div class="feat-desc">Tone, palette, hashtags — configured once, applied everywhere.</div></div>
+      </div>
     </div>
   </div>
 
-  <!-- RIGHT PANEL: SIGNUP FORM -->
   <div class="right-panel">
     <div class="signup-card">
+      <h1>Create your account</h1>
+      <p class="sub">Get your salon set up in minutes.</p>
 
-      <h2 class="text-xl font-semibold text-center mb-1">Create your account</h2>
-      <p class="text-sm text-center text-gray-500 mb-6">Start your MostlyPostly setup.</p>
+      <form action="/manager/signup" method="POST">
+        <label>Your Name</label>
+        <input type="text" name="name" class="input-box" placeholder="Your full name" required />
+        <label>Business Name</label>
+        <input type="text" name="businessName" class="input-box" placeholder="Your salon name" required />
+        <label>Email</label>
+        <input type="email" name="email" class="input-box" placeholder="you@yoursalon.com" required />
+        <label>Password</label>
+        <input type="password" name="password" class="input-box" placeholder="At least 8 characters" required minlength="8" />
+        <label>Phone Number</label>
+        <input type="tel" name="phone" class="input-box" placeholder="Mobile number" required />
 
-      <form action="/manager/signup" method="POST" class="space-y-5">
-
-        <!-- Manager Full Name (required by backend) -->
-        <div>
-          <label class="text-xs font-semibold text-gray-700">Your Name</label>
-          <input
-            type="text"
-            name="name"
-            required
-            class="input-box"
-            placeholder="Your full name"
-          />
-        </div>
-
-        <!-- Business Name -->
-        <div>
-          <label class="text-xs font-semibold text-gray-700">Business Name</label>
-          <input
-            type="text"
-            name="businessName"
-            required
-            class="input-box"
-            placeholder="Your salon or business name"
-          />
-        </div>
-
-        <!-- Email -->
-        <div>
-          <label class="text-xs font-semibold text-gray-700">Email</label>
-          <input
-            type="email"
-            name="email"
-            required
-            class="input-box"
-            placeholder="you@business.com"
-          />
-        </div>
-
-        <!-- Password -->
-        <div>
-          <label class="text-xs font-semibold text-gray-700">Password</label>
-          <input
-            type="password"
-            name="password"
-            required minlength="8"
-            class="input-box"
-            placeholder="Create a password"
-          />
-        </div>
-
-        <!-- Phone Number -->
-        <div>
-          <label class="text-xs font-semibold text-gray-700">Phone Number</label>
-          <input
-            type="tel"
-            name="phone"
-            required
-            class="input-box"
-            placeholder="Mobile number"
-          />
-        </div>
-
-        <!-- Anti-spam honeypot -->
         <input type="text" name="company" style="display:none" />
 
-        <!-- AGREEMENTS -->
-        <div class="space-y-3 mt-3">
-          <label class="flex items-start gap-2 text-sm">
-            <input type="checkbox" required class="mt-1" />
-            <span>I agree to MostlyPostly’s <a href="/legal/terms.html" class="text-blue-600 underline">Terms</a> and <a href="/legal/privacy.html" class="text-blue-600 underline">Privacy Policy</a>.</span>
-          </label>
-
-          <label class="flex items-start gap-2 text-sm">
-            <input type="checkbox" name="marketing_opt_in" value="yes" class="mt-1" />
-            <span>Send me occasional product updates, best practices, and salon marketing tips.</span>
-          </label>
+        <div class="check-row">
+          <input type="checkbox" required />
+          <span>I agree to MostlyPostly's <a href="/legal/terms.html">Terms</a> and <a href="/legal/privacy.html">Privacy Policy</a>.</span>
+        </div>
+        <div class="check-row">
+          <input type="checkbox" name="marketing_opt_in" value="yes" />
+          <span>Send me product updates and salon marketing tips.</span>
         </div>
 
-        <button type="submit" class="signup-btn">Get Started</button>
-
+        <button type="submit" class="signup-btn">Get Started →</button>
       </form>
 
-      <div class="mt-6 text-center text-sm">
-        Already have an account?
-        <a href="/manager/login" class="text-blue-600 font-semibold underline">Sign In</a>
-      </div>
-
+      <hr class="divider" />
+      <div class="footer-links">Already have an account? <a href="/manager/login">Sign in</a></div>
     </div>
   </div>
 
 </div>
-
 </body>
 </html>
   `);
@@ -778,7 +702,7 @@ router.get("/forgot-password", (req, res) => {
         </h1>
 
         <p class="text-sm text-center text-slate-400 mb-6">
-          Enter your email and we’ll text you a secure reset link.
+          Enter your email and we'll text you a secure reset link.
         </p>
 
         <form method="POST" action="/manager/forgot-password" class="space-y-4">

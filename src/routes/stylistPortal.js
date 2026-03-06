@@ -45,13 +45,31 @@ function shell(title, body) {
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>${esc(title)} – MostlyPostly</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            mpCharcoal: "#2B2D35", mpAccent: "#D4897A",
+            mpAccentLight: "#F2DDD9", mpBg: "#FDF8F6",
+            mpBorder: "#EDE7E4", mpMuted: "#7A7C85",
+          }
+        }
+      }
+    };
+  </script>
   <style>
-    body { background: #0f172a; color: #f1f5f9; font-family: system-ui, sans-serif; }
+    body { font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif; background: #FDF8F6; color: #2B2D35; }
   </style>
 </head>
-<body class="max-w-xl mx-auto px-4 py-6 pb-20">
-  <p class="text-xs font-bold tracking-widest text-blue-400 uppercase mb-6">MostlyPostly</p>
+<body class="max-w-xl mx-auto px-4 pb-20">
+  <header style="padding:14px 0 12px;margin-bottom:20px;border-bottom:1px solid #EDE7E4;">
+    <img src="/public/logo/logo.png" alt="MostlyPostly" style="height:32px;width:auto;" />
+  </header>
   ${body}
 </body>
 </html>`;
@@ -59,7 +77,7 @@ function shell(title, body) {
 
 function errorPage(msg) {
   return shell("Error", `
-    <div class="bg-red-950 border border-red-700 rounded-2xl p-6 text-red-300 text-sm">${esc(msg)}</div>
+    <div class="bg-red-50 border border-red-200 rounded-2xl p-6 text-red-700 text-sm">${esc(msg)}</div>
   `);
 }
 
@@ -90,8 +108,8 @@ function renderImages(displayUrls) {
   if (displayUrls.length === 1) {
     return `
       <div class="relative w-full max-h-72 mb-5">
-        <img src="${esc(displayUrls[0])}" class="rounded-2xl w-full max-h-72 object-cover border border-slate-800" ${BROKEN_PORTAL} />
-        <div class="img-expired rounded-2xl w-full h-40 bg-slate-800 border border-slate-700 hidden flex-col items-center justify-center gap-2 text-slate-500">
+        <img src="${esc(displayUrls[0])}" class="rounded-2xl w-full max-h-72 object-cover border border-mpBorder" ${BROKEN_PORTAL} />
+        <div class="img-expired rounded-2xl w-full h-40 bg-mpBg border border-mpBorder hidden flex-col items-center justify-center gap-2 text-mpMuted">
           <span class="text-sm">Image expired</span>
           <span class="text-xs text-slate-600">Send a new photo to update</span>
         </div>
@@ -101,8 +119,8 @@ function renderImages(displayUrls) {
     <div class="flex gap-2 overflow-x-auto mb-2 pb-1">
       ${displayUrls.map(u => `
         <div class="relative w-36 h-36 flex-shrink-0">
-          <img src="${esc(u)}" class="w-36 h-36 rounded-2xl object-cover border border-slate-800" ${BROKEN_PORTAL} />
-          <div class="img-expired absolute inset-0 rounded-2xl bg-slate-800 border border-slate-700 hidden flex-col items-center justify-center text-slate-500 text-xs">Expired</div>
+          <img src="${esc(u)}" class="w-36 h-36 rounded-2xl object-cover border border-mpBorder" ${BROKEN_PORTAL} />
+          <div class="img-expired absolute inset-0 rounded-2xl bg-mpBg border border-mpBorder hidden flex-col items-center justify-center text-mpMuted text-xs">Expired</div>
         </div>`).join("")}
     </div>
     <p class="text-xs text-slate-500 mb-5">${displayUrls.length} photos · caption applies to all</p>
@@ -118,9 +136,10 @@ router.get("/:id", validateToken, async (req, res) => {
 
   if (["manager_pending", "manager_approved", "published"].includes(post.status)) {
     return res.send(shell("Already Submitted", `
-      <div class="bg-slate-900 border border-slate-700 rounded-2xl p-8 text-center">
-        <p class="text-green-400 font-semibold text-lg mb-2">Already submitted!</p>
-        <p class="text-slate-400 text-sm">Your post is ${esc(post.status.replace("_", " "))}. Nothing left to do.</p>
+      <div class="bg-white border border-mpBorder rounded-2xl p-8 text-center shadow-sm">
+        <div class="text-4xl mb-3">✅</div>
+        <p class="text-mpCharcoal font-bold text-lg mb-2">Already submitted!</p>
+        <p class="text-mpMuted text-sm">Your post is ${esc(post.status.replace("_", " "))}. Nothing left to do.</p>
       </div>
     `));
   }
@@ -136,43 +155,43 @@ router.get("/:id", validateToken, async (req, res) => {
   const hashtagLine = hashtags.length ? hashtags.map(h => `#${h.replace(/^#/, "")}`).join(" ") : "";
 
   res.send(shell("Review Your Caption", `
-    <h1 class="text-xl font-bold mb-1">Your Post Preview</h1>
-    <p class="text-sm text-slate-400 mb-5">Review your caption below. Add your own notes and regenerate before submitting.</p>
+    <h1 class="text-xl font-bold mb-1 text-mpCharcoal">Your Post Preview</h1>
+    <p class="text-sm text-mpMuted mb-5">Review your caption below. Add notes and regenerate before submitting.</p>
 
     ${renderImages(displayUrls)}
 
-    ${justRegenerated ? `<div class="bg-green-900/40 border border-green-700 rounded-xl px-4 py-2 text-green-300 text-sm mb-4">Caption regenerated with your input!</div>` : ""}
-    ${justSwapped ? `<div class="bg-green-900/40 border border-green-700 rounded-xl px-4 py-2 text-green-300 text-sm mb-4">Before/After positions swapped!</div>` : ""}
+    ${justRegenerated ? `<div class="bg-green-50 border border-green-200 rounded-xl px-4 py-2 text-green-700 text-sm mb-4">Caption regenerated with your input!</div>` : ""}
+    ${justSwapped ? `<div class="bg-green-50 border border-green-200 rounded-xl px-4 py-2 text-green-700 text-sm mb-4">Before/After positions swapped!</div>` : ""}
 
     ${post.post_type === "before_after" ? `
     <form method="POST" action="/stylist/${esc(post.id)}/swap?token=${esc(token)}" class="mb-4">
       <button type="submit"
-        class="w-full bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-300 font-medium py-2.5 rounded-xl text-sm transition-colors">
+        class="w-full bg-mpBg hover:bg-mpAccentLight border border-mpBorder text-mpCharcoal font-medium py-2.5 rounded-xl text-sm transition-colors">
         ⇄ Swap Before / After
       </button>
     </form>` : ""}
 
-    <!-- Current caption preview (locked) -->
-    <div class="bg-slate-900 border border-slate-700 rounded-2xl p-4 mb-6">
-      <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Current Caption Preview</p>
-      <p class="text-sm text-slate-100 leading-relaxed whitespace-pre-line">${esc(post.base_caption || "")}</p>
-      ${hashtagLine ? `<p class="text-sm text-blue-400 mt-3">${esc(hashtagLine)}</p>` : ""}
-      <p class="text-xs text-slate-500 mt-3">By ${esc(post.stylist_name || "")}</p>
+    <!-- Caption preview -->
+    <div class="bg-white border border-mpBorder rounded-2xl p-4 mb-6 shadow-sm">
+      <p class="text-xs font-bold text-mpMuted uppercase tracking-widest mb-3">Caption Preview</p>
+      <p class="text-sm text-mpCharcoal leading-relaxed whitespace-pre-line">${esc(post.base_caption || "")}</p>
+      ${hashtagLine ? `<p class="text-sm text-mpAccent mt-3 font-medium">${esc(hashtagLine)}</p>` : ""}
+      <p class="text-xs text-mpMuted mt-3">By ${esc(post.stylist_name || "")}</p>
     </div>
 
-    <!-- Regenerate with notes -->
+    <!-- Regenerate -->
     <form method="POST" action="/stylist/${esc(post.id)}/regenerate?token=${esc(token)}">
-      <label class="block text-sm font-medium text-slate-300 mb-1">
-        Add your input <span class="text-slate-500 font-normal">(optional — helps AI write a better caption)</span>
+      <label class="block text-sm font-semibold text-mpCharcoal mb-1">
+        Add your input <span class="text-mpMuted font-normal">(optional)</span>
       </label>
       <textarea
         name="notes"
         rows="3"
         placeholder="e.g. Warm balayage, client wanted natural beach waves…"
-        class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-slate-100 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        class="w-full bg-mpBg border border-mpBorder rounded-xl p-3 text-mpCharcoal text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-mpAccent focus:border-mpAccent"
       ></textarea>
       <button type="submit"
-        class="w-full bg-slate-700 hover:bg-slate-600 text-white font-medium py-2.5 rounded-xl text-sm mb-6 transition-colors">
+        class="w-full bg-mpBg hover:bg-mpAccentLight border border-mpBorder text-mpCharcoal font-semibold py-2.5 rounded-xl text-sm mb-5 transition-colors">
         Regenerate with AI
       </button>
     </form>
@@ -180,8 +199,8 @@ router.get("/:id", validateToken, async (req, res) => {
     <!-- Submit -->
     <form method="POST" action="/stylist/${esc(post.id)}/submit?token=${esc(token)}">
       <button type="submit"
-        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl text-sm transition-colors">
-        Submit for Manager Review
+        class="w-full bg-mpCharcoal hover:bg-mpCharcoalDark text-white font-semibold py-3 rounded-full text-sm transition-colors shadow-sm">
+        Submit for Manager Review →
       </button>
     </form>
   `));
@@ -225,12 +244,12 @@ router.post("/:id/swap", validateToken, async (req, res) => {
   } catch (err) {
     console.error("❌ [Portal] Swap error:", err.message);
     return res.send(shell("Error", `
-      <div class="bg-red-950 border border-red-700 rounded-2xl p-6 mb-4">
-        <p class="text-red-300 font-semibold mb-2">Swap failed</p>
-        <p class="text-slate-400 text-sm">${esc(err.message)}</p>
+      <div class="bg-red-50 border border-red-200 rounded-2xl p-6 mb-4">
+        <p class="text-red-700 font-semibold mb-2">Swap failed</p>
+        <p class="text-mpMuted text-sm">${esc(err.message)}</p>
       </div>
       <a href="/stylist/${esc(post.id)}?token=${esc(token)}"
-        class="block text-center text-blue-400 text-sm underline">Go back</a>
+        class="block text-center text-mpAccent text-sm underline">Go back</a>
     `));
   }
 });
@@ -268,12 +287,12 @@ router.post("/:id/regenerate", validateToken, async (req, res) => {
 
     if (!modResult.safe) {
       return res.send(shell("Content Flagged", `
-        <div class="bg-red-950 border border-red-700 rounded-2xl p-6 mb-4">
-          <p class="text-red-300 font-semibold mb-2">Your notes were flagged</p>
-          <p class="text-slate-400 text-sm">Please revise your input and try again.</p>
+        <div class="bg-red-50 border border-red-200 rounded-2xl p-6 mb-4">
+          <p class="text-red-700 font-semibold mb-2">Your notes were flagged</p>
+          <p class="text-mpMuted text-sm">Please revise your input and try again.</p>
         </div>
         <a href="/stylist/${esc(post.id)}?token=${esc(token)}"
-          class="block text-center text-blue-400 text-sm underline">Go back</a>
+          class="block text-center text-mpAccent text-sm underline">Go back</a>
       `));
     }
 
@@ -306,12 +325,12 @@ router.post("/:id/regenerate", validateToken, async (req, res) => {
   } catch (err) {
     console.error("❌ [Portal] Regenerate error:", err.message);
     return res.send(shell("Error", `
-      <div class="bg-red-950 border border-red-700 rounded-2xl p-6 mb-4">
-        <p class="text-red-300 font-semibold mb-2">Regeneration failed</p>
-        <p class="text-slate-400 text-sm">${esc(err.message)}</p>
+      <div class="bg-red-50 border border-red-200 rounded-2xl p-6 mb-4">
+        <p class="text-red-700 font-semibold mb-2">Regeneration failed</p>
+        <p class="text-mpMuted text-sm">${esc(err.message)}</p>
       </div>
       <a href="/stylist/${esc(post.id)}?token=${esc(token)}"
-        class="block text-center text-blue-400 text-sm underline">Try again</a>
+        class="block text-center text-mpAccent text-sm underline">Try again</a>
     `));
   }
 });
@@ -327,9 +346,10 @@ router.post("/:id/submit", validateToken, async (req, res) => {
 
   if (post.status !== "draft") {
     return res.send(shell("Already Submitted", `
-      <div class="bg-slate-900 border border-slate-700 rounded-2xl p-8 text-center">
-        <p class="text-green-400 font-semibold mb-2">Already submitted!</p>
-        <p class="text-slate-400 text-sm">Your post is being reviewed.</p>
+      <div class="bg-white border border-mpBorder rounded-2xl p-8 text-center shadow-sm">
+        <div class="text-4xl mb-3">✅</div>
+        <p class="text-mpCharcoal font-bold mb-2">Already submitted!</p>
+        <p class="text-mpMuted text-sm">Your post is being reviewed.</p>
       </div>
     `));
   }
@@ -351,12 +371,12 @@ router.post("/:id/submit", validateToken, async (req, res) => {
 
     if (!modResult.safe) {
       return res.send(shell("Content Flagged", `
-        <div class="bg-red-950 border border-red-700 rounded-2xl p-6 mb-4">
-          <p class="text-red-300 font-semibold mb-2">Your caption was flagged</p>
-          <p class="text-slate-400 text-sm">Please go back and revise your content.</p>
+        <div class="bg-red-50 border border-red-200 rounded-2xl p-6 mb-4">
+          <p class="text-red-700 font-semibold mb-2">Your caption was flagged</p>
+          <p class="text-mpMuted text-sm">Please go back and revise your content.</p>
         </div>
         <a href="/stylist/${esc(post.id)}?token=${esc(token)}"
-          class="block text-center text-blue-400 text-sm underline">Go back and edit</a>
+          class="block text-center text-mpAccent text-sm underline">Go back and edit</a>
       `));
     }
 
@@ -386,22 +406,22 @@ router.post("/:id/submit", validateToken, async (req, res) => {
     console.log(`✅ [Portal] Post ${post.id} submitted by ${post.stylist_name} → manager_pending`);
 
     return res.send(shell("Submitted!", `
-      <div class="bg-slate-900 border border-slate-700 rounded-2xl p-8 text-center mt-8">
+      <div class="bg-white border border-mpBorder rounded-2xl p-10 text-center shadow-sm mt-4">
         <div class="text-5xl mb-4">✅</div>
-        <p class="text-white font-bold text-xl mb-2">Caption submitted!</p>
-        <p class="text-slate-400 text-sm">Your manager will review and approve it. You'll be notified when it's posted.</p>
+        <p class="text-mpCharcoal font-extrabold text-xl mb-2">Caption submitted!</p>
+        <p class="text-mpMuted text-sm leading-relaxed">Your manager will review and approve it.<br/>You'll be notified when it's posted.</p>
       </div>
     `));
 
   } catch (err) {
     console.error("❌ [Portal] Submit error:", err.message);
     return res.send(shell("Error", `
-      <div class="bg-red-950 border border-red-700 rounded-2xl p-6 mb-4">
-        <p class="text-red-300 font-semibold mb-2">Something went wrong</p>
-        <p class="text-slate-400 text-sm">${esc(err.message)}</p>
+      <div class="bg-red-50 border border-red-200 rounded-2xl p-6 mb-4">
+        <p class="text-red-700 font-semibold mb-2">Something went wrong</p>
+        <p class="text-mpMuted text-sm">${esc(err.message)}</p>
       </div>
       <a href="/stylist/${esc(post.id)}?token=${esc(token)}"
-        class="block text-center text-blue-400 text-sm underline">Try again</a>
+        class="block text-center text-mpAccent text-sm underline">Try again</a>
     `));
   }
 });
