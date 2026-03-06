@@ -229,13 +229,20 @@ export async function publishStoryToInstagram({ salon_id, imageUrl, linkUrl }) {
 
   const creationId = await retryIg(async () => {
     const url = `https://graph.facebook.com/${graphVer}/${userId}/media`;
-    const params = new URLSearchParams({
+    const body = {
       image_url: publicUrl,
       media_type: "STORIES",
       access_token: token,
+    };
+    if (linkUrl) {
+      body.link = linkUrl;
+      body.link_sticker_url = linkUrl;
+    }
+    const resp = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
     });
-    if (linkUrl) params.set("link", linkUrl);
-    const resp = await fetch(url, { method: "POST", body: params });
     const data = await resp.json();
     if (!resp.ok || !data?.id) {
       throw new Error(`IG story create failed: ${resp.status} ${JSON.stringify(data)}`);

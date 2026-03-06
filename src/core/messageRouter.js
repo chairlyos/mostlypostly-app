@@ -501,7 +501,7 @@ async function processNewImageFlow({
       const fullSalon = getSalonPolicy(salon?.slug || salon?.salon_id || salon?.id);
       const salonName = fullSalon?.name || fullSalon?.salon_info?.salon_name || "the salon";
       const bookingCta = fullSalon?.booking_url
-        ? `Book: ${fullSalon.booking_url}`
+        ? "Tap to Book ↑"
         : (fullSalon?.default_cta || "Book via link in bio.");
 
       const storyImageUrl = await buildAvailabilityImage({

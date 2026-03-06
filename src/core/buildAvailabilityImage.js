@@ -6,10 +6,21 @@ import sharp from "sharp";
 import fetch from "node-fetch";
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
 import { db } from "../../db.js";
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.resolve("public/uploads");
 fs.mkdirSync(PUBLIC_DIR, { recursive: true });
+
+// Embed Open Sans ExtraBold (800) as base64 so librsvg/sharp can use it on any server
+const FONT_PATH = path.resolve(__dirname, "../../node_modules/@fontsource/open-sans/files/open-sans-latin-800-normal.woff2");
+const FONT_B64 = fs.existsSync(FONT_PATH)
+  ? fs.readFileSync(FONT_PATH).toString("base64")
+  : null;
+const FONT_FACE = FONT_B64
+  ? `@font-face { font-family: 'Open Sans'; font-weight: 800; src: url('data:font/woff2;base64,${FONT_B64}') format('woff2'); }`
+  : "";
 
 // Instagram Story: 9:16
 const W = 1080;
@@ -153,21 +164,23 @@ function buildOverlaySvg({ slots, stylistName, salonName, bookingCta, instagramH
   const slotLineHeight = 90;
   const slotsStartY = 980;
 
+  const font = `'Open Sans', Arial, Helvetica, sans-serif`;
+
   // Slot rows — centered lower on the image
   const slotRows = slots.map((slot, i) => `
     <g>
-      <rect x="60" y="${slotsStartY + i * slotLineHeight}" width="${W - 120}" height="68"
+      <rect x="60" y="${slotsStartY + i * slotLineHeight}" width="${W - 120}" height="72"
         rx="14" fill="rgba(255,255,255,0.15)" />
-      <text x="${W / 2}" y="${slotsStartY + i * slotLineHeight + 45}"
-        font-family="Arial, Helvetica, sans-serif" font-size="34" font-weight="600"
+      <text x="${W / 2}" y="${slotsStartY + i * slotLineHeight + 49}"
+        font-family="${font}" font-size="38" font-weight="800"
         fill="white" text-anchor="middle">${escSvg(slot)}</text>
     </g>
   `).join("");
 
   return Buffer.from(`
     <svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
-      <!-- Lighter overlay so background photo shows through more -->
       <defs>
+        <style>${FONT_FACE}</style>
         <linearGradient id="grad" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%"   stop-color="rgba(0,0,0,0.45)" />
           <stop offset="40%"  stop-color="rgba(0,0,0,0.20)" />
@@ -177,48 +190,48 @@ function buildOverlaySvg({ slots, stylistName, salonName, bookingCta, instagramH
       </defs>
       <rect width="${W}" height="${H}" fill="url(#grad)" />
 
-      <!-- Salon name — vertically centered upper half -->
+      <!-- Salon name -->
       <text x="${W / 2}" y="560"
-        font-family="Arial, Helvetica, sans-serif" font-size="42" font-weight="700"
-        fill="rgba(255,255,255,0.85)" text-anchor="middle" letter-spacing="5">
+        font-family="${font}" font-size="48" font-weight="800"
+        fill="rgba(255,255,255,0.90)" text-anchor="middle" letter-spacing="6">
         ${escSvg(salonName.toUpperCase())}
       </text>
 
       <!-- "NOW BOOKING" header -->
-      <text x="${W / 2}" y="680"
-        font-family="Arial, Helvetica, sans-serif" font-size="88" font-weight="900"
+      <text x="${W / 2}" y="690"
+        font-family="${font}" font-size="100" font-weight="800"
         fill="white" text-anchor="middle" letter-spacing="2">
         NOW BOOKING
       </text>
 
       <!-- Divider -->
-      <line x1="100" y1="720" x2="${W - 100}" y2="720" stroke="rgba(255,255,255,0.45)" stroke-width="2"/>
+      <line x1="80" y1="730" x2="${W - 80}" y2="730" stroke="rgba(255,255,255,0.50)" stroke-width="3"/>
 
       <!-- Availability slots -->
       ${slotRows}
 
       <!-- Stylist name -->
-      <text x="${W / 2}" y="${H - 200}"
-        font-family="Arial, Helvetica, sans-serif" font-size="40" font-weight="700"
+      <text x="${W / 2}" y="${H - 210}"
+        font-family="${font}" font-size="46" font-weight="800"
         fill="white" text-anchor="middle">
         ${escSvg(stylistName)}
       </text>
 
       ${instagramHandle ? `
       <!-- Instagram handle badge -->
-      <rect x="${W / 2 - 160}" y="${H - 182}" width="320" height="46" rx="23"
-        fill="rgba(255,255,255,0.20)" />
-      <text x="${W / 2}" y="${H - 150}"
-        font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="600"
-        fill="rgba(255,255,255,0.90)" text-anchor="middle">
+      <rect x="${W / 2 - 175}" y="${H - 192}" width="350" height="50" rx="25"
+        fill="rgba(255,255,255,0.22)" />
+      <text x="${W / 2}" y="${H - 157}"
+        font-family="${font}" font-size="30" font-weight="800"
+        fill="rgba(255,255,255,0.95)" text-anchor="middle">
         @${escSvg(instagramHandle.replace(/^@/, ""))}
       </text>` : ""}
 
       <!-- Booking CTA -->
-      <rect x="120" y="${H - 110}" width="${W - 240}" height="72" rx="36"
-        fill="rgba(255,255,255,0.18)" />
-      <text x="${W / 2}" y="${H - 64}"
-        font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="600"
+      <rect x="100" y="${H - 118}" width="${W - 200}" height="78" rx="39"
+        fill="rgba(255,255,255,0.20)" />
+      <text x="${W / 2}" y="${H - 68}"
+        font-family="${font}" font-size="34" font-weight="800"
         fill="white" text-anchor="middle">
         ${escSvg(bookingCta || "Book via link in bio.")}
       </text>
