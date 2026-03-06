@@ -3,6 +3,7 @@ import express from "express";
 import fs from "fs";
 import path from "path";
 import multer from "multer";
+import fetch from "node-fetch";
 import db from "../../db.js";
 
 const UPLOADS_DIR = path.resolve("public/uploads");
@@ -161,7 +162,7 @@ function pageTemplate({ step, stepLabel, content }) {
         <p class="text-slate-300 mb-6">Let’s set up your salon profile.</p>
 
         <div class="mb-8">
-          <div class="text-sm text-slate-400 mb-2">Step ${step} of 6</div>
+          <div class="text-sm text-slate-400 mb-2">Step ${step} of 7</div>
           <div class="w-full bg-slate-800 h-2 rounded">
             <div class="bg-indigo-500 h-2 rounded" style="width: ${(step / 6) * 100}%"></div>
           </div>
@@ -182,7 +183,7 @@ function pageTemplate({ step, stepLabel, content }) {
                   step === 2
                     ? "salon"
                     : step === 3
-                    ? "salon"
+                    ? "brand"
                     : step === 4
                     ? "rules"
                     : step === 5
@@ -367,6 +368,155 @@ router.post("/salon", (req, res) => {
     defaultHashtag,
     salon_id
   );
+
+  res.redirect("/onboarding/brand");
+});
+
+/* ---------------------------------------------------------
+   STEP 2 — BRAND PALETTE (extracted from website)
+--------------------------------------------------------- */
+
+async function extractPaletteFromWebsite(websiteUrl) {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey || !websiteUrl) return null;
+
+  try {
+    // Fetch the website HTML
+    const resp = await fetch(websiteUrl, {
+      headers: { "User-Agent": "Mozilla/5.0" },
+      timeout: 8000,
+    });
+    const html = await resp.text();
+    // Pull out only style/link/meta tags to keep token count low
+    const snippet = html
+      .replace(/<script[\s\S]*?<\/script>/gi, "")
+      .replace(/<img[^>]*>/gi, "")
+      .slice(0, 8000);
+
+    const gptResp = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        temperature: 0,
+        messages: [
+          {
+            role: "system",
+            content: `You are a brand color extractor. Given website HTML, identify the 5 key brand colors.
+Return ONLY valid JSON with these exact keys:
+{
+  "primary": "#hex",
+  "secondary": "#hex",
+  "accent": "#hex",
+  "accent_light": "#hex",
+  "cta": "#hex"
+}
+All values must be hex color codes. No markdown, no explanation.`,
+          },
+          { role: "user", content: snippet },
+        ],
+      }),
+    });
+    const data = await gptResp.json();
+    const raw = data?.choices?.[0]?.message?.content || "{}";
+    return JSON.parse(raw.replace(/```json|```/g, "").trim());
+  } catch (err) {
+    console.warn("[Onboarding] Palette extraction failed:", err.message);
+    return null;
+  }
+}
+
+function paletteSwatches(palette) {
+  const colors = [
+    { key: "primary",      label: "Primary" },
+    { key: "secondary",    label: "Secondary" },
+    { key: "accent",       label: "Accent" },
+    { key: "accent_light", label: "Light Accent" },
+    { key: "cta",          label: "CTA / Button" },
+  ];
+  return colors.map(({ key, label }) => `
+    <div class="flex items-center gap-3">
+      <div class="w-12 h-12 rounded-lg border border-slate-600 flex-shrink-0"
+           style="background:${palette[key] || '#888'}"></div>
+      <div>
+        <p class="text-sm font-medium">${label}</p>
+        <p class="text-xs text-slate-400 font-mono">${palette[key] || '—'}</p>
+      </div>
+      <input type="hidden" name="${key}" value="${palette[key] || ''}" />
+    </div>
+  `).join("");
+}
+
+router.get("/brand", async (req, res) => {
+  const manager = getSessionManager(req);
+  if (!manager) return res.redirect("/manager/login");
+
+  // ?reset=1 clears palette and re-extracts
+  if (req.query.reset) {
+    db.prepare("UPDATE salons SET brand_palette=NULL WHERE slug=?").run(manager.salon_id);
+    return res.redirect("/onboarding/brand");
+  }
+
+  const salon = ensureSalonRecord(manager);
+
+  // Load existing palette if already set
+  let palette = null;
+  try { if (salon.brand_palette) palette = JSON.parse(salon.brand_palette); } catch {}
+
+  // Extract from website if not yet set
+  if (!palette && salon.website) {
+    palette = await extractPaletteFromWebsite(salon.website);
+  }
+
+  const hasPalette = palette && Object.keys(palette).length > 0;
+
+  res.send(pageTemplate({
+    step: 2,
+    stepLabel: "Brand Colors",
+    content: hasPalette ? `
+      <p class="text-slate-300 text-sm mb-5">
+        We pulled your brand colors from <span class="text-indigo-300 font-mono">${salon.website || "your website"}</span>.
+        Confirm they look right before continuing.
+      </p>
+      <form method="POST" class="space-y-4">
+        ${paletteSwatches(palette)}
+        <div class="pt-4 border-t border-slate-700 mt-4">
+          <p class="text-xs text-slate-500 mb-4">These colors will be used on your availability and promotion posts.</p>
+          <button class="w-full bg-indigo-600 hover:bg-indigo-700 rounded p-3 font-semibold">
+            Looks good — Continue →
+          </button>
+          <a href="/onboarding/brand?reset=1" class="block text-center text-slate-400 hover:text-white text-sm mt-3 underline">
+            Re-extract colors
+          </a>
+        </div>
+      </form>
+    ` : `
+      <p class="text-slate-300 text-sm mb-5">
+        We couldn't automatically extract colors${salon.website ? ` from <span class="font-mono text-indigo-300">${salon.website}</span>` : " (no website set)"}. You can skip this step for now and set colors later in Admin settings.
+      </p>
+      <form method="POST" class="space-y-4">
+        <input type="hidden" name="skip" value="1" />
+        <button class="w-full bg-indigo-600 hover:bg-indigo-700 rounded p-3 font-semibold">
+          Skip for now — Continue →
+        </button>
+      </form>
+    `,
+  }));
+});
+
+router.post("/brand", (req, res) => {
+  const manager = getSessionManager(req);
+  if (!manager) return res.redirect("/manager/login");
+
+  if (!req.body.skip) {
+    const { primary, secondary, accent, accent_light, cta } = req.body;
+    const palette = JSON.stringify({ primary, secondary, accent, accent_light, cta });
+    db.prepare("UPDATE salons SET brand_palette=?, status_step='rules', updated_at=datetime('now') WHERE slug=?")
+      .run(palette, manager.salon_id);
+  } else {
+    db.prepare("UPDATE salons SET status_step='rules', updated_at=datetime('now') WHERE slug=?")
+      .run(manager.salon_id);
+  }
 
   res.redirect("/onboarding/rules");
 });

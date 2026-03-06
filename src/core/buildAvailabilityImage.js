@@ -160,25 +160,25 @@ async function fetchBuffer(url) {
 // ─────────────────────────────────────────────────────────
 // Build the availability story image
 // ─────────────────────────────────────────────────────────
-function buildOverlaySvg({ slots, stylistName, salonName, bookingCta, instagramHandle }) {
+function buildOverlaySvg({ slots, stylistName, salonName, bookingCta, instagramHandle, palette }) {
   const slotLineHeight = 90;
   const slotsStartY = 980;
 
   const font = `'Open Sans', Arial, Helvetica, sans-serif`;
 
-  // Studio 500 brand palette
-  const NAVY    = "#03263B";
-  const TEAL    = "#64B8B1";
-  const CORAL   = "#FF6663";
-  const L_BLUE  = "#BDDAE6";
+  // Brand palette — DB values with sensible defaults
+  const NAVY   = palette?.primary       || "#03263B";
+  const TEAL   = palette?.accent        || "#64B8B1";
+  const CORAL  = palette?.cta           || "#FF6663";
+  const L_BLUE = palette?.accent_light  || "#BDDAE6";
 
-  // Slot rows — teal pill background, white text
+  // Slot rows — solid teal pill for readability
   const slotRows = slots.map((slot, i) => `
     <g>
       <rect x="60" y="${slotsStartY + i * slotLineHeight}" width="${W - 120}" height="72"
-        rx="14" fill="${TEAL}" fill-opacity="0.30" />
+        rx="14" fill="${TEAL}" fill-opacity="0.75" />
       <line x1="60" y1="${slotsStartY + i * slotLineHeight}" x2="60" y2="${slotsStartY + i * slotLineHeight + 72}"
-        stroke="${TEAL}" stroke-width="6" stroke-linecap="round"/>
+        stroke="white" stroke-width="6" stroke-linecap="round"/>
       <text x="${W / 2}" y="${slotsStartY + i * slotLineHeight + 49}"
         font-family="${font}" font-size="38" font-weight="800"
         fill="white" text-anchor="middle">${escSvg(slot)}</text>
@@ -189,12 +189,12 @@ function buildOverlaySvg({ slots, stylistName, salonName, bookingCta, instagramH
     <svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
       <defs>
         <style>${FONT_FACE}</style>
-        <!-- Navy-heavy gradient so photo shows through in the middle -->
+        <!-- Strong navy at top/bottom, lighter in middle so photo shows through -->
         <linearGradient id="grad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%"   stop-color="${NAVY}" stop-opacity="0.88" />
-          <stop offset="35%"  stop-color="${NAVY}" stop-opacity="0.30" />
-          <stop offset="65%"  stop-color="${NAVY}" stop-opacity="0.30" />
-          <stop offset="100%" stop-color="${NAVY}" stop-opacity="0.92" />
+          <stop offset="0%"   stop-color="${NAVY}" stop-opacity="0.92" />
+          <stop offset="30%"  stop-color="${NAVY}" stop-opacity="0.50" />
+          <stop offset="70%"  stop-color="${NAVY}" stop-opacity="0.50" />
+          <stop offset="100%" stop-color="${NAVY}" stop-opacity="0.95" />
         </linearGradient>
       </defs>
       <rect width="${W}" height="${H}" fill="url(#grad)" />
@@ -306,8 +306,15 @@ export async function buildAvailabilityImage({ text, stylistName, salonName, sal
     }).jpeg().toBuffer();
   }
 
-  // 4. Build SVG overlay
-  const overlay = buildOverlaySvg({ slots, stylistName, salonName, bookingCta, instagramHandle });
+  // 4. Load brand palette from DB
+  let palette = null;
+  try {
+    const salonRow = db.prepare("SELECT brand_palette FROM salons WHERE slug = ?").get(salonId);
+    if (salonRow?.brand_palette) palette = JSON.parse(salonRow.brand_palette);
+  } catch { /* use defaults */ }
+
+  // 5. Build SVG overlay
+  const overlay = buildOverlaySvg({ slots, stylistName, salonName, bookingCta, instagramHandle, palette });
 
   // 5. Composite
   const finalBuf = await sharp(bgLayer)
