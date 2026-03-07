@@ -74,6 +74,17 @@ router.get("/login", (req, res) => {
   }
 
   // 🧑‍💻 Normal email/password login form
+  const { exists, reset } = req.query || {};
+  const banner = exists === "1"
+    ? `<div style="background:#FFF0EE;border:1px solid #F2C4BB;border-radius:10px;padding:12px 16px;margin-bottom:20px;font-size:13px;color:#A0443A;">
+        An account with that email already exists. <a href="/manager/login" style="color:#D4897A;font-weight:700;">Log in instead</a>
+       </div>`
+    : reset === "success"
+    ? `<div style="background:#EFF9F5;border:1px solid #B2DFC8;border-radius:10px;padding:12px 16px;margin-bottom:20px;font-size:13px;color:#1E6645;">
+        Password reset successfully! Log in with your new password.
+       </div>`
+    : "";
+
   res.type("html").send(`
 <!DOCTYPE html>
 <html lang="en">
@@ -304,6 +315,8 @@ router.get("/login", (req, res) => {
     <div class="login-card">
       <h1>Welcome back</h1>
       <p class="sub">Sign in to your MostlyPostly account.</p>
+
+      ${banner}
 
       <form method="POST" action="/manager/login">
         <label>Email address</label>
@@ -656,96 +669,59 @@ router.post("/login", (req, res) => {
    - Show password reset request form
 ---------------------------------*/
 router.get("/forgot-password", (req, res) => {
-  res.type("html").send(`
-  <!DOCTYPE html>
-  <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <title>Reset Password — MostlyPostly</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+  const sent = req.query.sent === "1";
 
-    <!-- Tailwind CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-
-    <style>
-      /* HARD RESET — overrides inherited app styles */
-      html, body {
-        margin: 0;
-        padding: 0;
-        height: 100%;
-        background-color: #020617 !important;
-        color: #E5E7EB !important;
-        font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-      }
-
-      /* Force readable inputs */
-      input {
-        background-color: #FFFFFF !important;
-        color: #020617 !important;
-        caret-color: #020617 !important;
-      }
-
-      input::placeholder {
-        color: #64748B !important;
-      }
-    </style>
-  </head>
-
-  <body>
-    <div class="min-h-screen flex items-center justify-center px-4">
-
-      <div class="w-full max-w-md rounded-3xl border border-slate-800 bg-slate-900 p-8 shadow-xl">
-
-        <!-- Logo -->
-        <div class="flex justify-center mb-6">
-          <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600 text-sm font-semibold text-white">
-            MP
-          </div>
-        </div>
-
-        <h1 class="text-2xl font-bold text-center text-white mb-2">
-          Reset your password
-        </h1>
-
-        <p class="text-sm text-center text-slate-400 mb-6">
-          Enter your email and we'll text you a secure reset link.
-        </p>
-
-        <form method="POST" action="/manager/forgot-password" class="space-y-4">
-
-          <div>
-            <label class="block text-xs font-medium text-slate-300 mb-1">
-              Email address
-            </label>
-            <input
-              type="email"
-              name="email"
-              required
-              placeholder="you@business.com"
-              class="w-full rounded-xl border border-slate-700 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
-          </div>
-
-          <button
-            type="submit"
-            class="mt-2 w-full rounded-full bg-indigo-600 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 transition"
-          >
-            Send reset link
-          </button>
-        </form>
-
-        <div class="mt-6 text-center">
-          <a href="/manager/login" class="text-xs text-slate-400 hover:text-white">
-            ← Back to login
-          </a>
-        </div>
-
-      </div>
+  const cardContent = sent ? `
+    <div style="text-align:center;padding:8px 0 24px;">
+      <div style="width:56px;height:56px;border-radius:50%;background:#F2DDD9;display:flex;align-items:center;justify-content:center;margin:0 auto 18px;font-size:26px;">📱</div>
+      <h1 style="font-size:22px;font-weight:800;color:#2B2D35;margin-bottom:8px;">Check your texts</h1>
+      <p style="font-size:13px;color:#7A7C85;line-height:1.6;margin-bottom:24px;">If an account exists for that email, we texted a secure reset link to the phone number on file. It expires in 45 minutes.</p>
+      <a href="/manager/login" style="display:inline-block;background:#2B2D35;color:#fff;font-weight:700;border-radius:999px;padding:12px 28px;font-size:14px;text-decoration:none;">Back to Login</a>
     </div>
-  </body>
-  </html>
-    `);
-  });
+  ` : `
+    <h1 style="font-size:22px;font-weight:800;color:#2B2D35;margin-bottom:6px;">Reset your password</h1>
+    <p style="font-size:13px;color:#7A7C85;margin-bottom:24px;">Enter your email and we'll text you a secure reset link.</p>
+
+    <form method="POST" action="/manager/forgot-password">
+      <label style="display:block;font-size:12px;font-weight:600;color:#2B2D35;margin-bottom:5px;">Email address</label>
+      <input type="email" name="email" required placeholder="you@yoursalon.com"
+        style="width:100%;border-radius:10px;padding:11px 14px;border:1px solid #EDE7E4;background:#FDF8F6;font-size:14px;color:#2B2D35;margin-bottom:20px;font-family:inherit;box-sizing:border-box;" />
+      <button type="submit"
+        style="background:#2B2D35;color:#fff;font-weight:700;border-radius:999px;padding:13px 0;width:100%;font-size:14px;border:none;cursor:pointer;font-family:inherit;">
+        Send reset link →
+      </button>
+    </form>
+    <div style="text-align:center;margin-top:16px;">
+      <a href="/manager/login" style="font-size:12px;color:#7A7C85;text-decoration:none;">← Back to login</a>
+    </div>
+  `;
+
+  res.type("html").send(`
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Reset Password — MostlyPostly</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif; background: #FDF8F6; color: #2B2D35; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+  </style>
+</head>
+<body>
+  <div style="width:100%;max-width:420px;background:#fff;border-radius:20px;padding:40px 36px;box-shadow:0 4px 32px rgba(43,45,53,0.08);border:1px solid #EDE7E4;">
+    <div style="text-align:center;margin-bottom:28px;">
+      <img src="/public/logo/logo.png" alt="MostlyPostly" style="width:180px;height:auto;" />
+    </div>
+    ${cardContent}
+  </div>
+</body>
+</html>
+  `);
+});
 
 
 /* -------------------------------
@@ -756,7 +732,7 @@ router.post("/forgot-password", async (req, res) => {
   const { email } = req.body || {};
 
   if (!email) {
-    return res.send("If the email exists, a reset link was sent.");
+    return res.redirect("/manager/forgot-password?sent=1");
   }
 
   const manager = db
@@ -765,13 +741,13 @@ router.post("/forgot-password", async (req, res) => {
 
   if (!manager?.phone) {
     console.warn("⚠️ Password reset requested but manager has no phone:", email);
-    return res.send("If the email exists, a reset link was sent.");
+    return res.redirect("/manager/forgot-password?sent=1");
   }
 
 
   // Always respond success (prevents email enumeration)
   if (!manager) {
-    return res.send("If the email exists, a reset link was sent.");
+    return res.redirect("/manager/forgot-password?sent=1");
   }
 
   const token = lowerHex();
@@ -806,7 +782,7 @@ https://yourdomain.com/manager/reset-password?token=${token}
   await sendViaTwilio(manager.phone, smsBody);
 
 
-  return res.send("If the email exists, a reset link was sent.");
+  return res.redirect("/manager/forgot-password?sent=1");
 });
 
 /* -------------------------------
