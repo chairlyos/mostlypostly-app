@@ -1,13 +1,15 @@
 // src/routes/vendorAdmin.js
-// Internal MostlyPostly admin route for managing vendor campaign content.
+// Internal MostlyPostly admin route for managing vendor campaign content
+// and overriding salon plan/status for testing.
 // Protected by INTERNAL_SECRET env var — NOT accessible to salon managers.
 // Mount at: /internal/vendors
 //
 // Usage:
-//   GET  /internal/vendors?secret=<INTERNAL_SECRET>  — dashboard
-//   POST /internal/vendors/upload?secret=<...>        — upload CSV
-//   POST /internal/vendors/delete/:id?secret=<...>    — delete campaign
-//   GET  /internal/vendors/template?secret=<...>      — download CSV template
+//   GET  /internal/vendors?secret=<INTERNAL_SECRET>     — dashboard (salons + campaigns)
+//   POST /internal/vendors/set-plan?secret=<...>        — override salon plan
+//   POST /internal/vendors/upload?secret=<...>          — upload vendor CSV
+//   POST /internal/vendors/delete/:id?secret=<...>      — delete campaign
+//   GET  /internal/vendors/template?secret=<...>        — download CSV template
 
 import express from "express";
 import multer from "multer";
@@ -83,10 +85,32 @@ function parseCSVLine(line) {
   return fields;
 }
 
+// ── POST /set-plan — Override salon plan for testing ──────────────────────────
+router.post("/set-plan", requireSecret, (req, res) => {
+  const { salon_slug, plan, plan_status } = req.body;
+  if (!salon_slug || !plan) return res.redirect(`/internal/vendors${qs(req)}`);
+
+  const validPlans   = ["trial", "starter", "growth", "pro"];
+  const validStatus  = ["trialing", "active", "past_due", "canceled"];
+  if (!validPlans.includes(plan)) return res.redirect(`/internal/vendors${qs(req)}`);
+
+  db.prepare(`
+    UPDATE salons SET plan = ?, plan_status = ?, updated_at = datetime('now') WHERE slug = ?
+  `).run(plan, validStatus.includes(plan_status) ? plan_status : "active", salon_slug);
+
+  console.log(`[vendorAdmin] Set ${salon_slug} → plan:${plan} status:${plan_status}`);
+  res.redirect(`/internal/vendors${qs(req)}`);
+});
+
 // ── GET / — Dashboard ─────────────────────────────────────────────────────────
 router.get("/", requireSecret, (req, res) => {
   const campaigns = db.prepare(`
     SELECT * FROM vendor_campaigns ORDER BY vendor_name ASC, campaign_name ASC
+  `).all();
+
+  // All salons for plan control panel
+  const salons = db.prepare(`
+    SELECT slug, name, plan, plan_status, trial_ends_at FROM salons ORDER BY name ASC
   `).all();
 
   // Group by vendor
@@ -153,6 +177,55 @@ router.get("/", requireSecret, (req, res) => {
       <div class="flex gap-3">
         <a href="/internal/vendors/template${qs(req)}"
            class="text-sm border rounded-lg px-4 py-2 hover:bg-gray-100">Download Template</a>
+      </div>
+    </div>
+
+    <!-- Salon Plan Controls -->
+    <div class="border rounded-2xl bg-white p-6 mb-8">
+      <h2 class="font-bold mb-1">Salon Plan Overrides</h2>
+      <p class="text-sm text-gray-500 mb-4">Override any salon's plan and status for testing. Changes take effect immediately on next page load.</p>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm border-collapse">
+          <thead>
+            <tr class="border-b text-left text-xs text-gray-500 uppercase tracking-wide">
+              <th class="pb-2 pr-4">Salon</th>
+              <th class="pb-2 pr-4">Slug</th>
+              <th class="pb-2 pr-4">Current Plan</th>
+              <th class="pb-2 pr-4">Status</th>
+              <th class="pb-2">Override</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${salons.map(s => {
+              const planColor = { pro: "bg-purple-100 text-purple-700", growth: "bg-blue-100 text-blue-700", starter: "bg-green-100 text-green-700", trial: "bg-gray-100 text-gray-600" }[s.plan] || "bg-gray-100 text-gray-600";
+              return `
+              <tr class="border-b last:border-0">
+                <td class="py-3 pr-4 font-medium">${safe(s.name)}</td>
+                <td class="py-3 pr-4 text-gray-500 font-mono text-xs">${safe(s.slug)}</td>
+                <td class="py-3 pr-4">
+                  <span class="inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${planColor}">${safe(s.plan || "trial")}</span>
+                </td>
+                <td class="py-3 pr-4 text-xs text-gray-500">${safe(s.plan_status || "trialing")}</td>
+                <td class="py-3">
+                  <form method="POST" action="/internal/vendors/set-plan${qs(req)}" class="flex items-center gap-2">
+                    <input type="hidden" name="salon_slug" value="${safe(s.slug)}" />
+                    <select name="plan" class="text-xs border rounded-lg px-2 py-1.5">
+                      ${["trial","starter","growth","pro"].map(p =>
+                        `<option value="${p}" ${s.plan === p ? "selected" : ""}>${p}</option>`
+                      ).join("")}
+                    </select>
+                    <select name="plan_status" class="text-xs border rounded-lg px-2 py-1.5">
+                      ${["trialing","active","past_due","canceled"].map(st =>
+                        `<option value="${st}" ${s.plan_status === st ? "selected" : ""}>${st}</option>`
+                      ).join("")}
+                    </select>
+                    <button type="submit" class="text-xs bg-gray-900 text-white rounded-lg px-3 py-1.5 hover:bg-gray-700">Set</button>
+                  </form>
+                </td>
+              </tr>`;
+            }).join("")}
+          </tbody>
+        </table>
       </div>
     </div>
 
