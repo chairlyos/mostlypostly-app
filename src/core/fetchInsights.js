@@ -55,23 +55,16 @@ async function fetchFBInsights(fbPostId, pageToken) {
 }
 
 // ─── Instagram ───────────────────────────────────────────────────────────────
+// mediaInfo is pre-fetched from /{igBusinessId}/media — avoids direct /{mediaId}?fields=
+// which fails when the token doesn't have direct read access to that media object.
 
-async function fetchIGInsights(igMediaId, pageToken) {
-  // First fetch media type so we request the right metrics
-  const fieldsUrl = `${GRAPH}/${igMediaId}?fields=like_count,comments_count,media_type&access_token=${pageToken}`;
-  const fieldsRes = await fetch(fieldsUrl);
-  const fieldsJson = await fieldsRes.json();
+async function fetchIGInsights(igMediaId, pageToken, mediaInfo = null) {
+  const mediaType = (mediaInfo?.media_type || "IMAGE").toUpperCase();
+  const likes     = mediaInfo?.like_count    || 0;
+  const comments  = mediaInfo?.comments_count || 0;
 
-  if (fieldsJson.error) {
-    throw new Error(`IG fields error for ${igMediaId}: ${fieldsJson.error.message}`);
-  }
-
-  const mediaType = (fieldsJson.media_type || "IMAGE").toUpperCase();
-  const likes     = fieldsJson.like_count || 0;
-  const comments  = fieldsJson.comments_count || 0;
-
-  // v22+: `impressions` is no longer supported. Use reach + total_interactions.
-  // Reels also support `plays`; everything else uses reach + saved + total_interactions.
+  // v22+: `impressions` removed. Use reach + saved + total_interactions.
+  // Reels also support `plays`.
   const isReel = mediaType === "VIDEO" || mediaType === "REEL";
   const insightMetrics = isReel
     ? ["reach", "plays", "saved", "total_interactions"].join(",")
@@ -81,32 +74,29 @@ async function fetchIGInsights(igMediaId, pageToken) {
   const insightRes = await fetch(insightUrl);
   const insightJson = await insightRes.json();
 
-  // Insight fetch may fail for stories or very old media — degrade gracefully
   const byName = {};
   if (insightRes.ok && !insightJson.error) {
     for (const item of insightJson.data || []) {
-      // Graph API returns value inside values[0].value (older) or directly as item.value (newer)
       byName[item.name] = item.values?.[0]?.value ?? item.value ?? 0;
     }
   } else if (insightJson.error) {
-    console.warn(`⚠️ IG insight metrics error for ${igMediaId} (${mediaType}): ${insightJson.error.message}`);
+    console.warn(`⚠️ IG insights error ${igMediaId} (${mediaType}): ${insightJson.error.message}`);
   }
 
-  const reach              = byName["reach"] || 0;
-  const saves              = byName["saved"] || 0;
-  const totalInteractions  = byName["total_interactions"] || 0;
-  const plays              = byName["plays"] || 0;
-  // total_interactions = likes + comments + saves + shares; use it for engaged_users
-  const engaged = totalInteractions || (likes + comments + saves);
+  const reach             = byName["reach"] || 0;
+  const saves             = byName["saved"] || 0;
+  const totalInteractions = byName["total_interactions"] || 0;
+  const plays             = byName["plays"] || 0;
+  const engaged           = totalInteractions || (likes + comments + saves);
 
   return {
-    platform:      "instagram",
-    impressions:   plays || reach, // best proxy for impressions available
+    platform:       "instagram",
+    impressions:    plays || reach,
     reach,
     likes,
     comments,
     saves,
-    engaged_users: engaged,
+    engaged_users:  engaged,
     engagement_rate: reach > 0 ? parseFloat(((engaged / reach) * 100).toFixed(2)) : 0,
   };
 }
@@ -160,26 +150,63 @@ function upsertInsights(postId, salonId, metrics) {
   });
 }
 
+// ─── Fetch all IG media from the business account (paginated) ────────────────
+// Returns a Map of mediaId → {id, like_count, comments_count, media_type, timestamp}
+
+async function fetchAllIGMedia(igBusinessId, pageToken) {
+  const mediaMap = new Map();
+  let url = `${GRAPH}/${igBusinessId}/media?fields=id,like_count,comments_count,media_type,timestamp&limit=100&access_token=${pageToken}`;
+
+  while (url) {
+    const res = await fetch(url);
+    const json = await res.json();
+    if (json.error || !json.data) {
+      console.warn("⚠️ IG media list error:", json.error?.message || "no data");
+      break;
+    }
+    for (const m of json.data) mediaMap.set(m.id, m);
+    url = json.paging?.next || null;
+  }
+
+  return mediaMap;
+}
+
 // ─── Main sync ───────────────────────────────────────────────────────────────
 
 export async function syncSalonInsights(salon) {
-  const pageToken = salon.facebook_page_token || process.env.FACEBOOK_PAGE_TOKEN;
+  const pageToken    = salon.facebook_page_token || process.env.FACEBOOK_PAGE_TOKEN;
+  const igBusinessId = salon.instagram_business_id;
   if (!pageToken) return { synced: 0, errors: ["No Facebook page token configured"] };
 
+  const salonSlug = salon.slug || salon.salon_id || salon.id;
+
   const publishedPosts = db.prepare(`
-    SELECT id, fb_post_id, ig_media_id, salon_id
+    SELECT id, fb_post_id, ig_media_id, salon_id, published_at
     FROM posts
     WHERE salon_id = ? AND status = 'published'
       AND (fb_post_id IS NOT NULL OR ig_media_id IS NOT NULL)
     ORDER BY published_at DESC
     LIMIT 100
-  `).all(salon.slug || salon.salon_id || salon.id);
+  `).all(salonSlug);
+
+  // Fetch all IG media from the business account so we can match by ID or timestamp.
+  // This avoids direct /{mediaId}?fields= calls which fail when the token doesn't
+  // have read access to media from a previous OAuth connection.
+  let igMediaMap = new Map();
+  if (igBusinessId) {
+    try {
+      igMediaMap = await fetchAllIGMedia(igBusinessId, pageToken);
+      console.log(`📷 [Insights] Loaded ${igMediaMap.size} IG media items from account`);
+    } catch (err) {
+      console.warn("⚠️ [Insights] Could not fetch IG media list:", err.message);
+    }
+  }
 
   let synced = 0;
   const errors = [];
 
   for (const post of publishedPosts) {
-    // Facebook
+    // ── Facebook ──────────────────────────────────────────────────────────
     if (post.fb_post_id) {
       try {
         const metrics = await fetchFBInsights(post.fb_post_id, pageToken);
@@ -190,15 +217,40 @@ export async function syncSalonInsights(salon) {
       }
     }
 
-    // Instagram
-    if (post.ig_media_id) {
-      try {
-        const metrics = await fetchIGInsights(post.ig_media_id, pageToken);
-        upsertInsights(post.id, post.salon_id, metrics);
-        synced++;
-      } catch (err) {
-        errors.push(`IG ${post.ig_media_id}: ${err.message}`);
+    // ── Instagram ─────────────────────────────────────────────────────────
+    if (igBusinessId && igMediaMap.size > 0) {
+      // Try stored ID first; if not in the IG media list, try timestamp match
+      let igMediaId  = post.ig_media_id;
+      let mediaInfo  = igMediaId ? igMediaMap.get(igMediaId) : null;
+
+      if (!mediaInfo && post.published_at) {
+        const postTime = new Date(post.published_at + "Z").getTime();
+        for (const [id, m] of igMediaMap) {
+          if (Math.abs(new Date(m.timestamp).getTime() - postTime) < 5 * 60 * 1000) {
+            igMediaId = id;
+            mediaInfo = m;
+            // Fix the stale media ID in DB
+            db.prepare(`UPDATE posts SET ig_media_id=? WHERE id=?`).run(id, post.id);
+            console.log(`🔧 [Insights] Updated ig_media_id for post ${post.id}: ${post.ig_media_id} → ${id}`);
+            break;
+          }
+        }
       }
+
+      if (igMediaId && mediaInfo) {
+        try {
+          const metrics = await fetchIGInsights(igMediaId, pageToken, mediaInfo);
+          upsertInsights(post.id, post.salon_id, metrics);
+          synced++;
+        } catch (err) {
+          errors.push(`IG ${igMediaId}: ${err.message}`);
+        }
+      } else if (post.ig_media_id) {
+        errors.push(`IG ${post.ig_media_id}: not found in IG media list (may be from a different account)`);
+      }
+    } else if (post.ig_media_id) {
+      // No igBusinessId configured — skip IG sync
+      errors.push(`IG ${post.ig_media_id}: no instagram_business_id configured for salon`);
     }
   }
 
