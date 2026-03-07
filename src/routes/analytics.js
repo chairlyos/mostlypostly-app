@@ -463,7 +463,7 @@ router.post("/backfill-fb-ids", async (req, res) => {
   const { facebook_page_id: pageId, facebook_page_token: token } = salonRow;
 
   // Fetch last 100 posts from the FB page
-  const fbUrl = `https://graph.facebook.com/v21.0/${pageId}/posts?fields=id,created_time&limit=100&access_token=${token}`;
+  const fbUrl = `https://graph.facebook.com/v22.0/${pageId}/posts?fields=id,created_time&limit=100&access_token=${token}`;
   const fbRes = await fetch(fbUrl);
   const fbJson = await fbRes.json();
 
@@ -545,7 +545,7 @@ router.get("/debug", async (req, res) => {
   }
 
   const { facebook_page_id: pageId, facebook_page_token: token, instagram_business_id: igId } = salonRow;
-  const GRAPH = "https://graph.facebook.com/v21.0";
+  const GRAPH = "https://graph.facebook.com/v22.0";
   const report = { salon_id, pageId, igId, checks: [] };
 
   // 1. Test page token validity
@@ -557,11 +557,11 @@ router.get("/debug", async (req, res) => {
     report.checks.push({ test: "FB page token", ok: false, detail: e.message });
   }
 
-  // 2. Test FB page insights permission
+  // 2. Test FB page insights permission (page_fans = follower count, reliable read_insights check)
   try {
-    const r = await fetch(`${GRAPH}/${pageId}/insights?metric=page_impressions&period=day&limit=1&access_token=${token}`);
+    const r = await fetch(`${GRAPH}/${pageId}/insights?metric=page_fans&period=lifetime&access_token=${token}`);
     const j = await r.json();
-    report.checks.push({ test: "FB page insights", ok: !j.error, detail: j.error?.message || `${(j.data||[]).length} metric rows` });
+    report.checks.push({ test: "FB page insights", ok: !j.error, detail: j.error?.message || `${(j.data||[]).length} metric rows returned` });
   } catch (e) {
     report.checks.push({ test: "FB page insights", ok: false, detail: e.message });
   }
@@ -586,8 +586,8 @@ router.get("/debug", async (req, res) => {
         const mediaId = j.data[0].id;
         const mediaType = (j.data[0].media_type || "IMAGE").toUpperCase();
         const metrics = (mediaType === "VIDEO" || mediaType === "REEL")
-          ? "reach,plays"
-          : "impressions,reach,saved";
+          ? "reach,plays,saved,total_interactions"
+          : "reach,saved,total_interactions";
         const ir = await fetch(`${GRAPH}/${mediaId}/insights?metric=${metrics}&access_token=${token}`);
         const ij = await ir.json();
         report.checks.push({ test: `IG post insights (${mediaId}, ${mediaType})`, ok: !ij.error, detail: ij.error?.message || `${(ij.data||[]).length} metrics returned` });

@@ -2,7 +2,7 @@
 import { db } from "../../db.js";
 import crypto from "crypto";
 
-const GRAPH = "https://graph.facebook.com/v21.0";
+const GRAPH = "https://graph.facebook.com/v22.0";
 
 // ─── Facebook ────────────────────────────────────────────────────────────────
 
@@ -70,17 +70,18 @@ async function fetchIGInsights(igMediaId, pageToken) {
   const likes     = fieldsJson.like_count || 0;
   const comments  = fieldsJson.comments_count || 0;
 
-  // Reels use different metrics than feed posts / images
+  // v22+: `impressions` is no longer supported. Use reach + total_interactions.
+  // Reels also support `plays`; everything else uses reach + saved + total_interactions.
   const isReel = mediaType === "VIDEO" || mediaType === "REEL";
   const insightMetrics = isReel
-    ? ["reach", "plays", "ig_reels_video_view_total_time"].join(",")
-    : ["impressions", "reach", "saved"].join(",");
+    ? ["reach", "plays", "saved", "total_interactions"].join(",")
+    : ["reach", "saved", "total_interactions"].join(",");
 
   const insightUrl = `${GRAPH}/${igMediaId}/insights?metric=${insightMetrics}&access_token=${pageToken}`;
   const insightRes = await fetch(insightUrl);
   const insightJson = await insightRes.json();
 
-  // Insight fetch may fail for stories or old media — degrade gracefully
+  // Insight fetch may fail for stories or very old media — degrade gracefully
   const byName = {};
   if (insightRes.ok && !insightJson.error) {
     for (const item of insightJson.data || []) {
@@ -91,14 +92,16 @@ async function fetchIGInsights(igMediaId, pageToken) {
     console.warn(`⚠️ IG insight metrics error for ${igMediaId} (${mediaType}): ${insightJson.error.message}`);
   }
 
-  const impressions = byName["impressions"] || byName["plays"] || 0;
-  const reach       = byName["reach"] || 0;
-  const saves       = byName["saved"] || 0;
-  const engaged     = likes + comments + saves;
+  const reach              = byName["reach"] || 0;
+  const saves              = byName["saved"] || 0;
+  const totalInteractions  = byName["total_interactions"] || 0;
+  const plays              = byName["plays"] || 0;
+  // total_interactions = likes + comments + saves + shares; use it for engaged_users
+  const engaged = totalInteractions || (likes + comments + saves);
 
   return {
     platform:      "instagram",
-    impressions,
+    impressions:   plays || reach, // best proxy for impressions available
     reach,
     likes,
     comments,
