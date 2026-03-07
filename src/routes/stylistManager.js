@@ -144,17 +144,6 @@ router.get("/", requireAuth, (req, res) => {
               `<span class="inline-flex px-2 py-0.5 rounded-full bg-mpBg text-[10px] text-mpMuted">${safe(sp)}</span>`
             ).join("")}
           </div>
-          <div class="mt-1 flex items-center gap-2">
-            <span class="text-[10px] text-mpMuted">Celebrations:</span>
-            <form method="POST" action="/manager/stylists/toggle-celebrations/${safe(s.id)}${qs}" class="inline">
-              <button type="submit"
-                class="relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none
-                       ${s.celebrations_enabled ? "bg-mpAccent" : "bg-mpBorder"}">
-                <span class="inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform
-                             ${s.celebrations_enabled ? "translate-x-4" : "translate-x-0.5"}"></span>
-              </button>
-            </form>
-          </div>
         </div>
       </div>`;
   }).join("");
@@ -335,16 +324,6 @@ router.post("/delete/:id", requireAuth, (req, res) => {
   res.redirect(`/manager/stylists?salon=${encodeURIComponent(salon_id)}`);
 });
 
-// ── POST /toggle-celebrations/:id ─────────────────────────────────────────────
-router.post("/toggle-celebrations/:id", requireAuth, (req, res) => {
-  const salon_id = req.manager.salon_id;
-  const row = db.prepare("SELECT celebrations_enabled FROM stylists WHERE id = ? AND salon_id = ?").get(req.params.id, salon_id);
-  if (row) {
-    db.prepare("UPDATE stylists SET celebrations_enabled = ? WHERE id = ? AND salon_id = ?")
-      .run(row.celebrations_enabled ? 0 : 1, req.params.id, salon_id);
-  }
-  res.redirect(`/manager/stylists?salon=${encodeURIComponent(salon_id)}`);
-});
 
 // ── GET /template — CSV download ──────────────────────────────────────────────
 router.get("/template", requireAuth, (_req, res) => {
@@ -522,23 +501,6 @@ function buildStylistForm({ salon_id, salonTone, stylist, isEdit }) {
 
         <!-- Profile URL -->
         ${fieldRow("Profile URL", "profile_url", "url", s.profile_url || "", "Link to stylist page on salon website. Used in celebration post captions.")}
-
-        <!-- Celebrations toggle -->
-        <div class="flex items-center justify-between py-3 border-t border-mpBorder">
-          <div>
-            <p class="text-sm font-semibold text-mpCharcoal">Celebration Posts</p>
-            <p class="text-[11px] text-mpMuted">Automatically post birthday and work anniversary content for this stylist.</p>
-          </div>
-          <label class="relative inline-flex items-center cursor-pointer">
-            <input type="checkbox" name="celebrations_enabled" value="1"
-                   ${(!isEdit || s.celebrations_enabled) ? "checked" : ""}
-                   class="sr-only peer" />
-            <div class="w-10 h-6 bg-mpBorder peer-focus:ring-2 peer-focus:ring-mpAccent rounded-full peer
-                        peer-checked:bg-mpAccent after:content-[''] after:absolute after:top-0.5 after:left-0.5
-                        after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all
-                        peer-checked:after:translate-x-4"></div>
-          </label>
-        </div>
 
         <!-- Submit -->
         <div class="flex gap-3 pt-2">

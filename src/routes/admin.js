@@ -488,74 +488,6 @@ router.get("/", requireAuth, (req, res) => {
           data-custom-hashtags='${JSON.stringify(info.default_hashtags.slice(1))}'
         ></div>
 
-  <!-- ═══════════════════════════════════════════════════════ -->
-  <!-- MY PROFILE (manager as stylist)                       -->
-  <!-- ═══════════════════════════════════════════════════════ -->
-  ${(() => {
-    const mgrRow = db.prepare(`
-      SELECT id, name, phone, instagram_handle, photo_url, specialties, preferred_music_genre
-      FROM managers WHERE id = ?
-    `).get(req.manager?.id);
-
-    const currentPhoto = mgrRow?.photo_url || "";
-    const currentHandle = mgrRow?.instagram_handle || "";
-    const currentSpecialties = mgrRow?.specialties || "";
-    const currentMusic = mgrRow?.preferred_music_genre || "";
-
-    return `
-    <section class="mb-10">
-      <h2 class="text-lg font-semibold text-white mb-1">My Stylist Profile</h2>
-      <p class="text-sm text-mpMuted mb-4">Used when you post content as a stylist (photo, IG handle, availability posts, etc.)</p>
-
-      <form method="POST" action="/manager/admin/update-my-profile?salon=${salon_id}"
-            enctype="multipart/form-data"
-            class="bg-white border border-mpBorder rounded-2xl p-5 space-y-4">
-
-        ${currentPhoto ? `
-          <div class="flex items-center gap-3">
-            <img src="${currentPhoto}" class="w-16 h-16 rounded-lg object-cover border border-mpBorder" />
-            <span class="text-xs text-mpMuted">Current photo — upload a new one to replace</span>
-          </div>` : ""}
-
-        <div>
-          <label class="block text-xs text-mpMuted mb-1">Profile Photo</label>
-          <input type="file" name="manager_photo" accept="image/*"
-            class="w-full text-sm text-mpMuted file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:bg-mpBorder file:text-mpCharcoal hover:file:bg-mpBorder" />
-        </div>
-
-        <div class="grid grid-cols-2 gap-4">
-          <div>
-            <label class="block text-xs text-mpMuted mb-1">Instagram Handle</label>
-            <input name="instagram_handle" value="${currentHandle}"
-              placeholder="yourhandle (no @)"
-              class="w-full bg-mpBg border border-mpBorder rounded-lg px-3 py-2 text-sm text-mpCharcoal" />
-          </div>
-          <div>
-            <label class="block text-xs text-mpMuted mb-1">Preferred Music Genre</label>
-            <select name="preferred_music_genre"
-              class="w-full bg-mpBg border border-mpBorder rounded-lg px-3 py-2 text-sm text-mpCharcoal">
-              <option value="">None</option>
-              ${["Pop", "Country", "Hip-Hop", "R&B", "Rock", "Latin", "EDM"].map(g =>
-                `<option value="${g}" ${currentMusic === g ? "selected" : ""}>${g}</option>`
-              ).join("")}
-            </select>
-          </div>
-        </div>
-
-        <div>
-          <label class="block text-xs text-mpMuted mb-1">Specialties <span class="text-mpMuted">(comma separated)</span></label>
-          <input name="specialties" value="${currentSpecialties}"
-            placeholder="e.g. Balayage, Color, Extensions"
-            class="w-full bg-mpBg border border-mpBorder rounded-lg px-3 py-2 text-sm text-mpCharcoal" />
-        </div>
-
-        <button class="w-full bg-mpCharcoal hover:bg-mpCharcoalDark rounded-lg py-2 text-sm font-semibold text-white">
-          Save Profile
-        </button>
-      </form>
-    </section>
-    `;
-  })()}
 
   <!-- ═══════════════════════════════════════════════════════ -->
   <!-- STOCK PHOTOS                                           -->
@@ -587,11 +519,11 @@ router.get("/", requireAuth, (req, res) => {
             </div>
             <form method="POST" action="/manager/admin/stock-photos/delete?salon=${salon_id}" class="flex-shrink-0">
               <input type="hidden" name="photo_id" value="${p.id}" />
-              <button class="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded hover:bg-mpBorder">Remove</button>
+              <button class="text-xs text-red-400 hover:text-red-600 px-2 py-1 rounded-lg hover:bg-red-50 transition-colors">Remove</button>
             </form>
           </div>
         `).join("")
-      : `<p class="text-mpMuted text-sm italic">No stock photos uploaded yet.</p>`;
+      : `<p class="text-mpMuted text-xs italic py-2">No stock photos uploaded yet.</p>`;
 
     const stylistOptions = [
       ...managers.map(m => `<option value="${m.id}">${m.name} (Manager)</option>`),
@@ -599,33 +531,40 @@ router.get("/", requireAuth, (req, res) => {
     ].join("");
 
     return `
-    <section class="mb-10">
-      <h2 class="text-lg font-semibold text-white mb-1">Stock Photos</h2>
-      <p class="text-sm text-mpMuted mb-4">Used for availability posts. Upload salon-wide or per-stylist background photos.</p>
-
-      <div class="space-y-3 mb-6">
-        ${photoCards}
-      </div>
-
-      <form method="POST" action="/manager/admin/stock-photos/upload?salon=${salon_id}"
-            enctype="multipart/form-data"
-            class="bg-white border border-mpBorder rounded-2xl p-5 space-y-3">
-        <h3 class="text-sm font-semibold text-mpCharcoal">Upload New Stock Photo</h3>
-        <input type="file" name="stock_photo" accept="image/*" required
-          class="w-full text-sm text-mpMuted file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:bg-mpBorder file:text-mpCharcoal hover:file:bg-mpBorder" />
-        <input name="label" placeholder="Label (e.g. Salon Interior, Spring Backdrop)"
-          class="w-full bg-mpBg border border-mpBorder rounded-lg px-3 py-2 text-sm text-mpCharcoal" />
-        <div>
-          <label class="block text-xs text-mpMuted mb-1">Link to a stylist (optional — leave blank for salon-wide)</label>
-          <select name="stylist_id" class="w-full bg-mpBg border border-mpBorder rounded-lg px-3 py-2 text-sm text-mpCharcoal">
-            <option value="">Salon-wide</option>
-            ${stylistOptions}
-          </select>
+    <section class="mb-6">
+      <div class="rounded-2xl border border-mpBorder bg-white px-4 py-4">
+        <div class="flex items-center justify-between mb-1">
+          <h2 class="text-sm font-semibold text-mpCharcoal">Stock Photos</h2>
+          <span class="text-[11px] text-mpMuted">${stockPhotos.length} photo${stockPhotos.length !== 1 ? "s" : ""}</span>
         </div>
-        <button class="w-full bg-mpCharcoal hover:bg-mpCharcoalDark rounded-lg py-2 text-sm font-semibold text-white">
-          Upload Stock Photo
-        </button>
-      </form>
+        <p class="text-[11px] text-mpMuted mb-4">Background images used for availability posts. Upload salon-wide or link to a specific stylist.</p>
+
+        <div class="space-y-2 mb-5">
+          ${photoCards}
+        </div>
+
+        <form method="POST" action="/manager/admin/stock-photos/upload?salon=${salon_id}"
+              enctype="multipart/form-data"
+              class="border border-mpBorder rounded-xl p-4 space-y-3 bg-mpBg">
+          <h3 class="text-xs font-bold text-mpCharcoal">Upload New Photo</h3>
+          <input type="file" name="stock_photo" accept="image/*" required
+            class="w-full text-sm text-mpMuted file:mr-3 file:py-1.5 file:px-3 file:rounded-full file:border-0
+                   file:text-xs file:font-semibold file:bg-mpAccentLight file:text-mpAccent
+                   hover:file:bg-mpAccent hover:file:text-white transition-colors" />
+          <input name="label" placeholder="Label (e.g. Salon Interior, Spring Backdrop)"
+            class="w-full border border-mpBorder rounded-xl px-3 py-2 text-sm text-mpCharcoal bg-white focus:outline-none focus:ring-2 focus:ring-mpAccent" />
+          <div>
+            <label class="block text-[11px] text-mpMuted mb-1">Link to a stylist (optional)</label>
+            <select name="stylist_id" class="w-full border border-mpBorder rounded-xl px-3 py-2 text-sm text-mpCharcoal bg-white focus:outline-none focus:ring-2 focus:ring-mpAccent">
+              <option value="">Salon-wide</option>
+              ${stylistOptions}
+            </select>
+          </div>
+          <button class="inline-flex items-center gap-1.5 rounded-full bg-mpCharcoal px-5 py-2 text-xs font-semibold text-white hover:bg-mpCharcoalDark transition-colors">
+            Upload Stock Photo
+          </button>
+        </form>
+      </div>
     </section>
     `;
   })()}
