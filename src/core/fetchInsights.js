@@ -19,6 +19,7 @@ async function fetchFBInsights(fbPostId, pageToken) {
     }
   }
 
+  // ── Try full insights (requires read_insights advanced access) ──
   const metrics = [
     "post_impressions",
     "post_impressions_unique",
@@ -26,37 +27,60 @@ async function fetchFBInsights(fbPostId, pageToken) {
     "post_reactions_by_type_total",
   ].join(",");
 
-  const url = `${GRAPH}/${resolvedId}/insights?metric=${metrics}&access_token=${pageToken}`;
-  const res = await fetch(url);
-  const json = await res.json();
+  const insightsUrl = `${GRAPH}/${resolvedId}/insights?metric=${metrics}&access_token=${pageToken}`;
+  const insightsRes = await fetch(insightsUrl);
+  const insightsJson = await insightsRes.json();
 
-  if (!res.ok || json.error) {
-    throw new Error(`FB insights error for ${resolvedId}: ${json?.error?.message || res.status}`);
+  if (insightsRes.ok && !insightsJson.error) {
+    const byName = {};
+    for (const item of insightsJson.data || []) {
+      byName[item.name] = item.values?.[0]?.value ?? 0;
+    }
+    const reactionsByType = byName["post_reactions_by_type_total"] || {};
+    const totalReactions = typeof reactionsByType === "object"
+      ? Object.values(reactionsByType).reduce((s, v) => s + (v || 0), 0)
+      : (reactionsByType || 0);
+    const impressions = byName["post_impressions"] || 0;
+    const reach       = byName["post_impressions_unique"] || 0;
+    const engaged     = byName["post_engaged_users"] || 0;
+    return {
+      platform:       "facebook",
+      impressions, reach,
+      engaged_users:  engaged,
+      reactions:      totalReactions,
+      link_clicks:    0,
+      engagement_rate: reach > 0 ? parseFloat(((engaged / reach) * 100).toFixed(2)) : 0,
+    };
   }
 
-  const byName = {};
-  for (const item of json.data || []) {
-    byName[item.name] = item.values?.[0]?.value ?? 0;
+  // ── Fallback: pages_read_engagement fields (works without read_insights) ──
+  // Covers the case where the app hasn't received advanced access to read_insights yet.
+  console.warn(`⚠️ [FB] Insights API unavailable for ${resolvedId} (${insightsJson?.error?.code}), falling back to engagement fields`);
+
+  const fieldsUrl = `${GRAPH}/${resolvedId}?fields=likes.summary(true),comments.summary(true),shares,reactions.summary(true)&access_token=${pageToken}`;
+  const fieldsRes = await fetch(fieldsUrl);
+  const fieldsJson = await fieldsRes.json();
+
+  if (!fieldsRes.ok || fieldsJson.error) {
+    throw new Error(`FB insights error for ${resolvedId}: ${fieldsJson?.error?.message || fieldsRes.status}`);
   }
 
-  const reactionsByType = byName["post_reactions_by_type_total"] || {};
-  const totalReactions = typeof reactionsByType === "object"
-    ? Object.values(reactionsByType).reduce((s, v) => s + (v || 0), 0)
-    : (reactionsByType || 0);
-
-  const impressions = byName["post_impressions"] || 0;
-  const reach       = byName["post_impressions_unique"] || 0;
-  const engaged     = byName["post_engaged_users"] || 0;
+  const likes     = fieldsJson.likes?.summary?.total_count || 0;
+  const comments  = fieldsJson.comments?.summary?.total_count || 0;
+  const shares    = fieldsJson.shares?.count || 0;
+  const reactions = fieldsJson.reactions?.summary?.total_count || 0;
+  const engaged   = likes + comments + shares;
 
   return {
-    platform:      "facebook",
-    impressions,
-    reach,
-    engaged_users: engaged,
-    reactions:     totalReactions,
-    link_clicks:   0,
-    other_clicks:  0,
-    engagement_rate: reach > 0 ? parseFloat(((engaged / reach) * 100).toFixed(2)) : 0,
+    platform:       "facebook",
+    impressions:    0,
+    reach:          0,
+    likes,
+    comments,
+    engaged_users:  engaged,
+    reactions,
+    link_clicks:    0,
+    engagement_rate: 0, // can't compute without reach
   };
 }
 
