@@ -57,34 +57,43 @@ async function fetchFBInsights(fbPostId, pageToken) {
 // ─── Instagram ───────────────────────────────────────────────────────────────
 
 async function fetchIGInsights(igMediaId, pageToken) {
-  // Insights endpoint for reach, impressions, saves
-  const insightMetrics = ["impressions", "reach", "saved"].join(",");
-  const insightUrl = `${GRAPH}/${igMediaId}/insights?metric=${insightMetrics}&access_token=${pageToken}`;
-
-  // Fields endpoint for likes and comments
+  // First fetch media type so we request the right metrics
   const fieldsUrl = `${GRAPH}/${igMediaId}?fields=like_count,comments_count,media_type&access_token=${pageToken}`;
+  const fieldsRes = await fetch(fieldsUrl);
+  const fieldsJson = await fieldsRes.json();
 
-  const [insightRes, fieldsRes] = await Promise.all([
-    fetch(insightUrl),
-    fetch(fieldsUrl),
-  ]);
+  if (fieldsJson.error) {
+    throw new Error(`IG fields error for ${igMediaId}: ${fieldsJson.error.message}`);
+  }
 
+  const mediaType = (fieldsJson.media_type || "IMAGE").toUpperCase();
+  const likes     = fieldsJson.like_count || 0;
+  const comments  = fieldsJson.comments_count || 0;
+
+  // Reels use different metrics than feed posts / images
+  const isReel = mediaType === "VIDEO" || mediaType === "REEL";
+  const insightMetrics = isReel
+    ? ["reach", "plays", "ig_reels_video_view_total_time"].join(",")
+    : ["impressions", "reach", "saved"].join(",");
+
+  const insightUrl = `${GRAPH}/${igMediaId}/insights?metric=${insightMetrics}&access_token=${pageToken}`;
+  const insightRes = await fetch(insightUrl);
   const insightJson = await insightRes.json();
-  const fieldsJson  = await fieldsRes.json();
 
   // Insight fetch may fail for stories or old media — degrade gracefully
   const byName = {};
   if (insightRes.ok && !insightJson.error) {
     for (const item of insightJson.data || []) {
+      // Graph API returns value inside values[0].value (older) or directly as item.value (newer)
       byName[item.name] = item.values?.[0]?.value ?? item.value ?? 0;
     }
+  } else if (insightJson.error) {
+    console.warn(`⚠️ IG insight metrics error for ${igMediaId} (${mediaType}): ${insightJson.error.message}`);
   }
 
-  const impressions = byName["impressions"] || 0;
+  const impressions = byName["impressions"] || byName["plays"] || 0;
   const reach       = byName["reach"] || 0;
   const saves       = byName["saved"] || 0;
-  const likes       = fieldsJson?.like_count || 0;
-  const comments    = fieldsJson?.comments_count || 0;
   const engaged     = likes + comments + saves;
 
   return {

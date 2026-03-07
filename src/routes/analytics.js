@@ -398,9 +398,15 @@ router.get("/", (req, res) => {
       try {
         const res = await fetch('/analytics/sync${qs}', { method: 'POST' });
         const data = await res.json();
-        msg.textContent = res.ok ? 'Synced ' + data.synced + ' insight records.' : 'Error: ' + (data.error || 'unknown');
+        if (!res.ok) {
+          msg.textContent = 'Error: ' + (data.error || 'unknown');
+        } else if (data.errors && data.errors.length) {
+          msg.textContent = 'Synced ' + data.synced + ' records. ' + data.errors.length + ' error(s): ' + data.errors[0];
+        } else {
+          msg.textContent = 'Synced ' + data.synced + ' insight records.';
+        }
         toast.classList.remove('hidden');
-        setTimeout(() => { toast.classList.add('hidden'); if (res.ok) location.reload(); }, 2500);
+        setTimeout(() => { toast.classList.add('hidden'); if (res.ok && data.synced > 0) location.reload(); }, 4000);
       } catch(e) {
         msg.textContent = 'Sync failed: ' + e.message;
         toast.classList.remove('hidden');
@@ -500,14 +506,20 @@ router.post("/sync", async (req, res) => {
   const salon_id = resolveSalonId(req);
   if (!salon_id) return res.status(400).json({ error: "No salon context" });
 
-  const salonPolicy = getSalonPolicy(salon_id) || {};
+  const salonRow = db.prepare(
+    `SELECT facebook_page_token, facebook_page_id, instagram_business_id FROM salons WHERE slug=?`
+  ).get(salon_id);
+
   const salon = {
     slug: salon_id,
-    facebook_page_token:
-      salonPolicy.facebook_page_token ||
-      salonPolicy?.salon_info?.facebook_page_token ||
-      process.env.FACEBOOK_PAGE_TOKEN,
+    facebook_page_token: salonRow?.facebook_page_token || process.env.FACEBOOK_PAGE_TOKEN,
+    facebook_page_id:    salonRow?.facebook_page_id,
+    instagram_business_id: salonRow?.instagram_business_id,
   };
+
+  if (!salon.facebook_page_token) {
+    return res.status(400).json({ error: "No Facebook page token found. Reconnect Facebook in Admin." });
+  }
 
   try {
     const result = await syncSalonInsights(salon);
@@ -515,6 +527,89 @@ router.post("/sync", async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+// ─── GET /analytics/debug ─────────────────────────────────────────────────────
+// Diagnostic endpoint: tests the Facebook page token and IG account access.
+
+router.get("/debug", async (req, res) => {
+  const salon_id = resolveSalonId(req);
+  if (!salon_id) return res.status(400).json({ error: "No salon context" });
+
+  const salonRow = db.prepare(
+    `SELECT facebook_page_id, facebook_page_token, instagram_business_id, instagram_handle FROM salons WHERE slug=?`
+  ).get(salon_id);
+
+  if (!salonRow?.facebook_page_token) {
+    return res.json({ error: "No Facebook page token stored. Reconnect Facebook in Admin." });
+  }
+
+  const { facebook_page_id: pageId, facebook_page_token: token, instagram_business_id: igId } = salonRow;
+  const GRAPH = "https://graph.facebook.com/v21.0";
+  const report = { salon_id, pageId, igId, checks: [] };
+
+  // 1. Test page token validity
+  try {
+    const r = await fetch(`${GRAPH}/${pageId}?fields=name,id&access_token=${token}`);
+    const j = await r.json();
+    report.checks.push({ test: "FB page token", ok: !j.error, detail: j.error?.message || `Page: ${j.name} (${j.id})` });
+  } catch (e) {
+    report.checks.push({ test: "FB page token", ok: false, detail: e.message });
+  }
+
+  // 2. Test FB page insights permission
+  try {
+    const r = await fetch(`${GRAPH}/${pageId}/insights?metric=page_impressions&period=day&limit=1&access_token=${token}`);
+    const j = await r.json();
+    report.checks.push({ test: "FB page insights", ok: !j.error, detail: j.error?.message || `${(j.data||[]).length} metric rows` });
+  } catch (e) {
+    report.checks.push({ test: "FB page insights", ok: false, detail: e.message });
+  }
+
+  // 3. Test IG business account access
+  if (igId) {
+    try {
+      const r = await fetch(`${GRAPH}/${igId}?fields=id,username,followers_count&access_token=${token}`);
+      const j = await r.json();
+      report.checks.push({ test: "IG account", ok: !j.error, detail: j.error?.message || `@${j.username} (${j.followers_count} followers)` });
+    } catch (e) {
+      report.checks.push({ test: "IG account", ok: false, detail: e.message });
+    }
+
+    // 4. Test IG media list
+    try {
+      const r = await fetch(`${GRAPH}/${igId}/media?fields=id,timestamp,media_type&limit=3&access_token=${token}`);
+      const j = await r.json();
+      report.checks.push({ test: "IG media list", ok: !j.error, detail: j.error?.message || `${(j.data||[]).length} recent media items` });
+      if (!j.error && j.data?.length) {
+        // 5. Test insights on the most recent IG post
+        const mediaId = j.data[0].id;
+        const mediaType = (j.data[0].media_type || "IMAGE").toUpperCase();
+        const metrics = (mediaType === "VIDEO" || mediaType === "REEL")
+          ? "reach,plays"
+          : "impressions,reach,saved";
+        const ir = await fetch(`${GRAPH}/${mediaId}/insights?metric=${metrics}&access_token=${token}`);
+        const ij = await ir.json();
+        report.checks.push({ test: `IG post insights (${mediaId}, ${mediaType})`, ok: !ij.error, detail: ij.error?.message || `${(ij.data||[]).length} metrics returned` });
+      }
+    } catch (e) {
+      report.checks.push({ test: "IG media list", ok: false, detail: e.message });
+    }
+  } else {
+    report.checks.push({ test: "IG account", ok: false, detail: "No instagram_business_id in DB — reconnect Facebook in Admin" });
+  }
+
+  // 6. Count DB posts with/without media IDs
+  const postStats = db.prepare(`
+    SELECT
+      COUNT(*) as total,
+      SUM(CASE WHEN fb_post_id IS NOT NULL AND fb_post_id != '' THEN 1 ELSE 0 END) as has_fb_id,
+      SUM(CASE WHEN ig_media_id IS NOT NULL AND ig_media_id != '' THEN 1 ELSE 0 END) as has_ig_id
+    FROM posts WHERE salon_id=? AND status='published'
+  `).get(salon_id);
+  report.postStats = postStats;
+
+  res.json(report);
 });
 
 export default router;
