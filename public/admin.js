@@ -224,7 +224,7 @@ window.admin = {
     // Salon tag display
     const tagBox = panel.querySelector("[data-field='salon_tag_display']");
     if (tagBox && data.salon_tag) {
-      tagBox.innerHTML = `<span class="inline-flex items-center rounded-full bg-slate-800 px-2 py-0.5 text-[11px]">${data.salon_tag}</span>`;
+      tagBox.innerHTML = `<span class="inline-flex items-center rounded-full bg-mpAccentLight text-mpAccent px-2 py-0.5 text-[11px] font-medium">${data.salon_tag}</span>`;
     }
 
     // Hidden field
@@ -243,7 +243,7 @@ window.admin = {
 
         const input = document.createElement("input");
         input.className =
-          "flex-1 bg-slate-800 rounded p-2 text-sm text-slate-100";
+          "flex-1 border border-gray-200 bg-gray-50 rounded-lg px-3 py-2 text-sm text-gray-800";
         input.value = tag.replace(/^#+/, "");
         input.oninput = () => {
           tags[idx] = input.value;
@@ -253,7 +253,7 @@ window.admin = {
         const add = document.createElement("button");
         add.textContent = "+";
         add.className =
-          "px-2 py-1 rounded bg-slate-800 text-xs hover:bg-slate-700";
+          "px-2 py-1 rounded-full border border-gray-200 bg-white text-gray-700 text-xs hover:bg-gray-50";
         add.onclick = () => {
           if (tags.length < 4) {
             tags.push("");
@@ -265,7 +265,7 @@ window.admin = {
         const remove = document.createElement("button");
         remove.textContent = "×";
         remove.className =
-          "px-2 py-1 rounded bg-slate-800 text-xs hover:bg-red-500";
+          "px-2 py-1 rounded-full border border-gray-200 bg-white text-gray-500 text-xs hover:text-red-500 hover:border-red-200";
         remove.onclick = () => {
           tags.splice(idx, 1);
           syncHidden();
@@ -325,7 +325,7 @@ window.admin = {
 
         const input = document.createElement("input");
         input.className =
-          "flex-1 bg-slate-800 rounded p-2 text-sm text-slate-100";
+          "flex-1 border border-gray-200 bg-gray-50 rounded-lg px-3 py-2 text-sm text-gray-800";
         input.value = val;
         input.oninput = () => {
           specs[idx] = input.value;
@@ -335,7 +335,7 @@ window.admin = {
         const add = document.createElement("button");
         add.textContent = "+";
         add.className =
-          "px-2 py-1 rounded bg-slate-800 text-xs hover:bg-slate-700";
+          "px-2 py-1 rounded-full border border-gray-200 bg-white text-gray-700 text-xs hover:bg-gray-50";
         add.onclick = () => {
           if (specs.length < 5) {
             specs.push("");
@@ -347,7 +347,7 @@ window.admin = {
         const remove = document.createElement("button");
         remove.textContent = "×";
         remove.className =
-          "px-2 py-1 rounded bg-slate-800 text-xs hover:bg-red-500";
+          "px-2 py-1 rounded-full border border-gray-200 bg-white text-gray-500 text-xs hover:text-red-500 hover:border-red-200";
         remove.onclick = () => {
           specs.splice(idx, 1);
           render();
@@ -453,19 +453,19 @@ window.admin = {
 
           const input = document.createElement("input");
           input.type = "text";
-          input.className = "flex-1 bg-slate-800 rounded p-2 text-sm text-slate-100";
+          input.className = "flex-1 border border-gray-200 bg-gray-50 rounded-lg px-3 py-2 text-sm text-gray-800";
           input.value = val || "";
           input.placeholder = "specialty";
           input.addEventListener("input", () => { specs[idx] = input.value; syncHidden(); });
 
           const addBtn = document.createElement("button");
           addBtn.type = "button"; addBtn.textContent = "+";
-          addBtn.className = "px-2 py-1 rounded bg-slate-800 text-xs hover:bg-slate-700";
+          addBtn.className = "px-2 py-1 rounded-full border border-gray-200 bg-white text-gray-700 text-xs hover:bg-gray-50";
           addBtn.addEventListener("click", () => { if (specs.length < 5) { specs.push(""); renderSpecs(); syncHidden(); } });
 
           const removeBtn = document.createElement("button");
           removeBtn.type = "button"; removeBtn.textContent = "×";
-          removeBtn.className = "px-2 py-1 rounded bg-slate-800 text-xs hover:bg-red-500";
+          removeBtn.className = "px-2 py-1 rounded-full border border-gray-200 bg-white text-gray-500 text-xs hover:text-red-500 hover:border-red-200";
           removeBtn.addEventListener("click", () => {
             specs.splice(idx, 1);
             if (specs.length === 0) specs.push("");

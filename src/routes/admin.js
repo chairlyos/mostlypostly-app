@@ -595,6 +595,10 @@ dbStylists.forEach((s) => {
       `SELECT id, name FROM stylists WHERE salon_id = ? ORDER BY name ASC`
     ).all(salon_id);
 
+    const managers = db.prepare(
+      `SELECT id, name FROM managers WHERE salon_id = ? ORDER BY name ASC`
+    ).all(salon_id);
+
     const photoCards = stockPhotos.length
       ? stockPhotos.map(p => `
           <div class="flex items-center gap-3 bg-mpBg rounded-xl p-3">
@@ -611,9 +615,10 @@ dbStylists.forEach((s) => {
         `).join("")
       : `<p class="text-mpMuted text-sm italic">No stock photos uploaded yet.</p>`;
 
-    const stylistOptions = stylists.map(s =>
-      `<option value="${s.id}">${s.name}</option>`
-    ).join("");
+    const stylistOptions = [
+      ...managers.map(m => `<option value="${m.id}">${m.name} (Manager)</option>`),
+      ...stylists.map(s => `<option value="${s.id}">${s.name}</option>`),
+    ].join("");
 
     return `
     <section class="mb-10">

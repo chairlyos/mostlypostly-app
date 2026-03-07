@@ -157,7 +157,7 @@ router.get("/callback", async (req, res) => {
 </head>
 <body>
   <div style="width:100%;max-width:440px;background:#fff;border-radius:20px;padding:40px 36px;box-shadow:0 4px 32px rgba(43,45,53,0.08);border:1px solid #EDE7E4;text-align:center;">
-    <img src="/public/logo/logo.png" alt="MostlyPostly" style="width:160px;height:auto;margin-bottom:28px;" />
+    <img src="/public/logo/logo-trimmed.png" alt="MostlyPostly" style="width:240px;height:auto;margin-bottom:28px;" />
 
     <div style="width:60px;height:60px;border-radius:50%;background:#F2DDD9;display:flex;align-items:center;justify-content:center;margin:0 auto 18px;font-size:28px;">✓</div>
 

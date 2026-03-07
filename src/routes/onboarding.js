@@ -211,7 +211,7 @@ function pageTemplate({ step, stepLabel, content }) {
   <body>
     <!-- Header -->
     <header style="background:#fff;border-bottom:1px solid #EDE7E4;padding:12px 24px;">
-      <img src="/public/logo/logo.png" alt="MostlyPostly" style="height:36px;width:auto;" />
+      <img src="/public/logo/logo-trimmed.png" alt="MostlyPostly" style="height:40px;width:auto;" />
     </header>
 
     <div class="mx-auto max-w-5xl py-10 px-4 flex gap-12">

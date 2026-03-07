@@ -44,7 +44,7 @@ function navBar(current = "database", salon_id = "") {
   <div class="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
     <div class="flex items-center justify-between py-3">
       <a href="/manager${qsSalon}" aria-label="MostlyPostly manager home">
-        <img src="/public/logo/logo.png" alt="MostlyPostly" class="w-40 h-auto" />
+        <img src="/public/logo/logo-trimmed.png" alt="MostlyPostly" class="w-80 h-auto" />
       </a>
       <nav class="hidden items-center gap-8 text-sm font-medium md:flex">
         ${link(`/manager${qsSalon}`, "Dashboard", "manager")}

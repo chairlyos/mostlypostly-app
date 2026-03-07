@@ -279,7 +279,7 @@ router.get("/login", (req, res) => {
 
   <!-- LEFT PANEL -->
   <div class="left-panel">
-    <img src="/public/logo/logo.png" alt="MostlyPostly" class="left-logo" />
+    <img src="/public/logo/logo-trimmed.png" alt="MostlyPostly" class="left-logo" />
     <p class="left-tagline">AI social media for salons. Text a photo, get a polished post on Facebook &amp; Instagram.</p>
 
     <!-- Stat pills -->
@@ -427,7 +427,7 @@ router.get("/signup", (req, res) => {
 <div class="split-wrapper">
 
   <div class="left-panel">
-    <img src="/public/logo/logo.png" alt="MostlyPostly" class="left-logo" />
+    <img src="/public/logo/logo-trimmed.png" alt="MostlyPostly" class="left-logo" />
     <p class="left-tagline">Everything your salon needs to stay consistent and visible online — on autopilot.</p>
     <div class="feat-list">
       <div class="feat-item">
@@ -714,7 +714,7 @@ router.get("/forgot-password", (req, res) => {
 <body>
   <div style="width:100%;max-width:420px;background:#fff;border-radius:20px;padding:40px 36px;box-shadow:0 4px 32px rgba(43,45,53,0.08);border:1px solid #EDE7E4;">
     <div style="text-align:center;margin-bottom:28px;">
-      <img src="/public/logo/logo.png" alt="MostlyPostly" style="width:180px;height:auto;" />
+      <img src="/public/logo/logo-trimmed.png" alt="MostlyPostly" style="width:240px;height:auto;" />
     </div>
     ${cardContent}
   </div>

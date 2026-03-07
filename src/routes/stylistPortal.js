@@ -68,7 +68,7 @@ function shell(title, body) {
 </head>
 <body class="max-w-xl mx-auto px-4 pb-20">
   <header style="padding:14px 0 12px;margin-bottom:20px;border-bottom:1px solid #EDE7E4;">
-    <img src="/public/logo/logo.png" alt="MostlyPostly" style="height:32px;width:auto;" />
+    <img src="/public/logo/logo-trimmed.png" alt="MostlyPostly" style="height:36px;width:auto;" />
   </header>
   ${body}
 </body>

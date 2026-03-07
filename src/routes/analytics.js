@@ -23,7 +23,7 @@ function navBar(current = "analytics", salon_id = "") {
   <div class="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
     <div class="flex items-center justify-between py-3">
       <a href="/manager${qs}" aria-label="MostlyPostly manager home">
-        <img src="/public/logo/logo.png" alt="MostlyPostly" class="w-40 h-auto" />
+        <img src="/public/logo/logo-trimmed.png" alt="MostlyPostly" class="w-80 h-auto" />
       </a>
       <nav class="hidden items-center gap-8 text-sm font-medium md:flex">
         ${link(`/manager${qs}`, "Dashboard", "manager")}
@@ -108,8 +108,24 @@ function statCard(label, value, sub) {
   </div>`;
 }
 
+function toProxyUrl(u) {
+  if (!u) return u;
+  if (/^https:\/\/api\.twilio\.com/i.test(u)) {
+    return `/api/media-proxy?url=${encodeURIComponent(u)}`;
+  }
+  return u;
+}
+
 function postTypeLabel(t) {
-  return { standard: "Standard", before_after: "Before & After", availability: "Availability", promotion: "Promotion" }[t] || t || "Standard";
+  const map = {
+    standard: "Standard Post", standard_post: "Standard Post",
+    before_after: "Before & After", before_after_post: "Before & After",
+    availability: "Availability",
+    promotion: "Promotion",
+    reel: "Reel",
+    story: "Story",
+  };
+  return map[t] || (t ? t.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()) : "Standard Post");
 }
 
 // ─── GET /analytics ───────────────────────────────────────────────────────────
@@ -177,7 +193,9 @@ router.get("/", (req, res) => {
            MAX(CASE WHEN pi.platform='facebook'  THEN pi.reach       ELSE 0 END) as fb_reach
     FROM posts p JOIN post_insights pi ON pi.post_id=p.id
     WHERE p.salon_id=?
-    GROUP BY p.id ORDER BY top_er DESC LIMIT 6
+    GROUP BY p.id
+    HAVING MAX(pi.reach) > 0 OR MAX(pi.likes) > 0 OR MAX(pi.reactions) > 0 OR MAX(pi.engaged_users) > 0
+    ORDER BY top_er DESC LIMIT 6
   `).all(salon_id);
 
   // Engagement by post type
@@ -268,7 +286,7 @@ router.get("/", (req, res) => {
         return `
         <div class="rounded-2xl border border-mpBorder bg-white p-4 shadow-sm flex flex-col gap-3">
           ${p.image_url
-            ? `<img src="${p.image_url}" alt="" class="w-full h-36 object-cover rounded-xl" />`
+            ? `<img src="${toProxyUrl(p.image_url)}" alt="" class="w-full h-36 object-cover rounded-xl" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'w-full h-36 rounded-xl bg-mpBg flex items-center justify-center text-mpMuted text-xs',textContent:'No image'}))" />`
             : `<div class="w-full h-36 rounded-xl bg-mpBg flex items-center justify-center text-mpMuted text-xs">No image</div>`}
           <div>
             <div class="flex items-center gap-2 mb-1">
@@ -354,7 +372,7 @@ router.get("/", (req, res) => {
               <td class="px-4 py-3 text-xs text-mpMuted">${postTypeLabel(p.post_type)}</td>
               <td class="px-4 py-3 text-center">${platforms || "<span class='text-mpMuted text-xs'>—</span>"}</td>
               <td class="px-4 py-3 text-right text-mpMuted">${fmt((p.ig_reach || 0) + (p.fb_reach || 0))}</td>
-              <td class="px-4 py-3 text-right text-mpMuted">${fmt(p.ig_likes || 0)}</td>
+              <td class="px-4 py-3 text-right text-mpMuted">${fmt((p.ig_likes || 0) + (p.fb_reactions || 0))}</td>
               <td class="px-4 py-3 text-right text-mpMuted">${fmt(p.ig_saves || 0)}</td>
               <td class="px-4 py-3 text-right font-semibold ${p.ig_er ? "text-mpAccent" : "text-mpMuted"}">${pct(p.ig_er)}</td>
               <td class="px-4 py-3 text-right text-mpMuted">${fmt(p.fb_clicks || 0)}</td>
