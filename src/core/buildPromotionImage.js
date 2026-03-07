@@ -28,7 +28,7 @@ async function fetchBuffer(url) {
   return Buffer.from(await res.arrayBuffer());
 }
 
-async function pickBackground(salonId) {
+async function pickBackground(salonId, designContext) {
   const row = db.prepare(
     `SELECT url FROM stock_photos WHERE salon_id = ? AND stylist_id IS NULL ORDER BY created_at DESC LIMIT 1`
   ).get(salonId);
@@ -38,12 +38,16 @@ async function pickBackground(salonId) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (apiKey) {
     try {
+      const basePrompt = designContext
+        ? `${designContext.trim()}, hair salon promotional background, no text, no people, vertical 9:16 portrait format, high-gloss editorial photography`
+        : "Luxury hair salon editorial, bold vibrant colors, deep jewel tones, electric neon accents, dramatic cinematic lighting, artistic fashion photography, scattered colorful bokeh, high-gloss magazine aesthetic, ultra glamorous, vertical 9:16 portrait format";
+
       const resp = await fetch("https://api.openai.com/v1/images/generations", {
         method: "POST",
         headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
         body: JSON.stringify({
           model: "dall-e-3",
-          prompt: "Luxury hair salon editorial, bold vibrant colors, deep jewel tones, electric neon accents, dramatic cinematic lighting, artistic fashion photography, scattered colorful bokeh, high-gloss magazine aesthetic, ultra glamorous, vertical 9:16 portrait format",
+          prompt: basePrompt,
           n: 1,
           size: "1024x1792",
         }),
@@ -57,18 +61,19 @@ async function pickBackground(salonId) {
   return null;
 }
 
-function buildOverlaySvg({ salonName, product, discount, specialText, expiresLabel }) {
-  // Accent color: warm gold
-  const gold = "#F5C842";
+function buildOverlaySvg({ salonName, product, discount, specialText, expiresLabel, palette }) {
+  // Accent color: prefer brand palette CTA/accent, fall back to warm gold
+  const gold    = palette?.cta     || palette?.accent || "#F5C842";
+  const textOn  = palette?.primary || "#1a1a1a";
 
   const discountBlock = discount ? `
     <rect x="190" y="620" width="${W - 380}" height="130" rx="20" fill="${gold}" />
     <text x="${W / 2}" y="700" font-family="Arial, Helvetica, sans-serif"
-      font-size="72" font-weight="900" fill="#1a1a1a" text-anchor="middle">
+      font-size="72" font-weight="900" fill="${textOn}" text-anchor="middle">
       ${esc(discount)}
     </text>
     <text x="${W / 2}" y="738" font-family="Arial, Helvetica, sans-serif"
-      font-size="26" font-weight="700" fill="#1a1a1a" text-anchor="middle" letter-spacing="3">
+      font-size="26" font-weight="700" fill="${textOn}" text-anchor="middle" letter-spacing="3">
       OFF
     </text>
   ` : "";
@@ -135,7 +140,7 @@ function buildOverlaySvg({ salonName, product, discount, specialText, expiresLab
       <rect x="120" y="${H - 230}" width="${W - 240}" height="80" rx="40"
         fill="${gold}" />
       <text x="${W / 2}" y="${H - 179}" font-family="Arial, Helvetica, sans-serif"
-        font-size="32" font-weight="800" fill="#1a1a1a" text-anchor="middle" letter-spacing="2">
+        font-size="32" font-weight="800" fill="${textOn}" text-anchor="middle" letter-spacing="2">
         BOOK NOW · LINK IN BIO
       </text>
     </svg>
@@ -149,18 +154,26 @@ function buildOverlaySvg({ salonName, product, discount, specialText, expiresLab
  * @param {string}  opts.product       - Product or service name
  * @param {string}  [opts.discount]    - e.g. "20%" or "$15"
  * @param {string}  [opts.specialText] - e.g. "Limited time only!"
- * @param {string}  [opts.expiresAt]   - ISO date string
+ * @param {string}  [opts.expiresAt]     - ISO date string
+ * @param {string}  [opts.designContext]  - User-provided design style/mood for DALL-E background
  * @returns {Promise<string>}  Public URL of the saved promo image
  */
-export async function buildPromotionImage({ salonId, salonName, product, discount, specialText, expiresAt }) {
+export async function buildPromotionImage({ salonId, salonName, product, discount, specialText, expiresAt, designContext }) {
   console.log("[Promotion] Building story image…");
 
   const expiresLabel = expiresAt
     ? new Date(expiresAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
     : null;
 
+  // Load brand palette from DB
+  let palette = null;
+  try {
+    const salonRow = db.prepare("SELECT brand_palette FROM salons WHERE slug = ?").get(salonId);
+    if (salonRow?.brand_palette) palette = JSON.parse(salonRow.brand_palette);
+  } catch {}
+
   // Background
-  const bgUrl = await pickBackground(salonId);
+  const bgUrl = await pickBackground(salonId, designContext);
   let bgLayer;
   if (bgUrl) {
     try {
@@ -176,7 +189,7 @@ export async function buildPromotionImage({ salonId, salonName, product, discoun
     }).jpeg().toBuffer();
   }
 
-  const overlay = buildOverlaySvg({ salonName, product, discount, specialText, expiresLabel });
+  const overlay = buildOverlaySvg({ salonName, product, discount, specialText, expiresLabel, palette });
 
   const finalBuf = await sharp(bgLayer)
     .composite([{ input: overlay, top: 0, left: 0 }])

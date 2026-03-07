@@ -126,6 +126,12 @@ router.get("/", requireAuth, (req, res) => {
     )
     .all(salon_id);
 
+  // Brand palette
+  let brandPalette = null;
+  try {
+    if (salonRow.brand_palette) brandPalette = JSON.parse(salonRow.brand_palette);
+  } catch {}
+
   // Normalize hashtags
   let defaultHashtags = [];
   if (
@@ -412,6 +418,59 @@ dbStylists.forEach((s) => {
             <dd>${info.auto_publish ? "Enabled" : "Disabled"}</dd>
           </div>
         </dl>
+      </div>
+    </section>
+
+    <!-- BRAND PALETTE -->
+    <section class="mb-6">
+      <div class="rounded-2xl border border-mpBorder bg-white px-4 py-4">
+        <div class="flex items-center justify-between mb-3">
+          <div>
+            <h2 class="text-sm font-semibold text-mpCharcoal">Brand Color Palette</h2>
+            <p class="text-[11px] text-mpMuted mt-0.5">Extracted from your website during setup. Used in AI-generated promotion images.</p>
+          </div>
+          <a href="/onboarding/brand?reset=1"
+             class="text-xs text-mpAccent hover:text-mpCharcoal underline whitespace-nowrap">
+            Re-extract
+          </a>
+        </div>
+        ${brandPalette ? `
+        <div class="flex flex-wrap gap-4">
+          ${[
+            { key: "primary",      label: "Primary" },
+            { key: "secondary",    label: "Secondary" },
+            { key: "accent",       label: "Accent" },
+            { key: "accent_light", label: "Accent Light" },
+            { key: "cta",          label: "CTA / Button" },
+          ].map(({ key, label }) => {
+            const hex = brandPalette[key] || null;
+            return hex ? `
+              <div class="flex flex-col items-center gap-1.5">
+                <div class="w-12 h-12 rounded-xl border border-mpBorder shadow-sm" style="background:${hex}"></div>
+                <p class="text-[10px] font-bold text-mpMuted uppercase tracking-wide">${label}</p>
+                <p class="text-[10px] font-mono text-mpCharcoal">${hex}</p>
+              </div>` : "";
+          }).join("")}
+        </div>
+        <p class="mt-3 text-[10px] text-mpMuted">
+          These colors are automatically applied to promotion image overlays instead of the default gold theme.
+          <a href="/onboarding/brand" class="underline text-mpAccent ml-1">Edit palette</a>
+        </p>
+        ` : `
+        <div class="flex items-center gap-3 py-3">
+          <div class="flex gap-2">
+            ${["#e0e0e0","#c8c8c8","#b0b0b0","#989898","#808080"].map(c =>
+              `<div class="w-10 h-10 rounded-xl border border-mpBorder" style="background:${c}"></div>`
+            ).join("")}
+          </div>
+          <div>
+            <p class="text-xs text-mpMuted">No palette extracted yet.</p>
+            <a href="/onboarding/brand" class="text-xs text-mpAccent underline">
+              ${salonRow.website ? "Extract colors from your website →" : "Set up brand palette →"}
+            </a>
+          </div>
+        </div>
+        `}
       </div>
     </section>
 

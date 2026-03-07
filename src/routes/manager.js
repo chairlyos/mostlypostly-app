@@ -562,6 +562,20 @@ router.get("/promotion/new", requireAuth, (req, res) => {
               class="w-full bg-mpBg border border-mpBorder rounded-xl px-4 py-2.5 text-sm text-mpCharcoal focus:outline-none focus:ring-2 focus:ring-yellow-500" />
           </div>
 
+          <div>
+            <label class="block text-sm font-medium text-mpMuted mb-1">
+              Design Style &amp; Mood
+              <span class="text-mpMuted font-normal">(optional — guides AI background)</span>
+            </label>
+            <textarea name="design_context" rows="3"
+              placeholder="e.g. Warm rose gold tones, soft bokeh, elegant and feminine. Or: Bold neon accent colors on a dark moody background. Or: Bright and airy, white marble, minimalist luxury."
+              class="w-full bg-mpBg border border-mpBorder rounded-xl px-4 py-2.5 text-sm text-mpCharcoal focus:outline-none focus:ring-2 focus:ring-yellow-500 resize-none"></textarea>
+            <p class="text-xs text-mpMuted mt-1">
+              Describe colors, mood, and expression for the AI-generated background image.
+              If your salon has a stock photo uploaded, that will be used instead.
+            </p>
+          </div>
+
           <div class="pt-2 space-y-3">
             <button type="submit"
               class="w-full bg-mpCharcoal hover:bg-mpCharcoalDark text-white font-bold py-3 rounded-xl text-sm">
@@ -588,7 +602,7 @@ router.post("/promotion/create", requireAuth, async (req, res) => {
   const salon_id   = req.manager.salon_id;
   const manager_id = req.manager.id;
 
-  const { product, discount, special_text, expires_at } = req.body;
+  const { product, discount, special_text, expires_at, design_context } = req.body;
 
   if (!product?.trim() || !expires_at) {
     return res.redirect("/manager/promotion/new");
@@ -600,12 +614,13 @@ router.post("/promotion/create", requireAuth, async (req, res) => {
 
     // Build the promotional story image
     const imageUrl = await buildPromotionImage({
-      salonId:     salon_id,
+      salonId:       salon_id,
       salonName,
-      product:     product.trim(),
-      discount:    discount?.trim() || null,
-      specialText: special_text?.trim() || null,
-      expiresAt:   expires_at,
+      product:       product.trim(),
+      discount:      discount?.trim() || null,
+      specialText:   special_text?.trim() || null,
+      expiresAt:     expires_at,
+      designContext: design_context?.trim() || null,
     });
 
     // Compose a text caption for the post record
