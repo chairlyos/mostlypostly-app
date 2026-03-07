@@ -1,0 +1,579 @@
+// src/routes/schedulerConfig.js — Scheduler Configuration Page
+
+import express from "express";
+import db from "../../db.js";
+import pageShell from "../ui/pageShell.js";
+import { DateTime } from "luxon";
+import { getSchedulerStats, DEFAULT_PRIORITY } from "../scheduler.js";
+
+const router = express.Router();
+
+// ─────────────────────────────────────────────────────────
+// Plan definitions — posts/month limit and max daily cap per platform.
+// The daily cap max prevents a manager from setting a rate that implies
+// more posts than their plan could ever supply, while still giving them
+// full control to tune DOWN as low as they want.
+// ─────────────────────────────────────────────────────────
+const PLAN_LIMITS = {
+  trial:   { label: "Trial",   posts_per_month: 20,  max_daily: 1  },
+  starter: { label: "Starter", posts_per_month: 60,  max_daily: 4  },
+  growth:  { label: "Growth",  posts_per_month: 200, max_daily: 8  },
+  pro:     { label: "Pro",     posts_per_month: 500, max_daily: 20 },
+};
+
+function getPlanDef(plan) {
+  return PLAN_LIMITS[plan] || PLAN_LIMITS.starter;
+}
+
+function requireAuth(req, res, next) {
+  if (!req.manager?.manager_phone) return res.redirect("/manager/login");
+  next();
+}
+
+function fmtScheduled(iso) {
+  if (!iso) return "—";
+  try {
+    return DateTime.fromSQL(iso, { zone: "utc" }).toLocal().toFormat("MMM d • h:mm a");
+  } catch { return iso; }
+}
+
+function fmtTime(val) {
+  if (!val) return "—";
+  const [h, m] = val.split(":").map(Number);
+  return DateTime.fromObject({ hour: h, minute: m || 0 }).toFormat("h:mm a");
+}
+
+const CONTENT_TYPE_LABELS = {
+  availability:      "Availability",
+  before_after:      "Before & After",
+  celebration:       "Staff Celebrations",
+  standard_post:     "Standard Service Post",
+  promotions:        "Promotions",
+  product_education: "Product Education",
+};
+
+const MIX_DEFAULTS = {
+  before_after:      40,
+  standard_post:     30,
+  promotions:        15,
+  product_education: 10,
+  celebration:        5,
+};
+
+// ─────────────────────────────────────────────────────────
+// GET /manager/scheduler
+// ─────────────────────────────────────────────────────────
+router.get("/", requireAuth, (req, res) => {
+  const salon_id = req.manager.salon_id;
+
+  const salon = db.prepare(`SELECT * FROM salons WHERE slug=?`).get(salon_id);
+  if (!salon) return res.redirect("/manager");
+
+  const stats   = getSchedulerStats(salon_id);
+  const planDef = getPlanDef(salon.plan || "starter");
+
+  // --- Current billing cycle usage ---
+  const cycleStart = salon.billing_cycle_start
+    ? DateTime.fromISO(salon.billing_cycle_start)
+    : DateTime.utc().startOf("month");
+  const cycleStartStr = cycleStart.toFormat("yyyy-LL-dd");
+
+  const postsThisCycle = db.prepare(
+    `SELECT COUNT(*) AS n FROM posts
+     WHERE salon_id=? AND status='published' AND date(published_at) >= ?`
+  ).get(salon_id, cycleStartStr)?.n || 0;
+
+  const daysIntoCycle  = Math.max(1, DateTime.utc().diff(cycleStart, "days").days);
+  const daysInMonth    = 30;
+  const dailyAvgActual = postsThisCycle / daysIntoCycle;
+  const projectedMonth = Math.round(dailyAvgActual * daysInMonth);
+
+  // --- Cap settings ---
+  const fbCap       = Math.min(salon.fb_feed_daily_max ?? 4, planDef.max_daily);
+  const igCap       = Math.min(salon.ig_feed_daily_max ?? 4, planDef.max_daily);
+  const tkCap       = Math.min(salon.tiktok_daily_max  ?? 3, planDef.max_daily);
+  const fairnessMin = salon.fairness_window_min ?? 180;
+  const postingStart = salon.posting_start_time || "09:00";
+  const postingEnd   = salon.posting_end_time   || "19:00";
+  const spacingMin   = salon.spacing_min ?? 20;
+  const spacingMax   = salon.spacing_max ?? 45;
+
+  // Effective daily = min(ig, fb) since one post publishes to both
+  const effectiveDailyCap   = Math.min(igCap, fbCap);
+  const capImpliedMonthly   = effectiveDailyCap * daysInMonth;
+  const planPct             = Math.min(100, Math.round((capImpliedMonthly / planDef.posts_per_month) * 100));
+  const actualPct           = Math.min(100, Math.round((postsThisCycle / planDef.posts_per_month) * 100));
+
+  const paceColor = planPct >= 100 ? "text-red-500" : planPct >= 80 ? "text-yellow-600" : "text-green-600";
+  const paceBarBg = planPct >= 100 ? "bg-red-400"   : planPct >= 80 ? "bg-yellow-400"   : "bg-green-400";
+  const paceMsg   = planPct >= 100
+    ? `Your caps allow more posts than your plan includes. The scheduler will stop at your plan limit.`
+    : planPct >= 80
+    ? `You're using most of your plan quota. Consider upgrading if you want more posting headroom.`
+    : `You have room to increase your posting frequency if your team has more content.`;
+
+  // --- Today's usage bars ---
+  const fbCapPct    = Math.min(100, Math.round((stats.fbToday / fbCap) * 100));
+  const igCapPct    = Math.min(100, Math.round((stats.igToday / igCap) * 100));
+  const capBarColor = (pct) => pct >= 100 ? "bg-red-400" : pct >= 75 ? "bg-yellow-400" : "bg-green-400";
+
+  // --- Content priority rows ---
+  let priorityOrder = [...DEFAULT_PRIORITY];
+  try {
+    const parsed = JSON.parse(salon.content_priority || "null");
+    if (Array.isArray(parsed) && parsed.length) priorityOrder = parsed;
+  } catch {}
+
+  const priorityRows = priorityOrder.map((type, i) => `
+    <div class="flex items-center gap-3 rounded-xl border border-mpBorder bg-white px-4 py-3" data-type="${type}">
+      <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-mpAccentLight text-xs font-bold text-mpAccent">${i + 1}</span>
+      <span class="flex-1 text-sm font-medium text-mpCharcoal">${CONTENT_TYPE_LABELS[type] || type}</span>
+      <div class="flex gap-1">
+        <button type="button" onclick="movePriority(${i}, -1)" ${i === 0 ? "disabled" : ""}
+          class="rounded px-2 py-1 text-xs text-mpMuted hover:text-mpCharcoal hover:bg-mpBg disabled:opacity-30">▲</button>
+        <button type="button" onclick="movePriority(${i}, 1)" ${i === priorityOrder.length - 1 ? "disabled" : ""}
+          class="rounded px-2 py-1 text-xs text-mpMuted hover:text-mpCharcoal hover:bg-mpBg disabled:opacity-30">▼</button>
+      </div>
+    </div>
+  `).join("");
+
+  // --- Content mix inputs ---
+  let contentMix = { ...MIX_DEFAULTS };
+  try {
+    const parsed = JSON.parse(salon.content_mix || "null");
+    if (parsed && typeof parsed === "object") contentMix = { ...MIX_DEFAULTS, ...parsed };
+  } catch {}
+
+  const mixInputs = Object.entries(contentMix)
+    .filter(([type]) => type !== "availability" && type !== "celebration")
+    .map(([type, pct]) => `
+      <div class="flex items-center gap-3">
+        <label class="w-44 text-sm text-mpMuted shrink-0">${CONTENT_TYPE_LABELS[type] || type}</label>
+        <input type="number" name="mix_${type}" value="${pct}" min="0" max="100"
+          class="w-20 rounded-lg border border-mpBorder px-3 py-1.5 text-sm text-mpCharcoal focus:border-mpAccent focus:outline-none" />
+        <span class="text-xs text-mpMuted">%</span>
+      </div>
+    `).join("");
+
+  const body = `
+    <section class="mb-6 flex items-start justify-between gap-4 flex-wrap">
+      <div>
+        <h1 class="text-2xl font-bold text-mpCharcoal">Scheduler</h1>
+        <p class="mt-1 text-sm text-mpMuted">Configure posting windows, daily caps, content priority, and fairness rules.</p>
+      </div>
+      <span class="inline-flex items-center gap-2 rounded-full border border-mpBorder bg-white px-4 py-1.5 text-xs font-semibold text-mpMuted shadow-sm">
+        <span class="h-2 w-2 rounded-full bg-mpAccent"></span>
+        ${planDef.label} Plan &mdash; ${planDef.posts_per_month} posts/month
+      </span>
+    </section>
+
+    <!-- Queue Status Cards -->
+    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6">
+      <div class="rounded-2xl border border-mpBorder bg-white p-5 shadow-sm">
+        <p class="text-xs font-semibold uppercase tracking-wide text-mpMuted">Queued</p>
+        <p class="mt-1 text-3xl font-extrabold text-mpCharcoal">${stats.queued}</p>
+        <p class="mt-1 text-xs text-mpMuted">posts waiting to publish</p>
+      </div>
+      <div class="rounded-2xl border border-mpBorder bg-white p-5 shadow-sm">
+        <p class="text-xs font-semibold uppercase tracking-wide text-mpMuted">Published Today</p>
+        <p class="mt-1 text-3xl font-extrabold text-mpCharcoal">${stats.publishedToday}</p>
+        <p class="mt-1 text-xs text-mpMuted">across all platforms</p>
+      </div>
+      <div class="rounded-2xl border border-mpBorder bg-white p-5 shadow-sm">
+        <p class="text-xs font-semibold uppercase tracking-wide text-mpMuted">Next Post</p>
+        <p class="mt-1 text-sm font-bold text-mpCharcoal">${stats.nextPost ? fmtScheduled(stats.nextPost.scheduled_for) : "None queued"}</p>
+        <p class="mt-1 text-xs text-mpMuted">${stats.nextPost ? (CONTENT_TYPE_LABELS[stats.nextPost.post_type] || stats.nextPost.post_type) : "—"}</p>
+      </div>
+      <div class="rounded-2xl border border-mpBorder bg-white p-5 shadow-sm">
+        <p class="text-xs font-semibold uppercase tracking-wide text-mpMuted">Failed Posts</p>
+        <p class="mt-1 text-3xl font-extrabold ${stats.failed > 0 ? "text-red-500" : "text-mpCharcoal"}">${stats.failed}</p>
+        <p class="mt-1 text-xs text-mpMuted">${stats.failed > 0 ? "needs attention" : "all clear"}</p>
+      </div>
+    </div>
+
+    <!-- Monthly Pace + Cycle Usage (combined card) -->
+    <div class="rounded-2xl border border-mpBorder bg-white px-6 py-5 shadow-sm mb-6">
+      <div class="flex items-start justify-between gap-4 flex-wrap mb-5">
+        <div>
+          <h2 class="text-sm font-bold text-mpCharcoal">Monthly Pace &amp; Plan Usage</h2>
+          <p class="mt-0.5 text-xs text-mpMuted">Based on your current daily cap settings and this billing cycle's actual activity.</p>
+        </div>
+        <a href="/manager/billing?salon=${salon_id}" class="text-xs font-semibold text-mpAccent hover:text-mpCharcoal transition-colors shrink-0">
+          Manage Plan &rarr;
+        </a>
+      </div>
+
+      <div class="grid gap-6 sm:grid-cols-2">
+
+        <!-- Cap-implied monthly pace (live, updates with JS) -->
+        <div>
+          <div class="flex items-end justify-between mb-1">
+            <p class="text-xs font-semibold text-mpMuted uppercase tracking-wide">Your Cap Allows</p>
+            <p class="text-sm font-bold ${paceColor}" id="paceNumber">${capImpliedMonthly} posts/month</p>
+          </div>
+          <div class="h-2.5 rounded-full bg-mpBg overflow-hidden mb-2">
+            <div id="paceBar" class="h-2.5 rounded-full ${paceBarBg} transition-all" style="width:${planPct}%"></div>
+          </div>
+          <p class="text-[11px] text-mpMuted" id="paceMsg">${paceMsg}</p>
+        </div>
+
+        <!-- Actual cycle usage (static) -->
+        <div>
+          <div class="flex items-end justify-between mb-1">
+            <p class="text-xs font-semibold text-mpMuted uppercase tracking-wide">Used This Cycle</p>
+            <p class="text-sm font-bold text-mpCharcoal">${postsThisCycle} / ${planDef.posts_per_month}</p>
+          </div>
+          <div class="h-2.5 rounded-full bg-mpBg overflow-hidden mb-2">
+            <div class="h-2.5 rounded-full ${capBarColor(actualPct)} transition-all" style="width:${actualPct}%"></div>
+          </div>
+          <p class="text-[11px] text-mpMuted">
+            ${postsThisCycle === 0 ? "No posts published yet this cycle." :
+              `Averaging ~${dailyAvgActual.toFixed(1)} posts/day. Projected: ~${projectedMonth} this month.`}
+          </p>
+        </div>
+
+      </div>
+
+      <!-- Today's platform bars -->
+      <div class="mt-5 pt-5 border-t border-mpBorder">
+        <p class="text-xs font-semibold uppercase tracking-wide text-mpMuted mb-3">Today's Platform Usage</p>
+        <div class="grid gap-3 sm:grid-cols-2">
+          <div>
+            <div class="flex items-center justify-between text-xs mb-1">
+              <span class="font-medium text-mpCharcoal">Instagram Feed</span>
+              <span class="text-mpMuted">${stats.igToday} / ${igCap}</span>
+            </div>
+            <div class="h-2 rounded-full bg-mpBg overflow-hidden">
+              <div class="h-2 rounded-full ${capBarColor(igCapPct)} transition-all" style="width:${igCapPct}%"></div>
+            </div>
+          </div>
+          <div>
+            <div class="flex items-center justify-between text-xs mb-1">
+              <span class="font-medium text-mpCharcoal">Facebook Feed</span>
+              <span class="text-mpMuted">${stats.fbToday} / ${fbCap}</span>
+            </div>
+            <div class="h-2 rounded-full bg-mpBg overflow-hidden">
+              <div class="h-2 rounded-full ${capBarColor(fbCapPct)} transition-all" style="width:${fbCapPct}%"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <form method="POST" action="/manager/scheduler/update" class="space-y-6">
+      <input type="hidden" name="salon_id" value="${salon_id}" />
+
+      <!-- Posting Window -->
+      <div class="rounded-2xl border border-mpBorder bg-white px-6 py-5 shadow-sm">
+        <h2 class="text-base font-bold text-mpCharcoal mb-1">Posting Window</h2>
+        <p class="text-xs text-mpMuted mb-5">MostlyPostly only publishes within this window (your salon's local time). Posts queued outside this window are held until it opens.</p>
+        <div class="grid gap-4 sm:grid-cols-3">
+          <div>
+            <label class="block text-xs font-semibold text-mpMuted mb-1.5">Window Start</label>
+            <input type="time" name="posting_start_time" value="${postingStart}"
+              class="w-full rounded-lg border border-mpBorder px-3 py-2 text-sm text-mpCharcoal focus:border-mpAccent focus:outline-none" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-mpMuted mb-1.5">Window End</label>
+            <input type="time" name="posting_end_time" value="${postingEnd}"
+              class="w-full rounded-lg border border-mpBorder px-3 py-2 text-sm text-mpCharcoal focus:border-mpAccent focus:outline-none" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-mpMuted mb-1.5">Timezone</label>
+            <p class="rounded-lg border border-mpBorder bg-mpBg px-3 py-2 text-sm text-mpMuted">${salon.timezone || "America/Indiana/Indianapolis"}</p>
+          </div>
+        </div>
+        <div class="mt-4 grid gap-4 sm:grid-cols-2">
+          <div>
+            <label class="block text-xs font-semibold text-mpMuted mb-1.5">Min Spacing Between Posts (minutes)</label>
+            <input type="number" name="spacing_min" value="${spacingMin}" min="5" max="240"
+              class="w-full rounded-lg border border-mpBorder px-3 py-2 text-sm text-mpCharcoal focus:border-mpAccent focus:outline-none" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-mpMuted mb-1.5">Max Spacing Between Posts (minutes)</label>
+            <input type="number" name="spacing_max" value="${spacingMax}" min="5" max="480"
+              class="w-full rounded-lg border border-mpBorder px-3 py-2 text-sm text-mpCharcoal focus:border-mpAccent focus:outline-none" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Platform Daily Caps — bounded by plan tier -->
+      <div class="rounded-2xl border border-mpBorder bg-white px-6 py-5 shadow-sm">
+        <div class="flex items-start justify-between gap-3 mb-1 flex-wrap">
+          <h2 class="text-base font-bold text-mpCharcoal">Platform Daily Caps</h2>
+          <span class="text-[11px] text-mpMuted rounded-full border border-mpBorder px-2.5 py-1">
+            ${planDef.label} plan max: <strong>${planDef.max_daily}/day per platform</strong>
+          </span>
+        </div>
+        <p class="text-xs text-mpMuted mb-5">
+          Maximum feed posts per day per platform. You can set these as low as 1 — useful for quality control or slower periods.
+          The <strong>${planDef.label}</strong> plan allows up to ${planDef.max_daily}/day per platform.
+          Stories and availability posts don't count against these limits.
+        </p>
+        <div class="grid gap-6 sm:grid-cols-3">
+          <div>
+            <label class="block text-xs font-semibold text-mpMuted mb-1.5">Instagram Feed (posts/day)</label>
+            <input type="number" id="igCapInput" name="ig_feed_daily_max"
+              value="${igCap}" min="1" max="${planDef.max_daily}"
+              oninput="updatePace()"
+              class="w-full rounded-lg border border-mpBorder px-3 py-2 text-sm text-mpCharcoal focus:border-mpAccent focus:outline-none" />
+            <div class="mt-1.5 flex items-center justify-between text-[11px]">
+              <span class="text-mpMuted">Plan max: ${planDef.max_daily}/day</span>
+              <span class="text-mpMuted">Rec: 3–5</span>
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-mpMuted mb-1.5">Facebook Feed (posts/day)</label>
+            <input type="number" id="fbCapInput" name="fb_feed_daily_max"
+              value="${fbCap}" min="1" max="${planDef.max_daily}"
+              oninput="updatePace()"
+              class="w-full rounded-lg border border-mpBorder px-3 py-2 text-sm text-mpCharcoal focus:border-mpAccent focus:outline-none" />
+            <div class="mt-1.5 flex items-center justify-between text-[11px]">
+              <span class="text-mpMuted">Plan max: ${planDef.max_daily}/day</span>
+              <span class="text-mpMuted">Rec: 2–4</span>
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-mpMuted mb-1.5">TikTok (posts/day)</label>
+            <input type="number" name="tiktok_daily_max"
+              value="${tkCap}" min="1" max="${planDef.max_daily}"
+              class="w-full rounded-lg border border-mpBorder px-3 py-2 text-sm text-mpCharcoal focus:border-mpAccent focus:outline-none" />
+            <div class="mt-1.5 flex items-center justify-between text-[11px]">
+              <span class="text-mpMuted">Plan max: ${planDef.max_daily}/day</span>
+              <span class="text-mpMuted">Rec: 2–3</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Content Priority -->
+      <div class="rounded-2xl border border-mpBorder bg-white px-6 py-5 shadow-sm">
+        <h2 class="text-base font-bold text-mpCharcoal mb-1">Content Priority</h2>
+        <p class="text-xs text-mpMuted mb-5">When multiple posts are ready at the same time, they publish in this order. Availability is always most urgent — time-sensitive content disappears after 24 hours.</p>
+        <input type="hidden" name="content_priority" id="priorityInput" value="${JSON.stringify(priorityOrder)}" />
+        <div class="space-y-2" id="priorityList">
+          ${priorityRows}
+        </div>
+      </div>
+
+      <!-- Content Mix Targets -->
+      <div class="rounded-2xl border border-mpBorder bg-white px-6 py-5 shadow-sm">
+        <h2 class="text-base font-bold text-mpCharcoal mb-1">Content Mix Targets</h2>
+        <p class="text-xs text-mpMuted mb-5">
+          Your target breakdown by content type. This is a planning reference — the scheduler uses priority order above for real-time decisions.
+          Before &amp; After posts consistently drive the most reach for salons.
+        </p>
+        <div class="space-y-3 max-w-sm">
+          ${mixInputs}
+        </div>
+        <div id="mixTotal" class="mt-4 text-xs text-mpMuted"></div>
+      </div>
+
+      <!-- Stylist Fairness -->
+      <div class="rounded-2xl border border-mpBorder bg-white px-6 py-5 shadow-sm">
+        <h2 class="text-base font-bold text-mpCharcoal mb-1">Stylist Fairness</h2>
+        <p class="text-xs text-mpMuted mb-5">
+          Prevents the same stylist from dominating the feed. If their last post was within this window, the next one is delayed until the gap passes.
+          With ${salon.fairness_window_min ?? 180} minutes set, no stylist appears more than once every ${Math.round((salon.fairness_window_min ?? 180) / 60)} hours.
+        </p>
+        <div class="max-w-xs">
+          <label class="block text-xs font-semibold text-mpMuted mb-1.5">Minimum Gap Per Stylist (minutes)</label>
+          <input type="number" name="fairness_window_min" value="${fairnessMin}" min="0" max="1440"
+            class="w-full rounded-lg border border-mpBorder px-3 py-2 text-sm text-mpCharcoal focus:border-mpAccent focus:outline-none" />
+          <p class="mt-1 text-[11px] text-mpMuted">120 min = max 2 posts/stylist per 4-hr shift. Set to 0 to disable.</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3 pb-8">
+        <button type="submit"
+          class="rounded-full bg-mpCharcoal px-7 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-mpCharcoalDark transition-colors">
+          Save Scheduler Settings
+        </button>
+        <a href="/manager?salon=${salon_id}" class="text-sm text-mpMuted hover:text-mpCharcoal transition-colors">Cancel</a>
+      </div>
+    </form>
+
+    <script>
+      // ── Plan constants (injected server-side) ──────────────
+      const PLAN_POSTS_PER_MONTH = ${planDef.posts_per_month};
+      const PLAN_MAX_DAILY       = ${planDef.max_daily};
+      const PLAN_LABEL           = "${planDef.label}";
+
+      // ── Live pace calculator ───────────────────────────────
+      function updatePace() {
+        const igVal = parseInt(document.getElementById('igCapInput')?.value, 10) || 1;
+        const fbVal = parseInt(document.getElementById('fbCapInput')?.value, 10) || 1;
+
+        // One post publishes to both FB and IG — effective daily = lower of the two
+        const effectiveDaily = Math.min(igVal, fbVal);
+        const impliedMonthly = effectiveDaily * 30;
+        const pct = Math.min(100, Math.round((impliedMonthly / PLAN_POSTS_PER_MONTH) * 100));
+
+        const paceNum = document.getElementById('paceNumber');
+        const paceBar = document.getElementById('paceBar');
+        const paceMsg = document.getElementById('paceMsg');
+
+        if (paceNum) paceNum.textContent = impliedMonthly + ' posts/month';
+
+        if (paceBar) {
+          paceBar.style.width = pct + '%';
+          paceBar.className = 'h-2.5 rounded-full transition-all ' +
+            (pct >= 100 ? 'bg-red-400' : pct >= 80 ? 'bg-yellow-400' : 'bg-green-400');
+        }
+
+        if (paceNum) {
+          paceNum.className = 'text-sm font-bold ' +
+            (pct >= 100 ? 'text-red-500' : pct >= 80 ? 'text-yellow-600' : 'text-green-600');
+        }
+
+        if (paceMsg) {
+          if (pct >= 100) {
+            paceMsg.textContent = 'Your caps allow more posts than your plan includes (' + PLAN_POSTS_PER_MONTH + '/month). The scheduler will stop at your plan limit.';
+          } else if (pct >= 80) {
+            paceMsg.textContent = 'You\\'re using most of your ' + PLAN_LABEL + ' plan quota. Consider upgrading if you want more posting headroom.';
+          } else {
+            paceMsg.textContent = 'You have room to increase your posting frequency — your plan allows ' + PLAN_POSTS_PER_MONTH + ' posts/month.';
+          }
+        }
+      }
+
+      // ── Content mix total validator ──────────────────────────
+      function updateMixTotal() {
+        const inputs = document.querySelectorAll('[name^="mix_"]');
+        let total = 0;
+        inputs.forEach(el => { total += parseInt(el.value, 10) || 0; });
+        const el = document.getElementById('mixTotal');
+        if (!el) return;
+        if (total === 100) {
+          el.textContent = 'Total: 100% — perfect.';
+          el.className = 'mt-4 text-xs text-green-600 font-medium';
+        } else {
+          el.textContent = 'Total: ' + total + '% — adjust to reach 100%.';
+          el.className = 'mt-4 text-xs ' + (total > 100 ? 'text-red-500' : 'text-yellow-600') + ' font-medium';
+        }
+      }
+
+      document.querySelectorAll('[name^="mix_"]').forEach(el => {
+        el.addEventListener('input', updateMixTotal);
+      });
+      updateMixTotal();
+
+      // ── Priority reorder logic ─────────────────────────────
+      const priorityInput = document.getElementById('priorityInput');
+
+      function movePriority(index, direction) {
+        const list  = document.getElementById('priorityList');
+        const items = Array.from(list.children);
+        const newIndex = index + direction;
+        if (newIndex < 0 || newIndex >= items.length) return;
+
+        const moving  = items[index];
+        const sibling = items[newIndex];
+        if (direction === -1) {
+          list.insertBefore(moving, sibling);
+        } else {
+          list.insertBefore(sibling, moving);
+        }
+
+        // Re-number and re-wire
+        Array.from(list.children).forEach((el, i) => {
+          el.querySelector('span').textContent = i + 1;
+          const btns = el.querySelectorAll('button');
+          btns[0].disabled = i === 0;
+          btns[1].disabled = i === list.children.length - 1;
+          btns[0].setAttribute('onclick', 'movePriority(' + i + ', -1)');
+          btns[1].setAttribute('onclick', 'movePriority(' + i + ', 1)');
+        });
+
+        priorityInput.value = JSON.stringify(Array.from(list.children).map(el => el.dataset.type));
+      }
+    </script>
+  `;
+
+  res.send(pageShell({
+    title: "Scheduler",
+    body,
+    current: "scheduler",
+    salon_id,
+    manager_phone: req.manager.manager_phone || "",
+  }));
+});
+
+// ─────────────────────────────────────────────────────────
+// POST /manager/scheduler/update
+// ─────────────────────────────────────────────────────────
+router.post("/update", requireAuth, (req, res) => {
+  const salon_id = req.manager.salon_id;
+
+  // Re-fetch plan to enforce server-side cap maximums
+  const salon   = db.prepare(`SELECT plan FROM salons WHERE slug=?`).get(salon_id);
+  const planDef = getPlanDef(salon?.plan || "starter");
+
+  const {
+    posting_start_time,
+    posting_end_time,
+    spacing_min,
+    spacing_max,
+    ig_feed_daily_max,
+    fb_feed_daily_max,
+    tiktok_daily_max,
+    fairness_window_min,
+    content_priority,
+  } = req.body;
+
+  // Clamp daily caps to plan maximum server-side (manager can go lower, never higher than plan)
+  function clampCap(val) {
+    const n = parseInt(val, 10);
+    if (isNaN(n) || n < 1) return 1;
+    return Math.min(n, planDef.max_daily);
+  }
+
+  // Build content mix
+  const mixTypes = ["before_after", "standard_post", "promotions", "product_education", "celebration"];
+  const contentMix = {};
+  for (const type of mixTypes) {
+    const val = parseInt(req.body[`mix_${type}`], 10);
+    if (!isNaN(val)) contentMix[type] = Math.max(0, Math.min(100, val));
+  }
+
+  // Validate priority JSON
+  let priorityJson = null;
+  try {
+    const parsed = JSON.parse(content_priority || "null");
+    if (Array.isArray(parsed) && parsed.length) priorityJson = JSON.stringify(parsed);
+  } catch {}
+
+  db.prepare(`
+    UPDATE salons
+    SET
+      posting_start_time  = COALESCE(?, posting_start_time),
+      posting_end_time    = COALESCE(?, posting_end_time),
+      spacing_min         = COALESCE(?, spacing_min),
+      spacing_max         = COALESCE(?, spacing_max),
+      ig_feed_daily_max   = ?,
+      fb_feed_daily_max   = ?,
+      tiktok_daily_max    = ?,
+      fairness_window_min = COALESCE(?, fairness_window_min),
+      content_priority    = COALESCE(?, content_priority),
+      content_mix         = ?,
+      updated_at          = datetime('now')
+    WHERE slug = ?
+  `).run(
+    posting_start_time || null,
+    posting_end_time   || null,
+    parseInt(spacing_min, 10) || null,
+    parseInt(spacing_max, 10) || null,
+    clampCap(ig_feed_daily_max),
+    clampCap(fb_feed_daily_max),
+    clampCap(tiktok_daily_max),
+    parseInt(fairness_window_min, 10) >= 0 ? parseInt(fairness_window_min, 10) : null,
+    priorityJson,
+    Object.keys(contentMix).length ? JSON.stringify(contentMix) : null,
+    salon_id
+  );
+
+  console.log(`✅ [SchedulerConfig] Saved for ${salon_id} (plan: ${planDef.label}, max daily: ${planDef.max_daily})`);
+  return res.redirect(`/manager/scheduler?salon=${salon_id}`);
+});
+
+export default router;

@@ -73,6 +73,8 @@ import managerRoutes from "./src/routes/manager.js";
 import onboardingRoutes from "./src/routes/onboarding.js";
 import onboardingGuard from "./src/routes/onboardingGuard.js";
 import adminRouter from "./src/routes/admin.js";
+import schedulerConfigRoute from "./src/routes/schedulerConfig.js";
+import stylistManagerRoute from "./src/routes/stylistManager.js";
 import billingRoutes, { stripeWebhookHandler } from "./src/routes/billing.js";
 import { lookupStylist } from "./src/core/salonLookup.js";
 
@@ -291,6 +293,16 @@ app.use(restoreManagerSession);
 // 7. ADMIN ROUTES
 // -------------------------------------------------------
 app.use("/manager/admin", adminRouter);
+
+// -------------------------------------------------------
+// 8. SCHEDULER CONFIG ROUTES
+// -------------------------------------------------------
+app.use("/manager/scheduler", schedulerConfigRoute);
+
+// -------------------------------------------------------
+// 9. STYLIST MANAGEMENT ROUTES
+// -------------------------------------------------------
+app.use("/manager/stylists", stylistManagerRoute);
 
 // =====================================================
 // Analytics API (public JSON endpoints for dashboard)

@@ -1,4 +1,4 @@
-// src/scheduler.js — DB-Only Scheduler (Final, with getSalonPolicy export)
+// src/scheduler.js — DB-Only Scheduler with content-type priority, daily caps, stylist fairness
 
 import { DateTime } from "luxon";
 import { db } from "../db.js";
@@ -12,7 +12,43 @@ const log = createLogger("scheduler");
 
 // ENV flags
 const FORCE_POST_NOW = process.env.FORCE_POST_NOW === "1";
-const IGNORE_WINDOW = process.env.SCHEDULER_IGNORE_WINDOW === "1";
+const IGNORE_WINDOW  = process.env.SCHEDULER_IGNORE_WINDOW === "1";
+
+// ===================== Content Type Config =====================
+
+/**
+ * Default priority order (highest priority first).
+ * Availability is always first — time-sensitive.
+ * Transformations drive the most reach, so they come second.
+ */
+export const DEFAULT_PRIORITY = [
+  "availability",
+  "before_after",
+  "celebration",
+  "standard_post",
+  "promotions",
+  "product_education",
+];
+
+/**
+ * Whether a post type publishes to the feed (counts against daily feed cap).
+ * Availability and promotions go to Stories only — they don't consume feed quota.
+ */
+const FEED_TYPES = new Set([
+  "standard_post",
+  "before_after",
+  "product_education",
+  "celebration",
+]);
+
+function isStoryOnly(postType) {
+  return postType === "availability" || postType === "promotions";
+}
+
+function getPriorityIndex(postType, priorityOrder) {
+  const idx = priorityOrder.indexOf(postType || "standard_post");
+  return idx === -1 ? 99 : idx;
+}
 
 // ===================== Helpers =====================
 
@@ -24,7 +60,7 @@ function withinPostingWindow(now, start, end) {
   const [sH, sM] = start.split(":").map(Number);
   const [eH, eM] = end.split(":").map(Number);
   const windowStart = now.set({ hour: sH, minute: sM });
-  const windowEnd = now.set({ hour: eH, minute: eM });
+  const windowEnd   = now.set({ hour: eH, minute: eM });
   return now >= windowStart && now <= windowEnd;
 }
 
@@ -33,8 +69,44 @@ function randomDelay(min, max) {
 }
 
 /**
+ * Count posts published to each platform today (UTC date).
+ */
+function getDailyPublishedCounts(salonId, dateStr) {
+  const fb = db.prepare(
+    `SELECT COUNT(*) AS n FROM posts
+     WHERE salon_id=? AND fb_post_id IS NOT NULL AND date(published_at)=?`
+  ).get(salonId, dateStr)?.n || 0;
+
+  const ig = db.prepare(
+    `SELECT COUNT(*) AS n FROM posts
+     WHERE salon_id=? AND ig_media_id IS NOT NULL AND date(published_at)=?`
+  ).get(salonId, dateStr)?.n || 0;
+
+  return { fb, ig };
+}
+
+/**
+ * Check stylist fairness: how many minutes ago was this stylist's most recent
+ * scheduled or published post?  Returns null if none found.
+ */
+function minutesSinceLastStylistPost(salonId, stylistName, excludePostId) {
+  if (!stylistName) return null;
+  const row = db.prepare(
+    `SELECT COALESCE(published_at, scheduled_for) AS last_time
+     FROM posts
+     WHERE salon_id=? AND stylist_name=? AND id!=?
+       AND (status='manager_approved' OR status='published')
+     ORDER BY COALESCE(published_at, scheduled_for) DESC
+     LIMIT 1`
+  ).get(salonId, stylistName, excludePostId || "");
+
+  if (!row?.last_time) return null;
+  const lastDt = DateTime.fromSQL(row.last_time, { zone: "utc" });
+  return DateTime.utc().diff(lastDt, "minutes").minutes;
+}
+
+/**
  * DB-only salon policy lookup.
- * Kept for backward compatibility (some publishers import this).
  * Returns BOTH flattened keys and legacy salon_info shape.
  */
 function getSalonPolicy(salonSlug) {
@@ -43,24 +115,15 @@ function getSalonPolicy(salonSlug) {
   const row = db
     .prepare(`
       SELECT
-        slug,
-        name,
-        phone,
-        city,
-        state,
-        timezone,
-        posting_start_time,
-        posting_end_time,
-        spacing_min,
-        spacing_max,
-        facebook_page_id,
-        facebook_page_token,
-        instagram_business_id,
-        instagram_handle,
-        booking_url,
-        default_cta,
-        default_hashtags,
-        tone
+        slug, name, phone, city, state, timezone,
+        posting_start_time, posting_end_time,
+        spacing_min, spacing_max,
+        ig_feed_daily_max, fb_feed_daily_max, tiktok_daily_max,
+        fairness_window_min,
+        content_priority, content_mix,
+        facebook_page_id, facebook_page_token,
+        instagram_business_id, instagram_handle,
+        booking_url, default_cta, default_hashtags, tone
       FROM salons
       WHERE slug = ?
     `)
@@ -70,16 +133,20 @@ function getSalonPolicy(salonSlug) {
 
   const posting_window = {
     start: row.posting_start_time || "09:00",
-    end: row.posting_end_time || "19:00",
+    end:   row.posting_end_time   || "19:00",
   };
+
+  let priorityOrder = DEFAULT_PRIORITY;
+  try {
+    const parsed = JSON.parse(row.content_priority || "null");
+    if (Array.isArray(parsed) && parsed.length) priorityOrder = parsed;
+  } catch {}
 
   return {
     ...row,
     posting_window,
-    salon_info: {
-      ...row,
-      posting_window,
-    },
+    priorityOrder,
+    salon_info: { ...row, posting_window },
   };
 }
 
@@ -105,9 +172,8 @@ async function recoverMissedPosts() {
     const now = DateTime.utc();
     for (const post of missed) {
       const salon = getSalonPolicy(post.salon_id);
-      const min = salon?.spacing_min ?? salon?.salon_info?.spacing_min ?? 20;
-      const max = salon?.spacing_max ?? salon?.salon_info?.spacing_max ?? 45;
-
+      const min   = salon?.spacing_min ?? 20;
+      const max   = salon?.spacing_max ?? 45;
       const delay = randomDelay(min, max);
       const newTime = toSqliteTimestamp(now.plus({ minutes: delay }));
 
@@ -150,7 +216,8 @@ export async function runSchedulerOnce() {
       return;
     }
 
-    const nowUtc = DateTime.utc();
+    const nowUtc    = DateTime.utc();
+    const todayStr  = nowUtc.toFormat("yyyy-LL-dd");
 
     for (const salonId of tenants) {
       const salon = getSalonPolicy(salonId);
@@ -160,6 +227,7 @@ export async function runSchedulerOnce() {
         continue;
       }
 
+      // --- Fetch due posts ---
       const due = db
         .prepare(`
           SELECT *
@@ -174,41 +242,70 @@ export async function runSchedulerOnce() {
 
       if (!due.length) continue;
 
+      // --- Sort by content priority ---
+      const priorityOrder = salon.priorityOrder || DEFAULT_PRIORITY;
+      due.sort((a, b) =>
+        getPriorityIndex(a.post_type, priorityOrder) -
+        getPriorityIndex(b.post_type, priorityOrder)
+      );
+
       console.log(`⚡ [Scheduler] ${due.length} due for ${salonId}`);
 
-      const tz = salon.timezone || "America/Indiana/Indianapolis";
+      const tz          = salon.timezone || "America/Indiana/Indianapolis";
       const windowStart = salon.posting_start_time || "09:00";
-      const windowEnd = salon.posting_end_time || "19:00";
+      const windowEnd   = salon.posting_end_time   || "19:00";
+
+      // --- Daily cap counters (track within this run) ---
+      const fbDailyCap = salon.fb_feed_daily_max ?? 4;
+      const igDailyCap = salon.ig_feed_daily_max ?? 5;
+      const counts     = getDailyPublishedCounts(salonId, todayStr);
+      let fbPostedToday = counts.fb;
+      let igPostedToday = counts.ig;
 
       for (const post of due) {
-        const localNow = nowUtc.setZone(tz);
+        const localNow  = nowUtc.setZone(tz);
+        const postType  = post.post_type || "standard_post";
+        const storyOnly = isStoryOnly(postType);
 
+        // --- Posting window check ---
         if (!IGNORE_WINDOW && !FORCE_POST_NOW) {
           if (!withinPostingWindow(localNow, windowStart, windowEnd)) {
             const retry = toSqliteTimestamp(nowUtc.plus({ hours: 1 }));
             console.log(`⏸️ [${post.id}] Outside window → ${retry}`);
-
             db.prepare(
-              `UPDATE posts
-               SET scheduled_for=?, status='manager_approved'
-               WHERE id=?`
+              `UPDATE posts SET scheduled_for=?, status='manager_approved' WHERE id=?`
             ).run(retry, post.id);
             continue;
           }
         }
 
+        // --- Daily cap check (feed posts only) ---
+        if (!storyOnly && !FORCE_POST_NOW) {
+          if (fbPostedToday >= fbDailyCap) {
+            const tomorrow = nowUtc.plus({ days: 1 }).set({ hour: 9, minute: 0, second: 0, millisecond: 0 });
+            console.log(`🚫 [${post.id}] FB daily cap (${fbDailyCap}) reached → reschedule tomorrow`);
+            db.prepare(`UPDATE posts SET scheduled_for=? WHERE id=?`)
+              .run(toSqliteTimestamp(tomorrow), post.id);
+            continue;
+          }
+          if (igPostedToday >= igDailyCap) {
+            const tomorrow = nowUtc.plus({ days: 1 }).set({ hour: 9, minute: 0, second: 0, millisecond: 0 });
+            console.log(`🚫 [${post.id}] IG daily cap (${igDailyCap}) reached → reschedule tomorrow`);
+            db.prepare(`UPDATE posts SET scheduled_for=? WHERE id=?`)
+              .run(toSqliteTimestamp(tomorrow), post.id);
+            continue;
+          }
+        }
+
         try {
-          const fbPageId =
-            salon.facebook_page_id || salon?.salon_info?.facebook_page_id;
-          const fbToken =
-            salon.facebook_page_token || salon?.salon_info?.facebook_page_token;
+          const fbPageId = salon.facebook_page_id || salon?.salon_info?.facebook_page_id;
+          const fbToken  = salon.facebook_page_token || salon?.salon_info?.facebook_page_token;
 
           if (!fbPageId || !fbToken) {
             throw new Error("Missing Facebook credentials in salons table");
           }
 
-          // Resolve image URLs — before_after posts store originals in image_urls but publish the collage (image_url)
-          const postType = post.post_type || "standard_post";
+          // Resolve image URLs
           let allRaw;
           if (postType === "before_after") {
             allRaw = post.image_url ? [post.image_url] : [];
@@ -229,41 +326,38 @@ export async function runSchedulerOnce() {
           );
 
           const isMulti = allImages.length > 1;
-          console.log(`📸 [Scheduler] Publishing ${allImages.length} image(s) for post ${post.id} (${postType}, ${isMulti ? "carousel" : "single"})`);
+          console.log(`📸 [Scheduler] Publishing ${allImages.length} image(s) for ${post.id} (${postType}, ${isMulti ? "carousel" : "single"})`);
 
           let fbResp = null;
           let igResp = null;
 
-          if (postType === "availability" || postType === "promotions") {
-            // Availability + Promotions → Instagram Story only (no Facebook story yet)
-            const image = allImages[0] || post.image_url;
+          if (storyOnly) {
+            // Availability + Promotions → Stories only
+            const image        = allImages[0] || post.image_url;
             const storyLinkUrl = salon.booking_url || salon.booking_link || null;
             igResp = await publishStoryToInstagram({
               salon_id: salon.slug,
               imageUrl: image,
-              linkUrl: storyLinkUrl,
+              linkUrl:  storyLinkUrl,
             });
           } else if (isMulti) {
             fbResp = await publishToFacebookMulti(fbPageId, post.final_caption, allImages, fbToken);
             igResp = await publishToInstagramCarousel({
-              salon_id: salon.slug,
-              caption: post.final_caption,
+              salon_id:  salon.slug,
+              caption:   post.final_caption,
               imageUrls: allImages,
             });
           } else {
             const image = allImages[0] || post.image_url;
             fbResp = await publishToFacebook(fbPageId, post.final_caption, image, fbToken);
             igResp = await publishToInstagram({
-              salon_id: salon.slug,
-              imageUrl: image,
-              caption: post.final_caption,
-              instagram_business_id:
-                salon.instagram_business_id || salon?.salon_info?.instagram_business_id,
+              salon_id:               salon.slug,
+              imageUrl:               image,
+              caption:                post.final_caption,
+              instagram_business_id:  salon.instagram_business_id || salon?.salon_info?.instagram_business_id,
             });
           }
 
-          // FB photo posts return { id: photoId, post_id: actualPostId }.
-          // Store post_id when available — it's required for insights queries.
           const fbPostId = fbResp?.post_id || fbResp?.id || null;
 
           db.prepare(
@@ -275,35 +369,31 @@ export async function runSchedulerOnce() {
              WHERE id=?`
           ).run(fbPostId, igResp?.id || null, post.id);
 
-          console.log(`✅ [${post.id}] Published`);
+          // Increment in-run counters (feed posts only)
+          if (!storyOnly) {
+            if (fbResp) fbPostedToday++;
+            if (igResp) igPostedToday++;
+          }
+
+          console.log(`✅ [${post.id}] Published (fb today: ${fbPostedToday}/${fbDailyCap}, ig today: ${igPostedToday}/${igDailyCap})`);
+
         } catch (err) {
           console.error(`❌ [${post.id}] Failed:`, err.message);
 
           const newRetryCount = (post.retry_count || 0) + 1;
-          const MAX_RETRIES = 3;
+          const MAX_RETRIES   = 3;
 
           if (newRetryCount >= MAX_RETRIES) {
-            console.error(`🚫 [${post.id}] Max retries reached — marking as failed`);
+            console.error(`🚫 [${post.id}] Max retries — marking failed`);
             db.prepare(
-              `UPDATE posts
-               SET status='failed',
-                   retry_count=?,
-                   error_message=?
-               WHERE id=?`
+              `UPDATE posts SET status='failed', retry_count=?, error_message=? WHERE id=?`
             ).run(newRetryCount, err.message.slice(0, 500), post.id);
           } else {
-            const min = salon.spacing_min ?? 20;
-            const max = salon.spacing_max ?? 45;
-            const retry = toSqliteTimestamp(
-              nowUtc.plus({ minutes: randomDelay(min, max) })
-            );
+            const min   = salon.spacing_min ?? 20;
+            const max   = salon.spacing_max ?? 45;
+            const retry = toSqliteTimestamp(nowUtc.plus({ minutes: randomDelay(min, max) }));
             db.prepare(
-              `UPDATE posts
-               SET status='manager_approved',
-                   scheduled_for=?,
-                   retry_count=?,
-                   error_message=?
-               WHERE id=?`
+              `UPDATE posts SET status='manager_approved', scheduled_for=?, retry_count=?, error_message=? WHERE id=?`
             ).run(retry, newRetryCount, err.message.slice(0, 500), post.id);
           }
         }
@@ -319,21 +409,68 @@ export async function runSchedulerOnce() {
 export function enqueuePost(post) {
   const salon = getSalonPolicy(post.salon_id);
 
-  const min = salon?.spacing_min ?? 20;
-  const max = salon?.spacing_max ?? 45;
-  const delay = randomDelay(min, max);
+  const min   = salon?.spacing_min ?? 20;
+  const max   = salon?.spacing_max ?? 45;
+  let   delay = randomDelay(min, max);
+
+  // --- Stylist fairness: avoid back-to-back posts from same stylist ---
+  const fairnessWindow = salon?.fairness_window_min ?? 180;
+  const minutesSince   = minutesSinceLastStylistPost(post.salon_id, post.stylist_name, post.id);
+
+  if (minutesSince !== null && minutesSince < fairnessWindow) {
+    const extraNeeded = Math.ceil(fairnessWindow - minutesSince);
+    if (delay < extraNeeded) {
+      console.log(`⏳ [Enqueue] Stylist fairness: adding ${extraNeeded - delay}min extra delay for ${post.stylist_name}`);
+      delay = extraNeeded + randomDelay(5, 15); // add a little extra jitter
+    }
+  }
 
   const scheduled = toSqliteTimestamp(DateTime.utc().plus({ minutes: delay }));
 
   db.prepare(
-    `UPDATE posts
-     SET status='manager_approved',
-         scheduled_for=?
-     WHERE id=?`
+    `UPDATE posts SET status='manager_approved', scheduled_for=? WHERE id=?`
   ).run(scheduled, post.id);
 
-  console.log(`🪵 [Enqueue] ${post.id} → ${scheduled}`);
+  console.log(`🪵 [Enqueue] ${post.id} → ${scheduled} (${delay}min, type: ${post.post_type || "standard_post"})`);
   return { ...post, status: "manager_approved", scheduled_for: scheduled };
+}
+
+// ===================== Stats (for Scheduler Config page) =====================
+
+export function getSchedulerStats(salonId) {
+  const todayStr = DateTime.utc().toFormat("yyyy-LL-dd");
+
+  const queued = db.prepare(
+    `SELECT COUNT(*) AS n FROM posts
+     WHERE salon_id=? AND status='manager_approved' AND scheduled_for IS NOT NULL`
+  ).get(salonId)?.n || 0;
+
+  const publishedToday = db.prepare(
+    `SELECT COUNT(*) AS n FROM posts
+     WHERE salon_id=? AND status='published' AND date(published_at)=?`
+  ).get(salonId, todayStr)?.n || 0;
+
+  const failed = db.prepare(
+    `SELECT COUNT(*) AS n FROM posts WHERE salon_id=? AND status='failed'`
+  ).get(salonId)?.n || 0;
+
+  const nextPost = db.prepare(
+    `SELECT scheduled_for, post_type, stylist_name FROM posts
+     WHERE salon_id=? AND status='manager_approved' AND scheduled_for IS NOT NULL
+     ORDER BY datetime(scheduled_for) ASC LIMIT 1`
+  ).get(salonId);
+
+  const fbToday = db.prepare(
+    `SELECT COUNT(*) AS n FROM posts
+     WHERE salon_id=? AND fb_post_id IS NOT NULL AND date(published_at)=?`
+  ).get(salonId, todayStr)?.n || 0;
+
+  const igToday = db.prepare(
+    `SELECT COUNT(*) AS n FROM posts
+     WHERE salon_id=? AND ig_media_id IS NOT NULL AND date(published_at)=?`
+  ).get(salonId, todayStr)?.n || 0;
+
+  return { queued, publishedToday, failed, nextPost, fbToday, igToday };
 }
 
 // ===================== Boot =====================
@@ -343,13 +480,10 @@ export function startScheduler() {
 
   recoverMissedPosts();
 
-  const intervalSeconds =
-    Number(process.env.SCHEDULER_INTERVAL_SECONDS) || 60;
-
+  const intervalSeconds = Number(process.env.SCHEDULER_INTERVAL_SECONDS) || 60;
   console.log(`🕓 [Scheduler] Interval active: every ${intervalSeconds}s`);
-
   setInterval(runSchedulerOnce, intervalSeconds * 1000);
 }
 
-// ✅ Required by instagram publisher (and any legacy imports)
+// ✅ Required by instagram publisher and legacy imports
 export { getSalonPolicy };

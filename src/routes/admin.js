@@ -109,13 +109,6 @@ router.get("/", requireAuth, (req, res) => {
     );
   }
 
-  // Managers
-  const dbManagers = db
-    .prepare(
-      `SELECT id, name, phone, role FROM managers WHERE salon_id = ? ORDER BY name ASC`
-    )
-    .all(salon_id);
-
   // Members
   const dbStylists = db
     .prepare(
@@ -180,62 +173,6 @@ router.get("/", requireAuth, (req, res) => {
       max: salonRow.spacing_max ?? 45,
     },
   };
-
-  // Team table rows
-let teamRows = "";
-
-// Managers
-dbManagers.forEach((m) => {
-  teamRows += `
-    <tr class="border-b border-mpBorder">
-      <td class="px-3 py-2 text-sm text-mpCharcoal">${m.name}</td>
-      <td class="px-3 py-2 text-xs text-mpMuted">Manager</td>
-      <td class="px-3 py-2 text-xs text-mpMuted">${m.phone}</td>
-      <td class="px-3 py-2 text-xs text-mpMuted">—</td>
-      <td class="px-3 py-2 text-xs text-mpMuted">—</td>
-      <td class="px-3 py-2 text-xs text-mpMuted">—</td>
-      <td class="px-3 py-2 text-xs text-mpMuted text-right"></td>
-    </tr>
-  `;
-});
-
-// Members
-dbStylists.forEach((s) => {
-  let specialties = [];
-  if (s.specialties) {
-    try {
-      const parsed = JSON.parse(s.specialties);
-      if (Array.isArray(parsed)) specialties = parsed;
-      else specialties = String(s.specialties).split(",").map(x => x.trim());
-    } catch {
-      specialties = String(s.specialties).split(",").map(x => x.trim());
-    }
-  }
-
-  teamRows += `
-    <tr class="border-b border-mpBorder">
-      <td class="px-3 py-2 text-sm text-mpCharcoal">${s.name}</td>
-      <td class="px-3 py-2 text-xs text-mpMuted">Service Provider</td>
-      <td class="px-3 py-2 text-xs text-mpMuted">${s.phone}</td>
-      <td class="px-3 py-2 text-xs text-mpMuted">${s.instagram_handle || "—"}</td>
-      <td class="px-3 py-2 text-xs text-mpMuted">${specialties.join(", ") || "—"}</td>
-      <td class="px-3 py-2 text-xs text-mpMuted">—</td>
-
-      <td class="px-3 py-2 text-xs text-mpMuted text-right">
-        <button
-          class="text-xs text-mpAccent hover:text-mpCharcoal underline"
-          onclick='window.admin.openEditStylist({
-            id: ${JSON.stringify(s.id)},
-            name: ${JSON.stringify(s.name)},
-            phone: ${JSON.stringify(s.phone)},
-            instagram: ${JSON.stringify(s.instagram_handle)},
-            specialties: ${JSON.stringify(specialties)}
-          })'
-        >Edit</button>
-      </td>
-    </tr>
-  `;
-});
 
   // Build Admin Page HTML
   const body = `
@@ -363,31 +300,28 @@ dbStylists.forEach((s) => {
       </div>
     </section>
 
-    <!-- POSTING RULES -->
+    <!-- POSTING RULES — moved to Scheduler page -->
     <section class="mb-6 grid gap-4 md:grid-cols-2">
-      <!-- Posting Window -->
-      <div class="rounded-2xl border border-mpBorder bg-white px-4 py-4">
-        <div class="flex items-center justify-between mb-2">
-          <h2 class="text-sm font-semibold text-mpCharcoal">Posting Rules</h2>
-          <button onclick="window.admin.openPostingRules()" class="text-mpMuted hover:text-mpCharcoal text-xs">✏️</button>
+      <!-- Scheduler link card -->
+      <div class="rounded-2xl border border-mpBorder bg-white px-4 py-4 flex flex-col justify-between">
+        <div>
+          <h2 class="text-sm font-semibold text-mpCharcoal mb-1">Posting Schedule</h2>
+          <p class="text-xs text-mpMuted mb-3">Posting window, platform daily caps, content priority order, and stylist fairness rules are managed in the Scheduler.</p>
+          <dl class="space-y-1 text-xs text-mpCharcoal mb-4">
+            <div class="flex justify-between">
+              <dt class="text-mpMuted">Window</dt>
+              <dd>${fmtTime(settings.posting_window.start)} – ${fmtTime(settings.posting_window.end)}</dd>
+            </div>
+            <div class="flex justify-between">
+              <dt class="text-mpMuted">Spacing</dt>
+              <dd>${settings.random_delay_minutes.min}–${settings.random_delay_minutes.max} min</dd>
+            </div>
+          </dl>
         </div>
-          <p class="text-xs text-mpMuted mb-3">
-            MostlyPostly only posts inside your configured window (business local time).
-          </p>
-        <dl class="space-y-1 text-xs text-mpCharcoal">
-          <div class="flex justify-between">
-            <dt class="text-mpMuted">Posting Window Start</dt>
-            <dd>${fmtTime(settings.posting_window.start)}</dd>
-          </div>
-          <div class="flex justify-between">
-            <dt class="text-mpMuted">Posting Window End</dt>
-            <dd>${fmtTime(settings.posting_window.end)}</dd>
-          </div>
-          <div class="flex justify-between">
-              <dt class="text-mpMuted">Random Delay</dt>
-            <dd>${settings.random_delay_minutes.min}–${settings.random_delay_minutes.max} min</dd>
-          </div>
-        </dl>
+        <a href="/manager/scheduler?salon=${salon_id}"
+           class="inline-flex items-center gap-1.5 rounded-full bg-mpCharcoal px-4 py-2 text-xs font-semibold text-white hover:bg-mpCharcoalDark transition-colors self-start">
+          Open Scheduler Settings
+        </a>
       </div>
 
       <!-- Manager Rules -->
@@ -474,39 +408,24 @@ dbStylists.forEach((s) => {
       </div>
     </section>
 
-    <!-- TEAM MEMBERS -->
+    <!-- TEAM MEMBERS — managed on dedicated Team page -->
     <section class="mb-6">
-      <div class="rounded-2xl border border-mpBorder bg-white px-4 py-4">
-        <div class="mb-3">
-          <div class="flex justify-between mb-1">
-            <h2 class="text-sm font-semibold text-mpCharcoal">Registered Team Members</h2>
-
-            <!-- Working Add Button -->
-            <button onclick="window.admin.openAddStylist()"
-              class="ml-3 text-xs font-semibold text-mpAccent hover:text-mpAccentDark">
-              + Add
-            </button>
-          </div>
-          <p class="text-[11px] text-mpMuted">
-            Managers and members who can receive SMS and post through MostlyPostly.
+      <div class="rounded-2xl border border-mpBorder bg-white px-4 py-4 flex flex-col justify-between">
+        <div>
+          <h2 class="text-sm font-semibold text-mpCharcoal mb-1">Team Members</h2>
+          <p class="text-xs text-mpMuted mb-3">
+            Add stylists, set tone variants, upload profile photos, configure birthdays and anniversaries,
+            and manage celebration posts — all from the Team page.
+          </p>
+          <p class="text-xs text-mpMuted">
+            <span class="font-medium text-mpCharcoal">${dbStylists.length}</span> service provider${dbStylists.length !== 1 ? "s" : ""} registered
           </p>
         </div>
-
-        <div class="overflow-x-auto">
-          <table class="w-full border-collapse text-xs">
-            <thead class="bg-white text-mpMuted">
-              <tr>
-                <th class="px-3 py-2 text-left">Name</th>
-                <th class="px-3 py-2 text-left">Role</th>
-                <th class="px-3 py-2 text-left">Phone</th>
-                <th class="px-3 py-2 text-left">IG Handle</th>
-                <th class="px-3 py-2 text-left">Specialties</th>
-                <th class="px-3 py-2 text-left">SMS Opt-in</th>
-                <th class="px-3 py-2 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>${teamRows}</tbody>
-          </table>
+        <div class="mt-4">
+          <a href="/manager/stylists?salon=${salon_id}"
+             class="inline-flex items-center gap-1.5 rounded-full bg-mpCharcoal px-4 py-2 text-xs font-semibold text-white hover:bg-mpCharcoalDark transition-colors">
+            Manage Team
+          </a>
         </div>
       </div>
     </section>

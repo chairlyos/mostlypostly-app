@@ -5,73 +5,13 @@ import { DateTime } from "luxon";
 import { getSalonPolicy } from "../scheduler.js";
 import { getAllSalons, getSalonName } from "../core/salonLookup.js";
 import { syncSalonInsights } from "../core/fetchInsights.js";
+import shell from "../ui/pageShell.js";
 
 const router = express.Router();
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function navBar(current = "analytics", salon_id = "") {
-  const qs = salon_id ? `?salon=${encodeURIComponent(salon_id)}` : "";
-  const link = (href, label, key) =>
-    `<a href="${href}" class="${
-      current === key
-        ? "text-mpCharcoal border-b-2 border-mpAccent font-semibold"
-        : "text-mpMuted hover:text-mpCharcoal"
-    } transition px-1 pb-1">${label}</a>`;
-  return `
-<header class="border-b border-mpBorder bg-white/90 backdrop-blur sticky top-0 z-30">
-  <div class="mx-auto max-w-6xl pl-0 pr-4 sm:pr-6 lg:pr-8">
-    <div class="flex items-center justify-between py-3">
-      <a href="/manager${qs}" aria-label="MostlyPostly manager home">
-        <img src="/public/logo/logo-trimmed.png" alt="MostlyPostly" class="w-64 h-auto" />
-      </a>
-      <nav class="hidden items-center gap-8 text-sm font-medium md:flex">
-        ${link(`/manager${qs}`, "Dashboard", "manager")}
-        ${link(`/dashboard${qs}`, "Database", "database")}
-        ${link(`/analytics${qs}`, "Analytics", "analytics")}
-        ${link(`/manager/admin${qs}`, "Admin", "admin")}
-        ${link(`/manager/logout${qs}`, "Logout", "logout")}
-      </nav>
-    </div>
-  </div>
-</header>`;
-}
-
+// Wrap shared shell with analytics-specific defaults
 function pageShell({ title, body, salon_id = "" }) {
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>${title}</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: { sans: ['"Plus Jakarta Sans"', 'ui-sans-serif', 'system-ui', 'sans-serif'] },
-          colors: {
-            mpCharcoal: "#2B2D35", mpCharcoalDark: "#1a1c22",
-            mpAccent: "#D4897A", mpAccentLight: "#F2DDD9",
-            mpBg: "#FDF8F6", mpCard: "#FFFFFF",
-            mpBorder: "#EDE7E4", mpMuted: "#7A7C85",
-          }
-        }
-      }
-    };
-  </script>
-  <style>body { font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif; }</style>
-</head>
-<body class="bg-mpBg text-mpCharcoal antialiased">
-  ${navBar("analytics", salon_id)}
-  <main class="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-    ${body}
-  </main>
-</body>
-</html>`;
+  return shell({ title, body, salon_id, current: "analytics" });
 }
 
 function resolveSalonId(req) {

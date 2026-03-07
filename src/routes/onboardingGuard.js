@@ -45,6 +45,12 @@ if (url.startsWith("/inbound/telegram")) {
   // Allow billing routes (checkout, success — webhook already exempt before guard)
   if (url.startsWith("/billing")) return next();
 
+  // Allow scheduler config (same auth as admin)
+  if (url.startsWith("/manager/scheduler")) return next();
+
+  // Allow stylist management (same auth as admin)
+  if (url.startsWith("/manager/stylists")) return next();
+
   // Allow stylist portal (token-authenticated, no session needed)
   if (url.startsWith("/stylist")) return next();
 
