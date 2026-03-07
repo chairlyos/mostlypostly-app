@@ -53,16 +53,19 @@ router.get("/checkout", requireAuth, async (req, res) => {
   }
 
   const stripe = getStripe();
-  const salon  = db.prepare("SELECT name, stripe_customer_id FROM salons WHERE slug=?").get(salon_id);
+  const salon  = db.prepare("SELECT name, stripe_customer_id, trial_used FROM salons WHERE slug=?").get(salon_id);
   const mgr    = db.prepare("SELECT email FROM managers WHERE id=?").get(manager_id);
 
   const PUBLIC_BASE_URL = process.env.PUBLIC_BASE_URL || process.env.BASE_URL || "http://localhost:3000";
+
+  // Only offer trial if this salon has never activated one before
+  const offerTrial = !salon.trial_used;
 
   const sessionParams = {
     mode: "subscription",
     line_items: [{ price: priceId, quantity: 1 }],
     subscription_data: {
-      trial_period_days: 14,
+      ...(offerTrial ? { trial_period_days: 14 } : {}),
       metadata: { salon_id, plan, cycle },
     },
     success_url: `${PUBLIC_BASE_URL}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
@@ -127,7 +130,7 @@ router.get("/manager/billing", requireAuth, async (req, res) => {
   const { manager_id, salon_id } = req.session;
 
   const salon = db.prepare(`
-    SELECT name, plan, plan_status, billing_cycle, trial_ends_at, stripe_customer_id
+    SELECT name, plan, plan_status, billing_cycle, trial_ends_at, stripe_customer_id, trial_used
     FROM salons WHERE slug=?
   `).get(salon_id);
 
@@ -282,7 +285,7 @@ router.get("/manager/billing", requireAuth, async (req, res) => {
           <div class="grid gap-4 sm:grid-cols-3">
             ${planCards}
           </div>
-          <p class="mt-4 text-xs text-mpMuted">All plans include a 14-day free trial. Cancel anytime.</p>
+          <p class="mt-4 text-xs text-mpMuted">${salon.trial_used ? "Cancel anytime." : "New accounts include a 14-day free trial. Cancel anytime."}</p>
         </div>
 
         <script>
@@ -317,7 +320,7 @@ router.get("/manager/billing", requireAuth, async (req, res) => {
 // IMPORTANT: This must be mounted BEFORE bodyParser in server.js
 // using: app.post('/billing/webhook', express.raw({ type: 'application/json' }), stripeWebhookHandler)
 
-export function stripeWebhookHandler(req, res) {
+export async function stripeWebhookHandler(req, res) {
   const sig = req.headers["stripe-signature"];
   let event;
 
@@ -339,18 +342,31 @@ export function stripeWebhookHandler(req, res) {
         const plan     = obj.metadata?.plan || "starter";
         const cycle    = obj.metadata?.cycle || "monthly";
         if (!salon_id) break;
+
+        // Determine if Stripe actually granted a trial on this subscription
+        let hasTrialFromStripe = false;
+        try {
+          const stripe = getStripe();
+          const sub = await stripe.subscriptions.retrieve(obj.subscription);
+          hasTrialFromStripe = !!sub.trial_end && sub.trial_end > Math.floor(Date.now() / 1000);
+        } catch {}
+
+        const newStatus   = hasTrialFromStripe ? "trialing" : "active";
+        const trialEndSql = hasTrialFromStripe ? `datetime('now', '+14 days')` : "NULL";
+
         db.prepare(`
           UPDATE salons SET
             stripe_customer_id     = ?,
             stripe_subscription_id = ?,
             plan                   = ?,
-            plan_status            = 'trialing',
+            plan_status            = '${newStatus}',
             billing_cycle          = ?,
-            trial_ends_at          = datetime('now', '+14 days'),
+            trial_ends_at          = ${trialEndSql},
+            trial_used             = 1,
             updated_at             = datetime('now')
           WHERE slug = ?
         `).run(obj.customer, obj.subscription, plan, cycle, salon_id);
-        console.log(`[Stripe] checkout.session.completed: ${salon_id} → plan=${plan}`);
+        console.log(`[Stripe] checkout.session.completed: ${salon_id} → plan=${plan} status=${newStatus}`);
         break;
       }
 
