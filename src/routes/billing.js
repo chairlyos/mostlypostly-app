@@ -28,10 +28,10 @@ const PLAN_PRICES = {
 };
 
 export const PLAN_LIMITS = {
-  starter: { posts: 60,  stylists: 5,   locations: 1 },
-  growth:  { posts: 200, stylists: 20,  locations: 3 },
-  pro:     { posts: 500, stylists: null, locations: 5 },
-  trial:   { posts: 20,  stylists: 5,   locations: 1 },
+  starter: { posts: 60,  stylists: 4,    locations: 1 },
+  growth:  { posts: 150, stylists: 12,   locations: 2 },
+  pro:     { posts: 400, stylists: null,  locations: 5 },
+  trial:   { posts: 20,  stylists: 4,    locations: 1 },
 };
 
 function requireAuth(req, res, next) {
@@ -188,35 +188,145 @@ router.get("/manager/billing", requireAuth, async (req, res) => {
     }
   }
 
-  const PLAN_DETAILS = {
-    starter: { monthly: 49,  annual: 44,  desc: "60 posts · 5 stylists · 1 location" },
-    growth:  { monthly: 149, annual: 134, desc: "200 posts · 20 stylists · 3 locations" },
-    pro:     { monthly: 249, annual: 224, desc: "500 posts · Unlimited stylists · 5 locations" },
+  // Helper: checkmark bullet
+  const check = (dark) => `<span class="mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full ${dark ? "bg-mpAccent/20 text-mpAccent" : "bg-mpAccentLight text-mpAccent"} text-[10px] font-bold">&#10003;</span>`;
+  const li = (text, dark) => `<li class="flex items-start gap-2">${check(dark)}<span>${text}</span></li>`;
+  const liMuted = (text, dark) => `<li class="flex items-start gap-2 ${dark ? "text-slate-400" : "text-mpMuted"}"><span class="mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full ${dark ? "bg-white/10 text-slate-400" : "bg-mpBorder text-mpMuted"} text-[10px] font-bold">+</span><span>${text}</span></li>`;
+
+  const PLAN_CONFIG = {
+    starter: {
+      monthly: 49, annual: 44,
+      annualTotal: 529, annualSave: 59,
+      badge: "Founder Rate — Limited Spots",
+      badgeDark: false,
+      tagline: "Perfect for a single-location salon getting started.",
+      strikethrough: "$99",
+      founderNote: "Locked for life as long as you stay subscribed.",
+      features: [
+        "<strong>60 posts</strong> per month",
+        "Up to <strong>4 stylists</strong>",
+        "<strong>1 location</strong>",
+        "AI captions, hashtags &amp; CTAs",
+        "Manager approval workflow",
+        "Facebook &amp; Instagram publishing",
+        "SMS + Telegram channels",
+        "Brand tone, hashtags &amp; booking URL",
+        "1 manager seat",
+      ],
+      overage: "Overage: $2.50 per 10 additional posts",
+      dark: false,
+    },
+    growth: {
+      monthly: 149, annual: 134,
+      annualTotal: 1609, annualSave: 179,
+      badge: "Most Popular",
+      badgeDark: true,
+      tagline: "For growing salons with an active team.",
+      strikethrough: null,
+      founderNote: null,
+      features: [
+        "<strong>150 posts</strong> per month",
+        "Up to <strong>12 stylists</strong>",
+        "<strong>1–2 locations</strong> (+$49/additional)",
+        "Everything in Starter",
+        "<strong>2 manager seats</strong>",
+        "Future messaging channels (FB Messenger, Slack)",
+        "Priority support",
+      ],
+      overage: "Overage: $2.00 per 10 additional posts",
+      dark: true,
+    },
+    pro: {
+      monthly: 249, annual: 224,
+      annualTotal: 2689, annualSave: 299,
+      badge: "Vendor Integration",
+      badgeDark: false,
+      tagline: "Multi-location salons and brand-aligned teams.",
+      strikethrough: null,
+      founderNote: null,
+      features: [
+        "<strong>400 posts</strong> per month",
+        "<strong>Unlimited stylists</strong>",
+        "<strong>Up to 5 locations</strong> (+$49/additional)",
+        "Everything in Growth",
+        "<strong>Unlimited manager seats</strong>",
+        "All messaging channels",
+        "<strong>Vendor brand integration</strong> — Aveda, Wella, Redken &amp; more",
+        "Multi-location analytics",
+        "Dedicated onboarding",
+      ],
+      overage: "Overage: $1.50 per 10 additional posts",
+      dark: false,
+    },
   };
 
   const planCards = ["starter", "growth", "pro"].map(p => {
     const isCurrent = salon.plan === p;
     const isHinted  = planHint === p && !isCurrent;
-    const d = PLAN_DETAILS[p];
+    const c = PLAN_CONFIG[p];
+    const dark = c.dark;
+
+    const bgClass = dark
+      ? "border-2 border-mpCharcoal bg-mpCharcoal"
+      : isCurrent
+        ? "border-mpAccent bg-mpAccentLight/10"
+        : isHinted
+          ? "border-mpAccent ring-2 ring-mpAccent/30 bg-white"
+          : "border-mpBorder bg-white";
+
+    const badgeBg = dark ? "bg-white text-mpCharcoal" : p === "pro" ? "bg-mpCharcoal text-white" : "bg-mpAccent text-white";
+
+    const statusBadge2 = isCurrent
+      ? `<span class="rounded-full bg-mpAccentLight px-2.5 py-0.5 text-[10px] font-bold text-mpAccent uppercase tracking-wide">Current</span>`
+      : isHinted
+        ? `<span class="rounded-full bg-mpAccentLight px-2.5 py-0.5 text-[10px] font-bold text-mpAccent uppercase tracking-wide">Recommended</span>`
+        : "";
+
     return `
-      <div id="plan-card-${p}" class="rounded-xl border ${isCurrent ? "border-mpAccent bg-mpAccentLight/20" : isHinted ? "border-mpAccent ring-2 ring-mpAccent/30" : "border-mpBorder bg-mpBg"} p-5 flex flex-col">
-        <div class="flex items-start justify-between">
-          <p class="font-bold text-mpCharcoal capitalize">${p}</p>
-          ${isCurrent ? `<span class="rounded-full bg-mpAccentLight px-2.5 py-0.5 text-[10px] font-bold text-mpAccent uppercase tracking-wide">Current</span>` : isHinted ? `<span class="rounded-full bg-mpAccentLight px-2.5 py-0.5 text-[10px] font-bold text-mpAccent uppercase tracking-wide">Recommended</span>` : ""}
+      <div id="plan-card-${p}" class="relative rounded-xl border ${bgClass} p-5 flex flex-col">
+        <!-- Badge -->
+        <div class="absolute -top-3 left-4">
+          <span class="rounded-full ${badgeBg} px-3 py-1 text-[10px] font-bold uppercase tracking-wide shadow-sm">${c.badge}</span>
         </div>
-        <p class="text-2xl font-extrabold text-mpCharcoal mt-2">
-          <span class="price-monthly">$${d.monthly}</span>
-          <span class="price-annual hidden">$${d.annual}</span>
-          <span class="text-sm font-normal text-mpMuted">/mo</span>
-        </p>
-        <p class="price-annual-note hidden text-[11px] text-green-600 font-medium mt-0.5">Billed $${d.annual * 12}/year — save 10%</p>
-        <p class="text-xs text-mpMuted mt-1 leading-relaxed">${d.desc}</p>
+
+        <div class="mt-3 flex items-start justify-between">
+          <div>
+            <p class="font-bold ${dark ? "text-white" : "text-mpCharcoal"} capitalize text-base">${p.charAt(0).toUpperCase() + p.slice(1)}</p>
+            <p class="text-xs ${dark ? "text-slate-400" : "text-mpMuted"} mt-0.5">${c.tagline}</p>
+          </div>
+          ${statusBadge2}
+        </div>
+
+        <!-- Price -->
+        <div class="mt-4">
+          <div class="flex items-baseline gap-2">
+            ${c.strikethrough ? `<span class="text-sm font-medium text-red-400 line-through decoration-red-400">${c.strikethrough}</span>` : ""}
+            <span class="price-monthly text-3xl font-extrabold ${dark ? "text-white" : "text-mpCharcoal"}">$${c.monthly}</span>
+            <span class="price-annual hidden text-3xl font-extrabold ${dark ? "text-white" : "text-mpCharcoal"}">$${c.annual}</span>
+            <span class="text-sm ${dark ? "text-slate-400" : "text-mpMuted"}">/mo</span>
+          </div>
+          <p class="price-annual-note hidden text-[11px] ${dark ? "text-slate-400" : "text-mpMuted"} mt-0.5">
+            Billed as <strong class="${dark ? "text-white" : "text-mpCharcoal"}">$${c.annualTotal.toLocaleString()}/yr</strong> — save $${c.annualSave} vs monthly
+          </p>
+          ${c.founderNote ? `<p class="mt-1 text-[11px] text-mpAccent font-semibold">${c.founderNote}</p>` : `<p class="mt-1 invisible text-[11px]">&#8203;</p>`}
+        </div>
+
+        <!-- Features -->
+        <ul class="mt-5 space-y-2 text-xs ${dark ? "text-slate-200" : "text-mpCharcoal"} flex-1">
+          ${c.features.map(f => li(f, dark)).join("")}
+          ${liMuted(c.overage, dark)}
+        </ul>
+
+        <!-- CTA -->
         ${isCurrent
-          ? `<p class="mt-4 text-xs text-mpMuted">This is your current plan.</p>`
-          : `<a data-plan="${p}" data-monthly="/billing/checkout?plan=${p}&cycle=monthly" data-annual="/billing/checkout?plan=${p}&cycle=annual"
+          ? `<p class="mt-5 text-xs ${dark ? "text-slate-400" : "text-mpMuted"} text-center">This is your current plan.</p>`
+          : `<a data-plan="${p}"
+                data-monthly="/billing/checkout?plan=${p}&cycle=monthly"
+                data-annual="/billing/checkout?plan=${p}&cycle=annual"
                 href="/billing/checkout?plan=${p}&cycle=monthly"
-                class="plan-checkout-btn mt-auto pt-4 block text-center rounded-full bg-mpCharcoal text-white text-xs font-bold py-2.5 hover:bg-mpCharcoalDark transition-colors">
-                Select ${p.charAt(0).toUpperCase() + p.slice(1)}
+                class="plan-checkout-btn mt-5 block text-center rounded-full text-xs font-bold py-2.5 transition-colors
+                  ${dark ? "bg-mpAccent text-white hover:bg-[#c47867] shadow-lg" : "border-2 border-mpCharcoal bg-white text-mpCharcoal hover:bg-mpBg"}">
+                Select ${p.charAt(0).toUpperCase() + p.slice(1)} →
              </a>`
         }
       </div>`;
