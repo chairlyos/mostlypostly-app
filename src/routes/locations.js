@@ -24,7 +24,7 @@ router.get("/", requireAuth, (req, res) => {
   }
 
   const locations = db
-    .prepare("SELECT slug, name, status, plan FROM salons WHERE group_id = ? ORDER BY name")
+    .prepare("SELECT slug, name, status, plan, address, city, state, zip FROM salons WHERE group_id = ? ORDER BY name")
     .all(group_id);
 
   const currentSalon = db.prepare("SELECT plan FROM salons WHERE slug = ?").get(salon_id);
@@ -41,10 +41,12 @@ router.get("/", requireAuth, (req, res) => {
 
   const locationCards = locations.map(loc => {
     const isActive = loc.slug === salon_id;
+    const addressLine = [loc.address, loc.city, loc.state, loc.zip].filter(Boolean).join(", ");
     return `
       <div class="flex items-center justify-between p-4 rounded-xl border ${isActive ? "border-mpAccent bg-mpAccentLight" : "border-mpBorder bg-white"}">
-        <div>
+        <div class="min-w-0">
           <div class="font-semibold text-mpCharcoal">${loc.name}</div>
+          ${addressLine ? `<div class="text-xs text-mpMuted mt-0.5">${addressLine}</div>` : ""}
           <div class="text-xs text-mpMuted mt-0.5">${planNames[loc.plan] || loc.plan} · ${loc.status}</div>
         </div>
         <div class="flex items-center gap-2">

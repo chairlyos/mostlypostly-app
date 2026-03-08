@@ -57,6 +57,20 @@ const stylistPhotoUpload = multer({
   limits: { fileSize: 10 * 1024 * 1024 },
 });
 
+const salonLogoUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, UPLOADS_DIR),
+    filename:    (_req, file, cb) => {
+      const ext = path.extname(file.originalname) || ".png";
+      cb(null, `salon-logo-${Date.now()}${ext}`);
+    },
+  }),
+  fileFilter: (_req, file, cb) => {
+    cb(null, /image\/(jpeg|png|webp|gif)/.test(file.mimetype));
+  },
+  limits: { fileSize: 5 * 1024 * 1024 },
+});
+
 const router = express.Router();
 
 // ───────────────────────────────────────────────────────────
@@ -151,8 +165,11 @@ router.get("/", requireAuth, (req, res) => {
 
   const info = {
     name: salonRow.name,
-    city: salonRow.city,
-    state: salonRow.state,
+    logo_url: salonRow.logo_url || "",
+    address: salonRow.address || "",
+    city: salonRow.city || "",
+    state: salonRow.state || "",
+    zip: salonRow.zip || "",
     website: salonRow.website,
     booking_url: salonRow.booking_url,
     timezone: salonRow.timezone || "America/Indiana/Indianapolis",
@@ -177,9 +194,7 @@ router.get("/", requireAuth, (req, res) => {
   // Build Admin Page HTML
   const body = `
     <section class="mb-6">
-      <h1 class="text-2xl font-bold mb-2">Admin — <span class="text-mpAccent">${
-        info.name
-      }</span></h1>
+      <h1 class="text-2xl font-bold mb-2">Admin</h1>
       <p class="text-sm text-mpMuted">Manage social connections, posting rules, and team configuration.</p>
     </section>
 
@@ -226,9 +241,30 @@ router.get("/", requireAuth, (req, res) => {
 
       <!-- Salon Info -->
       <div class="rounded-2xl border border-mpBorder bg-white px-4 py-4">
-        <div class="flex items-center justify-between mb-2">
+        <div class="flex items-center justify-between mb-3">
           <h2 class="text-sm font-semibold text-mpCharcoal">Business Info</h2>
           <button onclick="window.admin.openSalonInfo()" class="text-mpMuted hover:text-mpCharcoal text-xs">✏️</button>
+        </div>
+
+        <!-- Logo -->
+        <div class="mb-3 flex items-center gap-3">
+          <div class="w-14 h-14 rounded-xl border border-mpBorder bg-mpBg flex items-center justify-center overflow-hidden flex-shrink-0">
+            ${info.logo_url
+              ? `<img src="${info.logo_url}" alt="Logo" class="w-full h-full object-contain" />`
+              : `<span class="text-xl text-mpMuted">🏪</span>`
+            }
+          </div>
+          <form method="POST" action="/manager/admin/update-salon-logo" enctype="multipart/form-data" class="flex-1">
+            <input type="hidden" name="salon_id" value="${salon_id}" />
+            <label class="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-mpBorder
+              bg-mpBg text-xs font-medium text-mpMuted hover:border-mpAccent hover:text-mpCharcoal transition-colors">
+              <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/>
+              </svg>
+              Upload Logo
+              <input type="file" name="logo" accept="image/*" class="hidden" onchange="this.closest('form').submit()" />
+            </label>
+          </form>
         </div>
 
         <dl class="space-y-1 text-xs text-mpCharcoal">
@@ -237,12 +273,10 @@ router.get("/", requireAuth, (req, res) => {
             info.name
           }</dd></div>
 
-          <div class="flex justify-between"><dt class="text-mpMuted">City</dt><dd>${
-            info.city
-          }</dd></div>
+          ${info.address ? `<div class="flex justify-between"><dt class="text-mpMuted">Address</dt><dd class="text-right max-w-[60%]">${info.address}</dd></div>` : ""}
 
-          <div class="flex justify-between"><dt class="text-mpMuted">State</dt><dd>${
-            info.state
+          <div class="flex justify-between"><dt class="text-mpMuted">City / State</dt><dd>${
+            [info.city, info.state, info.zip].filter(Boolean).join(", ") || "Not set"
           }</dd></div>
 
           <div class="flex justify-between"><dt class="text-mpMuted">Website</dt><dd>${
@@ -465,8 +499,10 @@ router.get("/", requireAuth, (req, res) => {
           data-salon-id="${salon_id}"
 
           data-name="${info.name}"
+          data-address="${info.address}"
           data-city="${info.city}"
           data-state="${info.state}"
+          data-zip="${info.zip}"
           data-website="${info.website}"
           data-industry="${salonRow.industry || ""}"
           data-booking-url="${info.booking_url}"
@@ -574,7 +610,7 @@ router.get("/", requireAuth, (req, res) => {
   // Render page
   res.send(
     pageShell({
-      title: `Admin — ${info.name}`,
+      title: "Admin",
       body,
       salon_id,
       manager_phone,
@@ -590,39 +626,41 @@ router.post("/update-salon-info", (req, res) => {
   const {
     salon_id,
     name,
+    address,
     city,
     state,
+    zip,
     website,
     booking_url,
     industry,
     tone_profile
   } = req.body;
 
-
   if (!salon_id) {
     return res.status(400).send("Missing salon_id");
   }
 
   try {
-    db.prepare(
-      `
+    db.prepare(`
       UPDATE salons
         SET
           name        = COALESCE(?, name),
+          address     = COALESCE(?, address),
           city        = COALESCE(?, city),
           state       = COALESCE(?, state),
+          zip         = COALESCE(?, zip),
           website     = COALESCE(?, website),
           booking_url = COALESCE(?, booking_url),
           industry    = COALESCE(?, industry),
           tone        = COALESCE(?, tone),
           updated_at  = datetime('now')
         WHERE slug = ?
-
-    `
-    ).run(
+    `).run(
       name || null,
+      address || null,
       city || null,
       state || null,
+      zip || null,
       website || null,
       booking_url || null,
       industry || null,
@@ -630,12 +668,25 @@ router.post("/update-salon-info", (req, res) => {
       salon_id
     );
 
-
     return res.redirect(`/manager/admin?salon=${encodeURIComponent(salon_id)}`);
   } catch (err) {
     console.error("[Admin] update-salon-info failed:", err);
     return res.status(500).send("Failed to update salon info");
   }
+});
+
+// -------------------------------------------------------
+// POST: Update Salon Logo
+// -------------------------------------------------------
+router.post("/update-salon-logo", salonLogoUpload.single("logo"), (req, res) => {
+  const salon_id = req.body.salon_id;
+  if (!salon_id || !req.file) {
+    return res.redirect(`/manager/admin?salon=${encodeURIComponent(salon_id || "")}`);
+  }
+  const PUBLIC_BASE_URL = (process.env.PUBLIC_BASE_URL || "").replace(/\/$/, "");
+  const logoUrl = `${PUBLIC_BASE_URL}/uploads/${req.file.filename}`;
+  db.prepare("UPDATE salons SET logo_url = ? WHERE slug = ?").run(logoUrl, salon_id);
+  return res.redirect(`/manager/admin?salon=${encodeURIComponent(salon_id)}`);
 });
 
 // -------------------------------------------------------

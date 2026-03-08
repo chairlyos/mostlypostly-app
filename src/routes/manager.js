@@ -277,7 +277,7 @@ router.get("/", requireAuth, async (req, res) => {
   const body = `
       <div class="flex items-center justify-between mb-2">
         <h1 class="text-2xl font-extrabold text-mpCharcoal">
-          Manager Dashboard — <span class="text-mpAccent">${salonName}</span>
+          Manager Dashboard
         </h1>
         <a href="/manager/promotion/new"
            class="px-4 py-2 bg-mpCharcoal hover:bg-mpCharcoalDark text-white font-semibold rounded-lg text-sm">

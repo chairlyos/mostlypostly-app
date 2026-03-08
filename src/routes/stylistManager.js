@@ -157,7 +157,7 @@ router.get("/", requireAuth, (req, res) => {
   const body = `
     <section class="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
       <div>
-        <h1 class="text-2xl font-bold">Team <span class="text-mpAccent">${safe(salon.name)}</span></h1>
+        <h1 class="text-2xl font-bold">Team</h1>
         <p class="text-sm text-mpMuted mt-0.5">${stylists.length} service provider${stylists.length !== 1 ? "s" : ""} registered</p>
       </div>
       <div class="flex flex-wrap gap-2">

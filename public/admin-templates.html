@@ -18,6 +18,14 @@
              class="w-full mt-1 border border-mpBorder bg-mpBg rounded-lg px-3 py-2 text-sm text-mpCharcoal focus:border-mpAccent focus:outline-none focus:ring-2 focus:ring-mpAccent/20" value="{{name}}" />
     </div>
 
+    <!-- ADDRESS -->
+    <div>
+      <label class="text-xs font-semibold text-mpMuted">Street Address</label>
+      <input data-field="address" name="address"
+             class="w-full mt-1 border border-mpBorder bg-mpBg rounded-lg px-3 py-2 text-sm text-mpCharcoal focus:border-mpAccent focus:outline-none focus:ring-2 focus:ring-mpAccent/20"
+             placeholder="123 Main St" value="{{address}}" />
+    </div>
+
     <!-- CITY -->
     <div>
       <label class="text-xs font-semibold text-mpMuted">City</label>
@@ -25,7 +33,8 @@
              class="w-full mt-1 border border-mpBorder bg-mpBg rounded-lg px-3 py-2 text-sm text-mpCharcoal focus:border-mpAccent focus:outline-none focus:ring-2 focus:ring-mpAccent/20" value="{{city}}" />
     </div>
 
-    <!-- STATE -->
+    <!-- STATE + ZIP (side by side) -->
+    <div class="grid grid-cols-2 gap-3">
     <div>
       <label class="text-xs font-semibold text-mpMuted">State</label>
       <select data-field="state" name="state" class="w-full mt-1 border border-mpBorder bg-mpBg rounded-lg px-3 py-2 text-sm text-mpCharcoal focus:border-mpAccent focus:outline-none focus:ring-2 focus:ring-mpAccent/20 uppercase">
@@ -45,6 +54,13 @@
         <option value="WV">WV</option><option value="WY">WY</option>
       </select>
     </div>
+    <div>
+      <label class="text-xs font-semibold text-mpMuted">ZIP</label>
+      <input data-field="zip" name="zip"
+             class="w-full mt-1 border border-mpBorder bg-mpBg rounded-lg px-3 py-2 text-sm text-mpCharcoal focus:border-mpAccent focus:outline-none focus:ring-2 focus:ring-mpAccent/20"
+             placeholder="46032" value="{{zip}}" />
+    </div>
+    </div><!-- end grid -->
 
     <!-- WEBSITE -->
     <div>

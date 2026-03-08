@@ -230,7 +230,7 @@ router.get("/", (req, res) => {
   const body = `
     <section class="mb-8">
       <h1 class="text-2xl font-extrabold text-mpCharcoal">
-        Database — <span class="text-mpAccent">${getSalonName(salon_id)}</span>
+        Database
       </h1>
       <p class="mt-1 text-sm text-mpMuted">Filter and export your posts for this salon.</p>
     </section>
@@ -376,7 +376,7 @@ router.get("/", (req, res) => {
 
   res.send(
     pageShell({
-      title: `Database — ${salonName}`,
+      title: "Database",
       body,
       current: "database",
       salon_id,

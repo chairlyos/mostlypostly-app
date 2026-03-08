@@ -115,8 +115,10 @@ window.admin = {
     [
       "salon_id",
       "name",
+      "address",
       "city",
       "state",
+      "zip",
       "website",
       "booking_url",
       "industry",
@@ -563,8 +565,10 @@ document.addEventListener("DOMContentLoaded", () => {
   window.adminData = {
     salon_id: root.dataset.salonId || "",
     name: root.dataset.name || "",
+    address: root.dataset.address || "",
     city: root.dataset.city || "",
     state: root.dataset.state || "",
+    zip: root.dataset.zip || "",
     website: root.dataset.website || "",
     industry: root.dataset.industry || "",
     booking_url: root.dataset.bookingUrl || "",

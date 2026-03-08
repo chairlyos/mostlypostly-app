@@ -397,7 +397,7 @@ router.get("/", (req, res) => {
   const body = `
     <div class="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
       <div>
-        <h1 class="text-2xl font-extrabold text-mpCharcoal">Analytics — <span class="text-mpAccent">${salonName}</span></h1>
+        <h1 class="text-2xl font-extrabold text-mpCharcoal">Analytics</h1>
         <p class="mt-1 text-sm text-mpMuted">Social performance across Facebook and Instagram.</p>
       </div>
       <div class="flex gap-2">
@@ -418,7 +418,7 @@ router.get("/", (req, res) => {
     ${syncScript}
   `;
 
-  res.send(pageShell({ title: `Analytics — ${salonName}`, body, salon_id }));
+  res.send(pageShell({ title: "Analytics", body, salon_id }));
 });
 
 // ─── POST /analytics/reset-and-backfill-fb-ids ───────────────────────────────

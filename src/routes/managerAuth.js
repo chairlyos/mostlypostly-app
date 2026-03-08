@@ -4,7 +4,21 @@ import express from "express";
 import bcrypt from "bcryptjs";
 import { db } from "../../db.js";
 import crypto from "crypto";
+import multer from "multer";
+import path from "path";
 import { sendViaTwilio } from "../routes/twilio.js";
+
+const salonLogoUpload = multer({
+  storage: multer.diskStorage({
+    destination: "public/uploads",
+    filename: (_req, file, cb) => {
+      const ext = path.extname(file.originalname) || ".jpg";
+      cb(null, `salon-logo-${Date.now()}${ext}`);
+    },
+  }),
+  fileFilter: (_req, file, cb) => cb(null, /image\/(jpeg|png|webp|gif)/.test(file.mimetype)),
+  limits: { fileSize: 5 * 1024 * 1024 },
+}).single("logo");
 
 // Generate lowercase hex string for IDs
 const lowerHex = () =>
@@ -295,6 +309,7 @@ router.get("/login", (req, res) => {
 ---------------------------------*/
 router.get("/signup", (req, res) => {
   const planHint = ["starter","growth","pro"].includes(req.query.plan) ? req.query.plan : "";
+  const googleKey = process.env.GOOGLE_PLACES_API_KEY || "";
   res.send(`
 <!DOCTYPE html>
 <html lang="en">
@@ -305,6 +320,7 @@ router.get("/signup", (req, res) => {
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  ${googleKey ? `<script src="https://maps.googleapis.com/maps/api/js?key=${googleKey}&libraries=places&loading=async" defer></script>` : ""}
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif; background: #FDF8F6; color: #2B2D35; min-height: 100vh; }
@@ -402,7 +418,7 @@ router.get("/signup", (req, res) => {
       <h1>Create your account</h1>
       <p class="sub">Get your salon set up in minutes.</p>
 
-      <form action="/manager/signup" method="POST">
+      <form action="/manager/signup" method="POST" enctype="multipart/form-data">
         <label>Your Name</label>
         <input type="text" name="name" class="input-box" placeholder="Your full name" required />
         <label>Business Name</label>
@@ -413,6 +429,26 @@ router.get("/signup", (req, res) => {
         <input type="password" name="password" class="input-box" placeholder="At least 8 characters" required minlength="8" />
         <label>Phone Number</label>
         <input type="tel" name="phone" class="input-box" placeholder="Mobile number" required />
+
+        <label>Salon Address</label>
+        <input type="text" id="addressInput" name="address_display" class="input-box"
+               placeholder="Start typing your address…" autocomplete="off" />
+        <input type="hidden" name="address" id="addressStreet" />
+        <input type="hidden" name="city"    id="addressCity" />
+        <input type="hidden" name="state"   id="addressState" />
+        <input type="hidden" name="zip"     id="addressZip" />
+
+        <label style="margin-top:14px;">Salon Logo <span style="font-weight:400;color:#7A7C85;">(optional)</span></label>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+          <div id="logoPreviewWrap" style="display:none;width:52px;height:52px;border-radius:10px;border:1px solid #EDE7E4;overflow:hidden;flex-shrink:0;">
+            <img id="logoPreview" src="" alt="" style="width:100%;height:100%;object-fit:contain;" />
+          </div>
+          <label for="logoFile" style="flex:1;cursor:pointer;border:1px dashed #EDE7E4;border-radius:10px;padding:10px 14px;
+            font-size:12px;color:#7A7C85;text-align:center;background:#FDF8F6;margin-bottom:0;">
+            <span id="logoFileLabel">Click to upload PNG, JPG, or WebP (max 5 MB)</span>
+            <input type="file" id="logoFile" name="logo" accept="image/*" style="display:none;" />
+          </label>
+        </div>
 
         <input type="text" name="company" style="display:none" />
         <input type="hidden" name="plan" value="${planHint}" />
@@ -428,6 +464,50 @@ router.get("/signup", (req, res) => {
 
         <button type="submit" class="signup-btn">Get Started →</button>
       </form>
+
+      <script>
+      // Logo preview
+      document.getElementById("logoFile").addEventListener("change", function() {
+        if (!this.files[0]) return;
+        const url = URL.createObjectURL(this.files[0]);
+        document.getElementById("logoPreview").src = url;
+        document.getElementById("logoPreviewWrap").style.display = "block";
+        document.getElementById("logoFileLabel").textContent = this.files[0].name;
+      });
+
+      // Google Places address autocomplete
+      function initAddressAutocomplete() {
+        if (typeof google === "undefined" || !google.maps?.places) return;
+        const input = document.getElementById("addressInput");
+        const ac = new google.maps.places.Autocomplete(input, {
+          types: ["address"],
+          componentRestrictions: { country: "us" },
+        });
+        ac.addListener("place_changed", () => {
+          const place = ac.getPlace();
+          if (!place.address_components) return;
+          let street = "", city = "", state = "", zip = "";
+          const get = (type) => place.address_components.find(c => c.types.includes(type));
+          const num  = get("street_number");
+          const road = get("route");
+          if (num && road) street = num.short_name + " " + road.long_name;
+          else if (road) street = road.long_name;
+          const cityComp  = get("locality") || get("sublocality");
+          const stateComp = get("administrative_area_level_1");
+          const zipComp   = get("postal_code");
+          if (cityComp)  city  = cityComp.long_name;
+          if (stateComp) state = stateComp.short_name;
+          if (zipComp)   zip   = zipComp.short_name;
+          document.getElementById("addressStreet").value = street || place.formatted_address || "";
+          document.getElementById("addressCity").value   = city;
+          document.getElementById("addressState").value  = state;
+          document.getElementById("addressZip").value    = zip;
+        });
+      }
+      // Try immediately or wait for Google script to load
+      if (typeof google !== "undefined") { initAddressAutocomplete(); }
+      else { window.addEventListener("load", initAddressAutocomplete); }
+      </script>
 
       <hr class="divider" />
       <div class="footer-links">Already have an account? <a href="/manager/login">Sign in</a></div>
@@ -447,7 +527,7 @@ router.get("/signup", (req, res) => {
 // ============================================
 // POST /manager/signup  (Create manager + salon)
 // ============================================
-router.post("/signup", async (req, res) => {
+router.post("/signup", (req, res, next) => salonLogoUpload(req, res, next), async (req, res) => {
   try {
     const body = req.body || {};
     const planHint = ["starter","growth","pro"].includes(body.plan) ? body.plan : null;
@@ -465,6 +545,11 @@ router.post("/signup", async (req, res) => {
 
     const phone =
       body.phone || body.phone_number || body.mobile || body.mobile_number || null;
+
+    const address = body.address?.trim() || null;
+    const city    = body.city?.trim()    || null;
+    const state   = body.state?.trim()   || null;
+    const zip     = body.zip?.trim()     || null;
 
     // Basic required check
     if (!email || !password || !phone || !businessName) {
@@ -511,18 +596,22 @@ router.post("/signup", async (req, res) => {
       INSERT INTO salons (
         id, slug, name,
         phone, status, status_step,
-        timezone
+        timezone, address, city, state, zip
       )
       VALUES (
         @id, @slug, @name,
         @phone, 'setup_incomplete', 'salon',
-        'America/New_York'
+        'America/New_York', @address, @city, @state, @zip
       )
     `).run({
       id: salonId,
       slug: salonSlug,
       name: businessName,
       phone,
+      address,
+      city,
+      state,
+      zip,
     });
 
     // Hash password
@@ -548,6 +637,13 @@ router.post("/signup", async (req, res) => {
     const groupId = crypto.randomUUID();
     db.prepare("INSERT INTO salon_groups (id, name, owner_manager_id) VALUES (?,?,?)").run(groupId, businessName, managerId);
     db.prepare("UPDATE salons SET group_id = ? WHERE slug = ?").run(groupId, salonSlug);
+
+    // Save logo if uploaded
+    if (req.file) {
+      const PUBLIC_BASE_URL = (process.env.PUBLIC_BASE_URL || "").replace(/\/$/, "");
+      const logoUrl = `${PUBLIC_BASE_URL}/uploads/${req.file.filename}`;
+      db.prepare("UPDATE salons SET logo_url = ? WHERE slug = ?").run(logoUrl, salonSlug);
+    }
 
     req.session.manager_id = managerId;
     req.session.salon_id = salonSlug;
