@@ -105,18 +105,30 @@ router.post("/set-plan", requireSecret, (req, res) => {
   res.redirect(`/internal/vendors${qs(req)}`);
 });
 
-// ── GET / — Dashboard ─────────────────────────────────────────────────────────
+// ── GET / — Platform Console ───────────────────────────────────────────────────
 router.get("/", requireSecret, (req, res) => {
   const campaigns = db.prepare(`
     SELECT * FROM vendor_campaigns ORDER BY vendor_name ASC, campaign_name ASC
   `).all();
 
-  // All salons for plan control panel
+  // Salons with their primary manager email
   const salons = db.prepare(`
-    SELECT slug, name, plan, plan_status, trial_ends_at FROM salons ORDER BY name ASC
+    SELECT s.slug, s.name, s.plan, s.plan_status, s.created_at,
+           s.address, s.city, s.state,
+           m.email, m.name AS manager_name
+    FROM salons s
+    LEFT JOIN managers m ON m.salon_id = s.slug AND m.role = 'owner'
+    ORDER BY s.created_at DESC
   `).all();
 
-  // Group by vendor
+  // Stats
+  const totalSalons   = salons.length;
+  const active        = salons.filter(s => s.plan_status === "active").length;
+  const trialing      = salons.filter(s => s.plan_status === "trialing").length;
+  const canceled      = salons.filter(s => s.plan_status === "canceled").length;
+  const totalCampaigns = campaigns.length;
+
+  // Group campaigns by vendor
   const vendors = {};
   for (const c of campaigns) {
     if (!vendors[c.vendor_name]) vendors[c.vendor_name] = [];
@@ -125,16 +137,20 @@ router.get("/", requireSecret, (req, res) => {
 
   const safe = s => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
+  const planColor = p => ({ pro: "bg-purple-100 text-purple-700", growth: "bg-blue-100 text-blue-700", starter: "bg-green-100 text-green-700", trial: "bg-gray-100 text-gray-600" }[p] || "bg-gray-100 text-gray-600");
+  const statusColor = s => ({ active: "bg-green-100 text-green-700", trialing: "bg-blue-100 text-blue-700", past_due: "bg-yellow-100 text-yellow-700", canceled: "bg-red-100 text-red-600" }[s] || "bg-gray-100 text-gray-600");
+
   const vendorBlocks = Object.entries(vendors).map(([vendor, items]) => `
-    <div class="mb-8">
+    <div class="mb-6">
       <div class="flex items-center justify-between mb-3">
-        <h2 class="text-lg font-bold">${safe(vendor)}</h2>
-        <span class="text-sm text-gray-500">${items.length} campaign${items.length !== 1 ? "s" : ""}</span>
+        <h3 class="font-bold text-gray-900">${safe(vendor)}
+          <span class="ml-2 text-xs font-normal text-gray-400">${items.length} campaign${items.length !== 1 ? "s" : ""}</span>
+        </h3>
       </div>
-      <div class="space-y-3">
+      <div class="space-y-2">
         ${items.map(c => `
           <div class="border rounded-xl p-4 bg-white flex gap-4 items-start">
-            ${c.photo_url ? `<img src="${safe(c.photo_url)}" class="w-16 h-16 object-cover rounded-lg border flex-shrink-0" onerror="this.style.display='none'" />` : ""}
+            ${c.photo_url ? `<img src="${safe(c.photo_url)}" class="w-14 h-14 object-cover rounded-lg border flex-shrink-0" onerror="this.style.display='none'" />` : `<div class="w-14 h-14 rounded-lg border bg-gray-50 flex-shrink-0 flex items-center justify-center text-xl">🏷️</div>`}
             <div class="flex-1 min-w-0">
               <div class="flex items-start justify-between gap-2">
                 <div>
@@ -142,23 +158,20 @@ router.get("/", requireSecret, (req, res) => {
                   <p class="text-xs text-gray-500">${safe(c.product_name || "")}</p>
                 </div>
                 <div class="flex items-center gap-2 shrink-0">
-                  <span class="text-xs px-2 py-0.5 rounded-full ${c.active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}">
-                    ${c.active ? "Active" : "Paused"}
-                  </span>
+                  <span class="text-xs px-2 py-0.5 rounded-full ${c.active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}">${c.active ? "Active" : "Paused"}</span>
                   <form method="POST" action="/internal/vendors/delete/${safe(c.id)}${qs(req)}"
-                        onsubmit="return confirm('Delete this campaign?')" class="inline">
-                    <button type="submit" class="text-xs text-red-500 hover:text-red-700">Delete</button>
+                        onsubmit="return confirm('Delete campaign: ${safe(c.campaign_name)}?')" class="inline">
+                    <button type="submit" class="text-xs text-red-400 hover:text-red-600">Delete</button>
                   </form>
                 </div>
               </div>
-              <p class="text-xs text-gray-600 mt-1">${safe(c.product_description || "")}</p>
-              <div class="mt-2 flex flex-wrap gap-3 text-xs text-gray-500">
-                <span>Expires: <strong>${safe(c.expires_at || "—")}</strong></span>
-                <span>Cap: <strong>${safe(c.frequency_cap || 4)}/month</strong></span>
-                <span>Tone: <strong>${safe(c.tone_direction || "—")}</strong></span>
-                ${c.hashtags ? `<span>Tags: ${safe(c.hashtags)}</span>` : ""}
+              <p class="text-xs text-gray-500 mt-1 line-clamp-2">${safe(c.product_description || "")}</p>
+              <div class="mt-1.5 flex flex-wrap gap-3 text-xs text-gray-400">
+                <span>Expires: <strong class="text-gray-600">${safe(c.expires_at || "—")}</strong></span>
+                <span>Cap: <strong class="text-gray-600">${safe(c.frequency_cap || 4)}/mo</strong></span>
+                <span>Tone: <strong class="text-gray-600">${safe(c.tone_direction || "—")}</strong></span>
               </div>
-              ${c.cta_instructions ? `<p class="text-xs text-blue-600 mt-1">CTA: ${safe(c.cta_instructions)}</p>` : ""}
+              ${c.cta_instructions ? `<p class="text-xs text-blue-500 mt-1">CTA: ${safe(c.cta_instructions)}</p>` : ""}
             </div>
           </div>`).join("")}
       </div>
@@ -167,99 +180,154 @@ router.get("/", requireSecret, (req, res) => {
 
   const html = `<!DOCTYPE html>
 <html lang="en"><head>
-  <meta charset="UTF-8" /><title>Vendor Admin — MostlyPostly</title>
+  <meta charset="UTF-8" /><title>Platform Console — MostlyPostly</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <script src="https://cdn.tailwindcss.com"></script>
-</head><body class="bg-gray-50 text-gray-900 p-8 font-sans">
-  <div class="max-w-4xl mx-auto">
-    <div class="flex items-center justify-between mb-8">
-      <div>
-        <h1 class="text-2xl font-bold">Vendor Campaign Admin</h1>
-        <p class="text-sm text-gray-500 mt-0.5">Internal MostlyPostly tool — not visible to salon managers.</p>
-      </div>
-      <div class="flex gap-3">
-        <a href="/internal/vendors/template${qs(req)}"
-           class="text-sm border rounded-lg px-4 py-2 hover:bg-gray-100">Download Template</a>
-      </div>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    .stat-card { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:16px 20px; }
+    .stat-val  { font-size:28px; font-weight:800; color:#111827; line-height:1; }
+    .stat-lbl  { font-size:12px; color:#6b7280; margin-top:4px; }
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-900 min-h-screen">
+
+  <!-- Header -->
+  <div class="border-b bg-white px-8 py-4 flex items-center justify-between">
+    <div>
+      <h1 class="text-lg font-bold text-gray-900">MostlyPostly Platform Console</h1>
+      <p class="text-xs text-gray-400 mt-0.5">Internal operations — not accessible to salon managers</p>
+    </div>
+    <a href="/internal/vendors/template${qs(req)}"
+       class="text-xs border rounded-lg px-3 py-1.5 hover:bg-gray-50 text-gray-600">
+      Download CSV Template
+    </a>
+  </div>
+
+  <div class="max-w-5xl mx-auto px-8 py-8 space-y-8">
+
+    <!-- Stats -->
+    <div class="grid grid-cols-2 sm:grid-cols-5 gap-3">
+      <div class="stat-card"><div class="stat-val">${totalSalons}</div><div class="stat-lbl">Total Accounts</div></div>
+      <div class="stat-card"><div class="stat-val text-green-600">${active}</div><div class="stat-lbl">Active</div></div>
+      <div class="stat-card"><div class="stat-val text-blue-600">${trialing}</div><div class="stat-lbl">Trialing</div></div>
+      <div class="stat-card"><div class="stat-val text-red-500">${canceled}</div><div class="stat-lbl">Canceled</div></div>
+      <div class="stat-card"><div class="stat-val text-purple-600">${totalCampaigns}</div><div class="stat-lbl">Vendor Campaigns</div></div>
     </div>
 
-    <!-- Salon Plan Controls -->
-    <div class="border rounded-2xl bg-white p-6 mb-8">
-      <h2 class="font-bold mb-1">Salon Plan Overrides</h2>
-      <p class="text-sm text-gray-500 mb-4">Override any salon's plan and status for testing. Changes take effect immediately on next page load.</p>
+    <!-- Account Management -->
+    <div class="border rounded-2xl bg-white overflow-hidden">
+      <div class="px-6 py-4 border-b flex items-center justify-between">
+        <div>
+          <h2 class="font-bold">Account Management</h2>
+          <p class="text-xs text-gray-500 mt-0.5">Override plan/status and delete accounts. Changes take effect immediately.</p>
+        </div>
+      </div>
       <div class="overflow-x-auto">
-        <table class="w-full text-sm border-collapse">
+        <table class="w-full text-sm">
           <thead>
-            <tr class="border-b text-left text-xs text-gray-500 uppercase tracking-wide">
-              <th class="pb-2 pr-4">Salon</th>
-              <th class="pb-2 pr-4">Slug</th>
-              <th class="pb-2 pr-4">Current Plan</th>
-              <th class="pb-2 pr-4">Status</th>
-              <th class="pb-2">Override</th>
+            <tr class="border-b bg-gray-50 text-left text-xs text-gray-500 uppercase tracking-wide">
+              <th class="px-4 py-3">Salon</th>
+              <th class="px-4 py-3">Manager</th>
+              <th class="px-4 py-3">Plan</th>
+              <th class="px-4 py-3">Status</th>
+              <th class="px-4 py-3">Created</th>
+              <th class="px-4 py-3">Override</th>
+              <th class="px-4 py-3"></th>
             </tr>
           </thead>
           <tbody>
-            ${salons.map(s => {
-              const planColor = { pro: "bg-purple-100 text-purple-700", growth: "bg-blue-100 text-blue-700", starter: "bg-green-100 text-green-700", trial: "bg-gray-100 text-gray-600" }[s.plan] || "bg-gray-100 text-gray-600";
-              return `
-              <tr class="border-b last:border-0">
-                <td class="py-3 pr-4 font-medium">${safe(s.name)}</td>
-                <td class="py-3 pr-4 text-gray-500 font-mono text-xs">${safe(s.slug)}</td>
-                <td class="py-3 pr-4">
-                  <span class="inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${planColor}">${safe(s.plan || "trial")}</span>
-                </td>
-                <td class="py-3 pr-4 text-xs text-gray-500">${safe(s.plan_status || "trialing")}</td>
-                <td class="py-3">
-                  <form method="POST" action="/internal/vendors/set-plan${qs(req)}" class="flex items-center gap-2">
-                    <input type="hidden" name="salon_slug" value="${safe(s.slug)}" />
-                    <select name="plan" class="text-xs border rounded-lg px-2 py-1.5">
-                      ${["trial","starter","growth","pro"].map(p =>
-                        `<option value="${p}" ${s.plan === p ? "selected" : ""}>${p}</option>`
-                      ).join("")}
-                    </select>
-                    <select name="plan_status" class="text-xs border rounded-lg px-2 py-1.5">
-                      ${["trialing","active","past_due","canceled"].map(st =>
-                        `<option value="${st}" ${s.plan_status === st ? "selected" : ""}>${st}</option>`
-                      ).join("")}
-                    </select>
-                    <button type="submit" class="text-xs bg-gray-900 text-white rounded-lg px-3 py-1.5 hover:bg-gray-700">Set</button>
-                  </form>
-                </td>
-              </tr>`;
-            }).join("")}
+            ${salons.map(s => `
+            <tr class="border-b last:border-0 hover:bg-gray-50/50">
+              <td class="px-4 py-3">
+                <div class="font-medium text-gray-900">${safe(s.name)}</div>
+                <div class="text-xs text-gray-400 font-mono">${safe(s.slug)}</div>
+                ${s.city ? `<div class="text-xs text-gray-400">${safe(s.city)}${s.state ? ", " + safe(s.state) : ""}</div>` : ""}
+              </td>
+              <td class="px-4 py-3">
+                <div class="text-xs text-gray-700">${safe(s.manager_name || "—")}</div>
+                ${s.email ? `<div class="text-xs text-gray-400">${safe(s.email)}</div>` : ""}
+              </td>
+              <td class="px-4 py-3">
+                <span class="inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${planColor(s.plan)}">${safe(s.plan || "trial")}</span>
+              </td>
+              <td class="px-4 py-3">
+                <span class="inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${statusColor(s.plan_status)}">${safe(s.plan_status || "trialing")}</span>
+              </td>
+              <td class="px-4 py-3 text-xs text-gray-400">${safe((s.created_at || "").slice(0, 10))}</td>
+              <td class="px-4 py-3">
+                <form method="POST" action="/internal/vendors/set-plan${qs(req)}" class="flex items-center gap-1.5">
+                  <input type="hidden" name="salon_slug" value="${safe(s.slug)}" />
+                  <select name="plan" class="text-xs border rounded px-1.5 py-1">
+                    ${["trial","starter","growth","pro"].map(p => `<option value="${p}" ${s.plan === p ? "selected" : ""}>${p}</option>`).join("")}
+                  </select>
+                  <select name="plan_status" class="text-xs border rounded px-1.5 py-1">
+                    ${["trialing","active","past_due","canceled"].map(st => `<option value="${st}" ${s.plan_status === st ? "selected" : ""}>${st}</option>`).join("")}
+                  </select>
+                  <button type="submit" class="text-xs bg-gray-900 text-white rounded px-2.5 py-1 hover:bg-gray-700">Set</button>
+                </form>
+              </td>
+              <td class="px-4 py-3">
+                <form method="POST" action="/internal/vendors/delete-salon${qs(req)}"
+                      onsubmit="return confirm('Permanently delete ${safe(s.name)} and all associated data? This cannot be undone.')">
+                  <input type="hidden" name="salon_slug" value="${safe(s.slug)}" />
+                  <button type="submit" class="text-xs text-red-400 hover:text-red-600">Delete</button>
+                </form>
+              </td>
+            </tr>`).join("")}
           </tbody>
         </table>
       </div>
     </div>
 
-    <!-- Upload form -->
-    <div class="border rounded-2xl bg-white p-6 mb-8">
+    <!-- Vendor CSV Upload -->
+    <div class="border rounded-2xl bg-white p-6">
       <h2 class="font-bold mb-1">Upload Vendor CSV</h2>
-      <p class="text-sm text-gray-500 mb-4">
-        New campaigns are added. Existing campaigns (matched by vendor_name + campaign_name) are skipped to avoid duplicates.
-      </p>
+      <p class="text-sm text-gray-500 mb-4">New campaigns are added. Existing campaigns (matched by vendor_name + campaign_name) are skipped to avoid duplicates.</p>
       <form method="POST" action="/internal/vendors/upload${qs(req)}" enctype="multipart/form-data" class="flex gap-3 items-end">
         <div>
           <label class="block text-xs font-semibold text-gray-500 mb-1">CSV File</label>
           <input type="file" name="csv" accept=".csv" required
                  class="text-sm text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-gray-100 file:px-3 file:py-1.5 file:text-xs file:font-semibold" />
         </div>
-        <button type="submit"
-                class="rounded-lg bg-gray-900 px-5 py-2 text-sm font-semibold text-white hover:bg-gray-700">
-          Upload
-        </button>
+        <button type="submit" class="rounded-lg bg-gray-900 px-5 py-2 text-sm font-semibold text-white hover:bg-gray-700">Upload</button>
       </form>
     </div>
 
-    <!-- Campaign list -->
-    ${campaigns.length === 0
-      ? `<div class="text-center py-16 text-gray-400 text-sm">No campaigns loaded yet. Upload a CSV to get started.</div>`
-      : vendorBlocks
-    }
+    <!-- Vendor Campaigns -->
+    <div class="border rounded-2xl bg-white p-6">
+      <h2 class="font-bold mb-4">Vendor Campaigns
+        <span class="ml-2 text-sm font-normal text-gray-400">${totalCampaigns} total</span>
+      </h2>
+      ${campaigns.length === 0
+        ? `<div class="text-center py-12 text-gray-400 text-sm">No campaigns loaded yet. Upload a CSV to get started.</div>`
+        : vendorBlocks}
+    </div>
+
   </div>
 </body></html>`;
 
   res.send(html);
+});
+
+// ── POST /delete-salon ─────────────────────────────────────────────────────────
+router.post("/delete-salon", requireSecret, (req, res) => {
+  const { salon_slug } = req.body;
+  if (!salon_slug) return res.redirect(`/internal/vendors${qs(req)}`);
+
+  // Delete in dependency order
+  db.prepare("DELETE FROM post_insights WHERE post_id IN (SELECT id FROM posts WHERE salon_id = ?)").run(salon_slug);
+  db.prepare("DELETE FROM posts WHERE salon_id = ?").run(salon_slug);
+  db.prepare("DELETE FROM stylists WHERE salon_id = ?").run(salon_slug);
+  db.prepare("DELETE FROM manager_tokens WHERE manager_id IN (SELECT id FROM managers WHERE salon_id = ?)").run(salon_slug);
+  db.prepare("DELETE FROM password_reset_tokens WHERE manager_id IN (SELECT id FROM managers WHERE salon_id = ?)").run(salon_slug);
+  db.prepare("DELETE FROM managers WHERE salon_id = ?").run(salon_slug);
+  db.prepare("DELETE FROM salon_vendor_feeds WHERE salon_id = ?").run(salon_slug);
+  db.prepare("DELETE FROM stock_photos WHERE salon_id = ?").run(salon_slug);
+  db.prepare("DELETE FROM salons WHERE slug = ?").run(salon_slug);
+
+  console.log(`[platformConsole] Deleted salon: ${salon_slug}`);
+  res.redirect(`/internal/vendors${qs(req)}`);
 });
 
 // ── GET /template — CSV download ──────────────────────────────────────────────
