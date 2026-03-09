@@ -40,16 +40,18 @@ function emailWrapper({ preheader, body }) {
     <tr><td align="center">
       <table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;">
 
-        <!-- Header -->
-        <tr><td style="padding:0 0 24px 0;text-align:left;">
-          <img src="https://mostlypostly.com/logo/MostlyPostly%20Logo%20-%20Primary%20(Trimmed).png"
-               alt="MostlyPostly" height="36"
-               style="display:block;border:0;outline:none;text-decoration:none;background:transparent;" />
-        </td></tr>
-
-        <!-- Card -->
-        <tr><td style="background:#fff;border:1px solid #EDE7E4;border-radius:16px;padding:36px 40px;">
-          ${body}
+        <!-- Card (logo inside so white PNG background blends seamlessly) -->
+        <tr><td style="background:#fff;border:1px solid #EDE7E4;border-radius:16px;padding:0;">
+          <table width="100%" cellpadding="0" cellspacing="0">
+            <tr><td style="padding:24px 40px 20px;border-bottom:1px solid #EDE7E4;">
+              <img src="https://mostlypostly.com/logo/MostlyPostly%20Logo%20-%20Primary%20(Trimmed).png"
+                   alt="MostlyPostly" height="32"
+                   style="display:block;border:0;outline:none;text-decoration:none;" />
+            </td></tr>
+            <tr><td style="padding:36px 40px;">
+              ${body}
+            </td></tr>
+          </table>
         </td></tr>
 
         <!-- Footer -->
