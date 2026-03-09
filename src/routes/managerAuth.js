@@ -8,6 +8,12 @@ import multer from "multer";
 import path from "path";
 import { sendViaTwilio } from "../routes/twilio.js";
 
+const SITE_URL = process.env.APP_ENV === "staging"
+  ? "https://mostlypostly-staging-site.onrender.com"
+  : process.env.APP_ENV === "local"
+  ? "http://localhost:3001"
+  : "https://mostlypostly.com";
+
 const salonLogoUpload = multer({
   storage: multer.diskStorage({
     destination: "public/uploads",
@@ -237,7 +243,7 @@ router.get("/login", (req, res) => {
 
   <!-- LEFT PANEL -->
   <div class="left-panel">
-    <a href="https://mostlypostly.com" style="display:block;position:relative;z-index:1;">
+    <a href="${SITE_URL}" style="display:block;position:relative;z-index:1;">
       <img src="/public/logo/logo-trimmed.png" alt="MostlyPostly" class="left-logo" />
     </a>
     <p class="left-tagline">AI social media for salons. Text a photo, get a polished post on Facebook &amp; Instagram.</p>
@@ -292,7 +298,7 @@ router.get("/login", (req, res) => {
         New to MostlyPostly? <a href="/manager/signup">Sign up</a>
       </div>
       <div style="text-align:center;margin-top:16px;">
-        <a href="https://mostlypostly.com" style="font-size:12px;color:#7A7C85;text-decoration:none;">← Back to MostlyPostly</a>
+        <a href="${SITE_URL}" style="font-size:12px;color:#7A7C85;text-decoration:none;">← Back to MostlyPostly</a>
       </div>
     </div>
   </div>
@@ -393,7 +399,7 @@ router.get("/signup", (req, res) => {
 <div class="split-wrapper">
 
   <div class="left-panel">
-    <a href="https://mostlypostly.com" style="display:block;position:relative;z-index:1;">
+    <a href="${SITE_URL}" style="display:block;position:relative;z-index:1;">
       <img src="/public/logo/logo-trimmed.png" alt="MostlyPostly" class="left-logo" />
     </a>
     <p class="left-tagline">Everything your salon needs to stay consistent and visible online — on autopilot.</p>
@@ -512,7 +518,7 @@ router.get("/signup", (req, res) => {
       <hr class="divider" />
       <div class="footer-links">Already have an account? <a href="/manager/login">Sign in</a></div>
       <div style="text-align:center;margin-top:16px;">
-        <a href="https://mostlypostly.com" style="font-size:12px;color:#7A7C85;text-decoration:none;">← Back to MostlyPostly</a>
+        <a href="${SITE_URL}" style="font-size:12px;color:#7A7C85;text-decoration:none;">← Back to MostlyPostly</a>
       </div>
     </div>
   </div>
