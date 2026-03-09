@@ -51,15 +51,6 @@ if (url.startsWith("/inbound/telegram")) {
   // Allow locations management (accessible at any onboarding state)
   if (url.startsWith("/manager/locations")) return next();
 
-  // Allow scheduler config (same auth as admin)
-  if (url.startsWith("/manager/scheduler")) return next();
-
-  // Allow stylist management (same auth as admin)
-  if (url.startsWith("/manager/stylists")) return next();
-
-  // Allow vendor management (same auth as admin)
-  if (url.startsWith("/manager/vendors")) return next();
-
   // Allow internal vendor admin (protected by its own INTERNAL_SECRET check)
   if (url.startsWith("/internal/vendors")) return next();
 

@@ -180,18 +180,18 @@ function pageTemplate({ step, stepLabel, content }) {
 
   <body>
     <!-- Header -->
-    <header style="background:#fff;border-bottom:1px solid #EDE7E4;padding:12px 24px;">
-      <img src="/public/logo/logo-trimmed.png" alt="MostlyPostly" style="height:40px;width:auto;" />
+    <header style="background:#fff;border-bottom:1px solid #EDE7E4;padding:12px 24px 12px 0;">
+      <img src="/public/logo/logo-trimmed.png" alt="MostlyPostly" style="height:40px;width:auto;display:block;" />
     </header>
 
-    <div class="mx-auto max-w-5xl py-10 px-4 flex gap-12">
+    <div class="mx-auto max-w-5xl py-8 px-4 flex flex-col md:flex-row md:gap-12">
 
-      <!-- Left sidebar -->
-      <div class="w-1/3">
+      <!-- Progress / step info (top on mobile, left sidebar on desktop) -->
+      <div class="md:w-1/3 mb-6 md:mb-0">
         <h1 class="text-2xl font-extrabold mb-2" style="color:#2B2D35;">Set up your salon</h1>
-        <p style="color:#7A7C85;font-size:14px;margin-bottom:24px;line-height:1.6;">Let’s get MostlyPostly configured for your team. It only takes a few minutes.</p>
+        <p style="color:#7A7C85;font-size:14px;margin-bottom:20px;line-height:1.6;">Let’s get MostlyPostly configured for your team. It only takes a few minutes.</p>
 
-        <div class="mb-6">
+        <div class="mb-4">
           <div style="font-size:12px;font-weight:600;color:#7A7C85;margin-bottom:8px;">Step ${step} of 7</div>
           <div style="width:100%;background:#EDE7E4;height:6px;border-radius:99px;overflow:hidden;">
             <div style="background:#D4897A;height:6px;border-radius:99px;width:${Math.round((step / 7) * 100)}%;transition:width 0.3s;"></div>
@@ -201,8 +201,8 @@ function pageTemplate({ step, stepLabel, content }) {
         <h2 class="text-lg font-bold" style="color:#2B2D35;">${stepLabel}</h2>
       </div>
 
-      <!-- Right content -->
-      <div class="w-2/3">
+      <!-- Form content -->
+      <div class="md:w-2/3">
         <div style="background:#fff;border:1px solid #EDE7E4;border-radius:16px;padding:28px;box-shadow:0 2px 12px rgba(43,45,53,0.05);">
 
           ${content}
