@@ -94,6 +94,9 @@ const __dirname = path.dirname(__filename);
 // =====================================================
 const app = express();
 
+// Trust Render's reverse proxy so secure cookies work over HTTPS
+app.set("trust proxy", 1);
+
 // Correct Admin modal template loader (must come BEFORE ANY /manager routes)
 app.get("/manager/admin/templates", (req, res) => {
   const templatePath = path.join(__dirname, "public", "admin-templates.html");
