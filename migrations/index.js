@@ -24,6 +24,7 @@ import { run as run020 } from "./020_posting_schedule.js";
 import { run as run021 } from "./021_salon_integrations.js";
 import { run as run022 } from "./022_stylist_integration_id.js";
 import { run as run023 } from "./023_security_tables.js";
+import { run as run024 } from "./024_vendor_post_log.js";
 
 export const migrations = [
   { name: "001_baseline_patches",        run: run001 },
