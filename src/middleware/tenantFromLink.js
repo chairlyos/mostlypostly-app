@@ -39,7 +39,7 @@ export default function tenantFromLink() {
       function findById(id) {
         try {
           return db
-            .prepare("SELECT * FROM salons WHERE salon_id = ?")
+            .prepare("SELECT * FROM salons WHERE slug = ?")
             .get(id);
         } catch (err) {
           console.error("[tenantFromLink] DB id lookup failed:", err);
