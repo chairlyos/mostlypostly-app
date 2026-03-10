@@ -94,7 +94,7 @@ function writeSalonJson(salon_id) {
     name: salon.name,
     phone: salon.phone,
     website: salon.website,
-    booking_link: salon.booking_link,
+    booking_url: salon.booking_url || salon.booking_link,
     city: salon.city,
     state: salon.state,
     industry: salon.industry,
@@ -267,11 +267,11 @@ router.get("/salon", (req, res) => {
 
         <div>
           <label class="block text-sm font-medium text-mpMuted mb-1">Booking Link</label>
-          <input name="booking_link"
+          <input name="booking_url"
                  type="text"
                  placeholder="e.g. vagaro.com/your-salon"
                  class="w-full border border-mpBorder bg-white rounded-xl px-4 py-2.5 text-sm text-mpCharcoal focus:outline-none focus:ring-2 focus:ring-mpAccent/20 focus:border-mpAccent"
-                 value="${salon.booking_link || ""}" />
+                 value="${salon.booking_url || salon.booking_link || ""}" />
         </div>
 
         <div class="grid grid-cols-2 gap-4">
@@ -305,18 +305,12 @@ router.get("/salon", (req, res) => {
         <div>
           <label class="block text-sm font-medium text-mpMuted mb-1">Industry</label>
           <select name="industry" class="w-full border border-mpBorder bg-white rounded-xl px-4 py-2.5 text-sm text-mpCharcoal focus:outline-none focus:ring-2 focus:ring-mpAccent/20 focus:border-mpAccent">
-            <option value="salon" ${
-              salon.industry === "salon" ? "selected" : ""
-            }>Salon</option>
-            <option value="spa" ${
-              salon.industry === "spa" ? "selected" : ""
-            }>Spa</option>
-            <option value="barbershop" ${
-              salon.industry === "barbershop" ? "selected" : ""
-            }>Barbershop</option>
-            <option value="other" ${
-              salon.industry === "other" ? "selected" : ""
-            }>Other</option>
+            <option value="Hair Salon" ${salon.industry === "Hair Salon" ? "selected" : ""}>Hair Salon</option>
+            <option value="Beauty Salon" ${salon.industry === "Beauty Salon" ? "selected" : ""}>Beauty Salon</option>
+            <option value="Nail Salon" ${salon.industry === "Nail Salon" ? "selected" : ""}>Nail Salon</option>
+            <option value="Spa" ${salon.industry === "Spa" ? "selected" : ""}>Spa</option>
+            <option value="Barber Shop" ${salon.industry === "Barber Shop" ? "selected" : ""}>Barber Shop</option>
+            <option value="Med Spa" ${salon.industry === "Med Spa" ? "selected" : ""}>Med Spa</option>
           </select>
         </div>
 
@@ -355,7 +349,7 @@ router.post("/salon", (req, res) => {
   if (!manager) return res.redirect("/manager/login");
 
   const salon_id = manager.salon_id;
-  const { name, phone, booking_link, city, state, industry, timezone } =
+  const { name, phone, booking_url, city, state, industry, timezone } =
     req.body;
 
   // Normalize website URL — prepend https:// if no protocol given
@@ -363,9 +357,9 @@ router.post("/salon", (req, res) => {
   if (website && !website.match(/^https?:\/\//i)) {
     website = "https://" + website;
   }
-  let booking_link_normalized = (booking_link || "").trim();
-  if (booking_link_normalized && !booking_link_normalized.match(/^https?:\/\//i)) {
-    booking_link_normalized = "https://" + booking_link_normalized;
+  let booking_url_normalized = (booking_url || "").trim();
+  if (booking_url_normalized && !booking_url_normalized.match(/^https?:\/\//i)) {
+    booking_url_normalized = "https://" + booking_url_normalized;
   }
 
   const defaultHashtag = "#" + (name || "").replace(/\s+/g, "");
@@ -375,7 +369,7 @@ router.post("/salon", (req, res) => {
       name=?,
       phone=?,
       website=?,
-      booking_link=?,
+      booking_url=?,
       city=?,
       state=?,
       industry=?,
@@ -388,7 +382,7 @@ router.post("/salon", (req, res) => {
     name,
     phone,
     website,
-    booking_link_normalized,
+    booking_url_normalized,
     city,
     state,
     industry,

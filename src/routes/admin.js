@@ -172,7 +172,7 @@ router.get("/", requireAuth, (req, res) => {
     website: salonRow.website,
     booking_url: salonRow.booking_url,
     timezone: salonRow.timezone || "America/Indiana/Indianapolis",
-    industry: (salonRow.industry || "Salon").trim().replace(/\b\w/g, x => x.toUpperCase()),
+    industry: salonRow.industry || "Hair Salon",
     tone_profile: salonRow.tone || "default",
     auto_publish: !!salonRow.auto_publish,
     default_hashtags: defaultHashtags,

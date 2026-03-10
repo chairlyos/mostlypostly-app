@@ -378,28 +378,36 @@
  HASHTAGS
 =============================== -->
 <template id="tpl-hashtags">
-  <h3 class="text-lg font-semibold mb-4">Edit Hashtags</h3>
+  <h3 class="text-lg font-semibold mb-1">Edit Hashtags</h3>
+  <p class="text-xs text-mpMuted mb-4">Up to 5 total (1 salon tag + 4 custom). Drag ↑↓ to reorder.</p>
 
-  <form method="POST" action="/manager/admin/update-hashtags" class="space-y-4">
+  <form id="hashtags-form" method="POST" action="/manager/admin/update-hashtags" class="space-y-4">
     <input type="hidden" name="salon_id" value="{{salon_id}}" />
+    <input id="hashtags-json" name="hashtags_json" type="hidden" />
 
-    <!-- SALON TAG -->
+    <!-- SALON TAG (locked) -->
     <div>
-      <label class="text-xs font-semibold text-mpMuted">Salon Tag</label>
-      <p data-field="salon_tag_display"
-         class="mt-1 inline-flex items-center rounded-full bg-mpAccentLight border border-mpBorder px-2 py-1 text-[11px] text-mpCharcoal"></p>
+      <label class="text-xs font-semibold text-mpMuted mb-1 block">Salon Tag <span class="font-normal">(auto-generated, locked)</span></label>
+      <span data-field="salon_tag_display"
+            class="inline-flex items-center rounded-full bg-mpAccentLight border border-mpBorder px-3 py-1 text-xs font-medium text-mpCharcoal"></span>
     </div>
 
     <!-- CUSTOM TAGS -->
     <div>
-      <label class="text-xs font-semibold text-mpMuted">Custom Hashtags</label>
-      <div id="hashtags-rows" class="space-y-2 mt-2"></div>
-      <input id="hashtags-json" name="hashtags_json" type="hidden" />
-      <p class="text-[11px] text-mpMuted">Up to 4 hashtags.</p>
+      <label class="text-xs font-semibold text-mpMuted mb-2 block">Custom Hashtags <span class="font-normal text-mpMuted">(up to 4)</span></label>
+      <div id="hashtags-chips" class="flex flex-wrap gap-2 mb-3 min-h-[32px]"></div>
+      <div class="flex gap-2">
+        <input id="hashtag-input" type="text" placeholder="Type a hashtag and press Enter or Tab"
+               class="flex-1 border border-gray-200 bg-gray-50 rounded-xl px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-mpAccent/20 focus:border-mpAccent" />
+        <button type="button" id="hashtag-add-btn"
+                class="rounded-full bg-mpAccentLight border border-mpBorder px-4 py-2 text-xs font-semibold text-mpCharcoal hover:bg-mpAccent hover:text-white transition-colors">Add</button>
+      </div>
+      <p class="text-[11px] text-mpMuted mt-1">Without # — it will be added automatically.</p>
     </div>
 
-    <button class="w-full bg-mpCharcoal hover:bg-mpCharcoalDark text-white font-semibold rounded-full py-2.5 mt-4 transition-colors">
-      Save
+    <button type="submit" id="hashtags-save-btn"
+            class="w-full bg-mpCharcoal hover:bg-mpCharcoalDark text-white font-semibold rounded-full py-2.5 mt-2 transition-colors">
+      Save Hashtags
     </button>
   </form>
 </template>

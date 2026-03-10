@@ -223,84 +223,87 @@ window.admin = {
 
     const data = window.adminData;
 
-    // Salon tag display
+    // Salon tag display (locked)
     const tagBox = panel.querySelector("[data-field='salon_tag_display']");
-    if (tagBox && data.salon_tag) {
-      tagBox.innerHTML = `<span class="inline-flex items-center rounded-full bg-mpAccentLight text-mpAccent px-2 py-0.5 text-[11px] font-medium">${data.salon_tag}</span>`;
-    }
+    if (tagBox) tagBox.textContent = data.salon_tag || "";
 
-    // Hidden field
-    const hidden = panel.querySelector("#hashtags-json");
-    hidden.value = JSON.stringify(data.custom_hashtags || []);
+    const hidden  = panel.querySelector("#hashtags-json");
+    const chips   = panel.querySelector("#hashtags-chips");
+    const inputEl = panel.querySelector("#hashtag-input");
+    const addBtn  = panel.querySelector("#hashtag-add-btn");
+    const form    = panel.querySelector("#hashtags-form");
 
-    // Build editable rows
-    const rows = panel.querySelector("#hashtags-rows");
     let tags = data.custom_hashtags ? [...data.custom_hashtags] : [];
 
-    function renderRows() {
-      rows.innerHTML = "";
+    function normalize(raw) {
+      return "#" + raw.trim().replace(/^#+/, "");
+    }
+
+    function sync() {
+      hidden.value = JSON.stringify(tags);
+    }
+
+    function renderChips() {
+      chips.innerHTML = "";
       tags.forEach((tag, idx) => {
-        const row = document.createElement("div");
-        row.className = "flex items-center gap-2";
+        const chip = document.createElement("div");
+        chip.className = "inline-flex items-center gap-1.5 rounded-full bg-mpAccentLight border border-mpBorder pl-3 pr-1.5 py-1 text-xs font-medium text-mpCharcoal";
 
-        const input = document.createElement("input");
-        input.className =
-          "flex-1 border border-gray-200 bg-gray-50 rounded-lg px-3 py-2 text-sm text-gray-800";
-        input.value = tag.replace(/^#+/, "");
-        input.oninput = () => {
-          tags[idx] = input.value;
-          syncHidden();
-        };
+        const lbl = document.createElement("span");
+        lbl.textContent = tag;
+        chip.appendChild(lbl);
 
-        const add = document.createElement("button");
-        add.textContent = "+";
-        add.className =
-          "px-2 py-1 rounded-full border border-gray-200 bg-white text-gray-700 text-xs hover:bg-gray-50";
-        add.onclick = () => {
-          if (tags.length < 4) {
-            tags.push("");
-            syncHidden();
-            renderRows();
-          }
-        };
+        // Move up
+        if (idx > 0) {
+          const up = document.createElement("button");
+          up.type = "button";
+          up.textContent = "↑";
+          up.className = "text-mpMuted hover:text-mpCharcoal text-[10px] leading-none px-0.5";
+          up.onclick = () => { [tags[idx-1], tags[idx]] = [tags[idx], tags[idx-1]]; sync(); renderChips(); };
+          chip.appendChild(up);
+        }
 
-        const remove = document.createElement("button");
-        remove.textContent = "×";
-        remove.className =
-          "px-2 py-1 rounded-full border border-gray-200 bg-white text-gray-500 text-xs hover:text-red-500 hover:border-red-200";
-        remove.onclick = () => {
-          tags.splice(idx, 1);
-          syncHidden();
-          renderRows();
-        };
+        // Move down
+        if (idx < tags.length - 1) {
+          const down = document.createElement("button");
+          down.type = "button";
+          down.textContent = "↓";
+          down.className = "text-mpMuted hover:text-mpCharcoal text-[10px] leading-none px-0.5";
+          down.onclick = () => { [tags[idx], tags[idx+1]] = [tags[idx+1], tags[idx]]; sync(); renderChips(); };
+          chip.appendChild(down);
+        }
 
-        row.appendChild(input);
-        row.appendChild(add);
-        row.appendChild(remove);
-        rows.appendChild(row);
+        // Remove
+        const rm = document.createElement("button");
+        rm.type = "button";
+        rm.textContent = "×";
+        rm.className = "text-mpMuted hover:text-red-500 text-sm leading-none ml-0.5";
+        rm.onclick = () => { tags.splice(idx, 1); sync(); renderChips(); };
+        chip.appendChild(rm);
+
+        chips.appendChild(chip);
       });
+    }
 
-      if (tags.length === 0) {
-        tags.push("");
-        renderRows();
+    function addTag() {
+      const val = normalize(inputEl.value);
+      if (val === "#" || tags.length >= 4) return;
+      if (!tags.includes(val)) { tags.push(val); sync(); renderChips(); }
+      inputEl.value = "";
+    }
+
+    inputEl.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === "Tab") {
+        if (inputEl.value.trim()) { e.preventDefault(); addTag(); }
       }
-    }
+    });
+    addBtn.addEventListener("click", addTag);
 
-    function syncHidden() {
-      const cleaned = tags
-        .map((t) => t.trim())
-        .filter(Boolean)
-        .map((t) => "#" + t.replace(/^#+/, ""));
-      hidden.value = JSON.stringify(cleaned);
-    }
+    // Sync hidden field right before form submits
+    form.addEventListener("submit", sync);
 
-    renderRows();
-    syncHidden();
-
-    // Public function for Save button
-    window.submitHashtagsForm = () => {
-      panel.querySelector("form").submit();
-    };
+    sync();
+    renderChips();
   },
 
   // -----------------------------------------
