@@ -13,6 +13,7 @@ import { TONE_GROUPS, TONE_VARIANT_MAP } from "../core/toneVariants.js";
 const router = express.Router();
 
 import { UPLOADS_DIR, toUploadUrl } from "../core/uploadPath.js";
+import { PLAN_LIMITS } from "./billing.js";
 
 function normalizePhone(raw) {
   if (!raw) return null;
@@ -180,17 +181,45 @@ router.get("/", requireAuth, (req, res) => {
        </div>`
     : "";
 
+  // Plan limits
+  const planLimits = PLAN_LIMITS[salon.plan] || PLAN_LIMITS.trial;
+  const stylistLimit = planLimits.stylists; // null = unlimited (Pro)
+  const atLimit = stylistLimit !== null && stylists.length >= stylistLimit;
+  const nearLimit = stylistLimit !== null && !atLimit && stylists.length >= stylistLimit - 1;
+
+  const usageLabel = stylistLimit !== null
+    ? `${stylists.length} / ${stylistLimit} stylists`
+    : `${stylists.length} stylists`;
+
+  const upgradeNudge = (atLimit || nearLimit) && stylistLimit !== null ? `
+    <div class="mt-3 flex items-center gap-2 rounded-xl bg-mpAccentLight border border-mpAccent/20 px-3 py-2">
+      <span class="text-mpAccent text-sm">⚡</span>
+      <p class="text-xs text-mpCharcoal flex-1">
+        ${atLimit
+          ? `You've reached your <strong>${stylistLimit}-stylist limit</strong> on the ${salon.plan} plan.`
+          : `You're at <strong>${stylists.length} of ${stylistLimit}</strong> stylists on the ${salon.plan} plan.`}
+        <a href="/manager/billing" class="font-semibold text-mpAccent underline ml-1">Upgrade for more →</a>
+      </p>
+    </div>` : "";
+
+  const addBtn = atLimit
+    ? `<span class="inline-flex items-center gap-1.5 rounded-full bg-gray-200 px-4 py-2 text-xs font-semibold text-gray-400 cursor-not-allowed" title="Stylist limit reached — upgrade to add more">
+         + Add Stylist
+       </span>`
+    : `<a href="/manager/stylists/add${qs}"
+          class="inline-flex items-center gap-1.5 rounded-full bg-mpCharcoal px-4 py-2 text-xs font-semibold text-white hover:bg-mpCharcoalDark transition-colors">
+         + Add Stylist
+       </a>`;
+
   const body = `
-    <section class="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+    <section class="mb-6 flex flex-col sm:flex-row sm:items-start justify-between gap-3">
       <div>
         <h1 class="text-2xl font-bold">Team</h1>
-        <p class="text-sm text-mpMuted mt-0.5">${stylists.length} service provider${stylists.length !== 1 ? "s" : ""} registered</p>
+        <p class="text-sm text-mpMuted mt-0.5">${usageLabel} registered</p>
+        ${upgradeNudge}
       </div>
-      <div class="flex flex-wrap gap-2">
-        <a href="/manager/stylists/add${qs}"
-           class="inline-flex items-center gap-1.5 rounded-full bg-mpCharcoal px-4 py-2 text-xs font-semibold text-white hover:bg-mpCharcoalDark transition-colors">
-          + Add Stylist
-        </a>
+      <div class="flex flex-wrap gap-2 shrink-0">
+        ${addBtn}
         <label class="inline-flex items-center gap-1.5 rounded-full border border-mpBorder px-4 py-2 text-xs font-semibold text-mpCharcoal hover:bg-mpBg cursor-pointer transition-colors">
           Upload CSV
           <input type="file" accept=".csv" class="hidden" id="csvFileInput" />

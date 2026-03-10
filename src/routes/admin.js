@@ -13,6 +13,7 @@ import crypto from "crypto";
 import { isContentSafe, sanitizeText } from "../../src/utils/moderation.js";
 
 import { UPLOADS_DIR } from "../core/uploadPath.js";
+import { PLAN_LIMITS } from "./billing.js";
 
 const managerPhotoUpload = multer({
   storage: multer.diskStorage({
@@ -477,6 +478,13 @@ router.get("/", requireAuth, (req, res) => {
     </section>
 
     <!-- TEAM MEMBERS — managed on dedicated Team page -->
+    ${(() => {
+      const planLimits = PLAN_LIMITS[salonRow.plan] || PLAN_LIMITS.trial;
+      const stylistLimit = planLimits.stylists; // null = unlimited (Pro)
+      const atLimit = stylistLimit !== null && dbStylists.length >= stylistLimit;
+      const pct = stylistLimit ? Math.round((dbStylists.length / stylistLimit) * 100) : 0;
+      const barColor = pct >= 100 ? "bg-red-400" : pct >= 75 ? "bg-yellow-400" : "bg-mpAccent";
+      return `
     <section class="mb-6">
       <div class="rounded-2xl border border-mpBorder bg-white px-4 py-4 flex flex-col justify-between">
         <div>
@@ -485,18 +493,28 @@ router.get("/", requireAuth, (req, res) => {
             Add stylists, set tone variants, upload profile photos, configure birthdays and anniversaries,
             and manage celebration posts — all from the Team page.
           </p>
-          <p class="text-xs text-mpMuted">
-            <span class="font-medium text-mpCharcoal">${dbStylists.length}</span> service provider${dbStylists.length !== 1 ? "s" : ""} registered
-          </p>
+          ${stylistLimit !== null ? `
+          <div class="mb-2">
+            <div class="flex justify-between text-xs mb-1">
+              <span class="text-mpMuted">Stylists used</span>
+              <span class="font-semibold text-mpCharcoal">${dbStylists.length} / ${stylistLimit}</span>
+            </div>
+            <div class="w-full bg-gray-100 rounded-full h-1.5">
+              <div class="${barColor} h-1.5 rounded-full" style="width:${Math.min(100,pct)}%"></div>
+            </div>
+          </div>
+          ${atLimit ? `<p class="text-xs text-red-500 font-medium mb-1">Stylist limit reached. <a href="/manager/billing" class="underline text-mpAccent">Upgrade to add more →</a></p>` : ""}
+          ` : `<p class="text-xs text-mpMuted mb-1">${dbStylists.length} stylists · <span class="text-mpCharcoal font-medium">Unlimited</span> on Pro</p>`}
         </div>
-        <div class="mt-4">
+        <div class="mt-3">
           <a href="/manager/stylists?salon=${salon_id}"
              class="inline-flex items-center gap-1.5 rounded-full bg-mpCharcoal px-4 py-2 text-xs font-semibold text-white hover:bg-mpCharcoalDark transition-colors">
             Manage Team
           </a>
         </div>
       </div>
-    </section>
+    </section>`;
+    })()}
                 <!-- Modal Backdrop -->
         <div
           id="admin-modal-backdrop"

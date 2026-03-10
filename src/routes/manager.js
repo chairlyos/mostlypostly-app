@@ -9,6 +9,7 @@ import { handleManagerApproval } from "../core/messageRouter.js";
 import { buildPromotionImage } from "../core/buildPromotionImage.js";
 import { getSalonPolicy } from "../scheduler.js";
 import { sendViaTwilio } from "./twilio.js";
+import { PLAN_LIMITS } from "./billing.js";
 
 const router = express.Router();
 
@@ -118,6 +119,17 @@ router.get("/", requireAuth, async (req, res) => {
   const mgrName = req.manager.name || "Manager";
 
   const salonName = getSalonName(salon_id) || "Your Salon";
+
+  // Plan usage stats
+  const salonRow = db.prepare("SELECT plan, plan_status FROM salons WHERE slug = ?").get(salon_id);
+  const planLimits = PLAN_LIMITS[salonRow?.plan] || PLAN_LIMITS.trial;
+  const monthStart = DateTime.utc().startOf("month").toFormat("yyyy-LL-dd");
+  const postsThisMonth = db.prepare(
+    `SELECT COUNT(*) AS n FROM posts WHERE salon_id = ? AND status = 'published' AND date(published_at) >= ?`
+  ).get(salon_id, monthStart)?.n || 0;
+  const postLimit = planLimits.posts;
+  const postPct = postLimit ? Math.min(100, Math.round((postsThisMonth / postLimit) * 100)) : 0;
+  const postBarColor = postPct >= 100 ? "bg-red-400" : postPct >= 80 ? "bg-yellow-400" : "bg-mpAccent";
 
   // Fetch pending
   const pendingRaw = db
@@ -288,6 +300,22 @@ router.get("/", requireAuth, async (req, res) => {
       <p class="text-sm text-mpMuted mb-8">
         Logged in as ${mgrName} (${managerPhone})
       </p>
+
+      <!-- Posts usage bar -->
+      <div class="mb-8 rounded-xl border border-mpBorder bg-white px-4 py-3">
+        <div class="flex items-center justify-between mb-1.5">
+          <p class="text-xs font-semibold text-mpMuted">Posts this month</p>
+          <p class="text-xs font-bold text-mpCharcoal">${postsThisMonth} / ${postLimit ?? "∞"}</p>
+        </div>
+        <div class="w-full bg-gray-100 rounded-full h-2">
+          <div class="${postBarColor} h-2 rounded-full transition-all" style="width:${postPct}%"></div>
+        </div>
+        ${postPct >= 80 ? `
+        <p class="mt-1.5 text-xs ${postPct >= 100 ? "text-red-500 font-semibold" : "text-yellow-600"}">
+          ${postPct >= 100 ? "Monthly post limit reached." : `${postLimit - postsThisMonth} posts remaining this month.`}
+          <a href="/manager/billing" class="underline text-mpAccent ml-1">Upgrade for more →</a>
+        </p>` : ""}
+      </div>
 
       <h2 class="text-xl font-bold text-mpCharcoal mb-3">Pending Approval</h2>
       ${pendingCards}
