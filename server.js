@@ -15,6 +15,9 @@ import express from "express";
 import session from "express-session";
 import path from "path";
 import { fileURLToPath } from "url";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
+import csrfProtection from "./src/middleware/csrf.js";
 // teamsRoute disabled until botbuilder dependency is added to package.json
 // import teamsRoute from "./src/routes/teams.js";
 
@@ -81,6 +84,9 @@ import vendorAdminRoute from "./src/routes/vendorAdmin.js";
 import billingRoutes, { stripeWebhookHandler } from "./src/routes/billing.js";
 import locationsRoute from "./src/routes/locations.js";
 import postQueueRoute from "./src/routes/postQueue.js";
+import integrationsRoute from "./src/routes/integrations.js";
+import mfaRoute from "./src/routes/mfa.js";
+import helpRoute from "./src/routes/help.js";
 import { lookupStylist } from "./src/core/salonLookup.js";
 
 // Scheduler
@@ -92,10 +98,89 @@ const __dirname = path.dirname(__filename);
 // =====================================================
 // Express App Init
 // =====================================================
+const APP_ENV = process.env.APP_ENV || "local";
 const app = express();
 
 // Trust Render's reverse proxy so secure cookies work over HTTPS
 app.set("trust proxy", 1);
+
+// =====================================================
+// Security Headers (Helmet)
+// Must come before any route handlers.
+// =====================================================
+app.use(
+  helmet({
+    // Allow Tailwind CDN and Google Fonts (used throughout the app)
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc:     ["'self'"],
+        scriptSrc:      ["'self'", "https://cdn.tailwindcss.com", "https://cdn.socket.io", "'unsafe-inline'"],
+        styleSrc:       ["'self'", "https://fonts.googleapis.com", "https://cdn.tailwindcss.com", "'unsafe-inline'"],
+        fontSrc:        ["'self'", "https://fonts.gstatic.com"],
+        imgSrc:         ["'self'", "data:", "blob:", "https:", "http:"],
+        connectSrc:     ["'self'", "wss:", "ws:"],
+        frameSrc:       ["'none'"],
+        objectSrc:      ["'none'"],
+        upgradeInsecureRequests: APP_ENV === "production" ? [] : null,
+      },
+    },
+    hsts: APP_ENV === "production"
+      ? { maxAge: 31536000, includeSubDomains: true, preload: true }
+      : false,
+    crossOriginEmbedderPolicy: false, // Allow proxied Twilio images to load
+  })
+);
+
+// =====================================================
+// Rate Limiters
+// =====================================================
+
+// Auth routes — strict limit to prevent brute force
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many attempts. Please try again in 15 minutes." },
+  skip: (req) => APP_ENV === "local",
+});
+
+// Password reset / forgot — stricter
+const resetLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many password reset attempts. Please try again in an hour." },
+  skip: (req) => APP_ENV === "local",
+});
+
+// Webhook endpoint — allow bursts but cap sustained abuse
+const webhookLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => req.params?.salon_id || req.ip,
+  skip: (req) => APP_ENV === "local",
+});
+
+// General API — broad protection
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => APP_ENV === "local",
+});
+
+// Apply auth limiters to specific paths (before session/middleware)
+app.use("/manager/login",           authLimiter);
+app.use("/manager/signup",          authLimiter);
+app.use("/manager/forgot-password", resetLimiter);
+app.use("/manager/reset-password",  resetLimiter);
+app.use("/integrations/webhook",    webhookLimiter);
+app.use("/api",                     apiLimiter);
 
 // Correct Admin modal template loader (must come BEFORE ANY /manager routes)
 app.get("/manager/admin/templates", (req, res) => {
@@ -115,7 +200,6 @@ import createBetterSqlite3SessionStore from "better-sqlite3-session-store";
 import Database from "better-sqlite3";
 const SqliteStore = createBetterSqlite3SessionStore(session);
 
-const APP_ENV = process.env.APP_ENV || "local";
 const sessionDbPath =
   APP_ENV === "production" ? "/data/sessions.db"
   : APP_ENV === "staging"  ? "/tmp/sessions.db"
@@ -132,6 +216,7 @@ app.use(
     cookie: {
       httpOnly: true,
       secure: APP_ENV === "production",
+      sameSite: "lax",
       maxAge: 1000 * 60 * 60 * 24 * 7,
     },
   })
@@ -149,6 +234,13 @@ app.use(cookieParser());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// =====================================================
+// CSRF Protection
+// Must come after session + bodyParser so req.session
+// and req.body are both available.
+// =====================================================
+app.use(csrfProtection());
 
 // =====================================================
 // INBOUND TELEGRAM / TWILIO / MICROSOFT TEAMS
@@ -257,6 +349,8 @@ function restoreManagerSession(req, res, next) {
       req.manager = mgr;
       // If the manager has switched locations, session.salon_id overrides the DB value
       if (req.session.salon_id) req.manager.salon_id = req.session.salon_id;
+      // Make CSRF token available on req.manager for easy pageShell injection
+      req.manager.csrfToken = req.session.csrfToken || "";
     }
   } catch (err) {
     console.error("restoreManagerSession failed:", err);
@@ -341,6 +435,19 @@ app.use("/manager/queue", postQueueRoute);
 // 12. VENDOR ADMIN (internal MostlyPostly tool)
 // -------------------------------------------------------
 app.use("/internal/vendors", vendorAdminRoute);
+
+// -------------------------------------------------------
+// 13. MFA (TOTP setup, verify, disable)
+// -------------------------------------------------------
+app.use("/manager/mfa", mfaRoute);
+app.use("/help", helpRoute);
+
+// -------------------------------------------------------
+// 14. INTEGRATIONS (Zenoti, Vagaro, etc.)
+// -------------------------------------------------------
+app.use("/manager/integrations", integrationsRoute);
+// Public webhook endpoint (no session auth — uses secret verification)
+app.use("/integrations", integrationsRoute);
 
 // =====================================================
 // Analytics API (public JSON endpoints for dashboard)

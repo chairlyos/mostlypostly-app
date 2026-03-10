@@ -16,7 +16,7 @@ export default function onboardingGuard(req, res, next) {
     return next();
   }
 
-  // Allow login/signup, email verification, and password reset
+  // Allow login/signup, email verification, password reset, and MFA verification
   if (
     url.startsWith("/manager/login") ||
     url.startsWith("/manager/signup") ||
@@ -24,7 +24,8 @@ export default function onboardingGuard(req, res, next) {
     url.startsWith("/manager/reset-password") ||
     url.startsWith("/manager/check-your-email") ||
     url.startsWith("/manager/verify-email") ||
-    url.startsWith("/manager/resend-verification")
+    url.startsWith("/manager/resend-verification") ||
+    url.startsWith("/manager/mfa")
   ) {
     return next();
   }
@@ -51,6 +52,9 @@ if (url.startsWith("/inbound/telegram")) {
 
   // Allow stylist portal (token-authenticated, no session needed)
   if (url.startsWith("/stylist")) return next();
+
+  // Allow public help/KB pages
+  if (url.startsWith("/help")) return next();
 
   const manager_id = req.session?.manager_id;
   const salon_id = req.session?.salon_id;

@@ -71,7 +71,7 @@ export function buildPreviewCaption({
     "",
     prettyBody,
     "",
-    "Reply *APPROVE* to continue, *REGENERATE*, or *RESET* to stop.",
+    "Reply *APPROVE* to submit, or *CANCEL* to discard.",
   ].join("\n");
 
   return { unifiedCaption, previewText };

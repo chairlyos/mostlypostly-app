@@ -20,6 +20,10 @@ import { run as run016 } from "./016_logo_address.js";
 import { run as run017 } from "./017_email_verification.js";
 import { run as run018 } from "./018_vendor_approvals.js";
 import { run as run019 } from "./019_stock_photo_category.js";
+import { run as run020 } from "./020_posting_schedule.js";
+import { run as run021 } from "./021_salon_integrations.js";
+import { run as run022 } from "./022_stylist_integration_id.js";
+import { run as run023 } from "./023_security_tables.js";
 
 export const migrations = [
   { name: "001_baseline_patches",        run: run001 },
@@ -41,4 +45,8 @@ export const migrations = [
   { name: "017_email_verification",      run: run017 },
   { name: "018_vendor_approvals",        run: run018 },
   { name: "019_stock_photo_category",   run: run019 },
+  { name: "020_posting_schedule",       run: run020 },
+  { name: "021_salon_integrations",    run: run021 },
+  { name: "022_stylist_integration_id", run: run022 },
+  { name: "023_security_tables",        run: run023 },
 ];

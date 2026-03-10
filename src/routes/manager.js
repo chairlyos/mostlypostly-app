@@ -8,6 +8,8 @@ import { getSalonName } from "../core/salonLookup.js";
 import { handleManagerApproval } from "../core/messageRouter.js";
 import { buildPromotionImage } from "../core/buildPromotionImage.js";
 import { getSalonPolicy } from "../scheduler.js";
+import { sendViaTwilio } from "./twilio.js";
+import { PLAN_LIMITS } from "./billing.js";
 
 const router = express.Router();
 
@@ -118,6 +120,18 @@ router.get("/", requireAuth, async (req, res) => {
 
   const salonName = getSalonName(salon_id) || "Your Salon";
 
+  // Plan usage stats + booking URL for approve preview
+  const salonRow = db.prepare("SELECT plan, plan_status, booking_url, phone FROM salons WHERE slug = ?").get(salon_id);
+  const salonBookingUrl = salonRow?.booking_url || "";
+  const planLimits = PLAN_LIMITS[salonRow?.plan] || PLAN_LIMITS.trial;
+  const monthStart = DateTime.utc().startOf("month").toFormat("yyyy-LL-dd");
+  const postsThisMonth = db.prepare(
+    `SELECT COUNT(*) AS n FROM posts WHERE salon_id = ? AND status = 'published' AND date(published_at) >= ?`
+  ).get(salon_id, monthStart)?.n || 0;
+  const postLimit = planLimits.posts;
+  const postPct = postLimit ? Math.min(100, Math.round((postsThisMonth / postLimit) * 100)) : 0;
+  const postBarColor = postPct >= 100 ? "bg-red-400" : postPct >= 80 ? "bg-yellow-400" : "bg-mpAccent";
+
   // Fetch pending
   const pendingRaw = db
     .prepare(
@@ -125,6 +139,19 @@ router.get("/", requireAuth, async (req, res) => {
        FROM posts
        WHERE salon_id = ? AND status = 'manager_pending'
        ORDER BY created_at DESC`
+    )
+    .all(salon_id);
+
+  // Fetch upcoming promotions (approved/queued, scheduled for future)
+  const upcomingPromos = db
+    .prepare(
+      `SELECT *
+       FROM posts
+       WHERE salon_id = ?
+         AND post_type = 'promotions'
+         AND status IN ('manager_approved', 'manager_pending')
+       ORDER BY COALESCE(scheduled_for, created_at) ASC
+       LIMIT 10`
     )
     .all(salon_id);
 
@@ -168,19 +195,38 @@ router.get("/", requireAuth, async (req, res) => {
             const caption = esc(p.final_caption || p.caption || "")
               .replace(/\n/g, "<br/>");
 
+            const isPromo = p.post_type === "promotions";
+            const postTypeLabel = esc((p.post_type || "standard_post").replace(/_/g, " "));
+            const promoBadge = isPromo
+              ? `<span class="inline-flex items-center rounded-full bg-mpAccentLight text-mpAccent text-[10px] font-bold px-2 py-0.5 uppercase tracking-wide">Promotion</span>`
+              : "";
+            const promoExpiry = isPromo && p.promotion_expires_at
+              ? `<p class="text-xs text-mpAccent mt-1">Offer expires: ${esc(p.promotion_expires_at.slice(0,10))}</p>`
+              : "";
+            const bookingHint = salonBookingUrl
+              ? `<p class="text-[11px] text-mpMuted mt-2 border-t border-mpBorder pt-2">Facebook post will include booking link: <span class="font-mono text-mpCharcoal">${esc(salonBookingUrl)}</span></p>`
+              : "";
+
             return `
           <div class="rounded-xl bg-white border border-mpBorder p-5 mb-5">
             <div class="flex gap-4">
               ${imageStrip(p, "w-32 h-32")}
 
               <div class="flex-1">
-                <p class="text-xs text-mpMuted mb-1">
-                  Pending • Post #${esc(p.salon_post_number) || "—"} • <span class="capitalize">${esc((p.post_type || "standard_post").replace(/_/g, " "))}</span>
-                </p>
+                <div class="flex items-center gap-2 mb-1 flex-wrap">
+                  <p class="text-xs text-mpMuted">
+                    Pending • Post #${esc(p.salon_post_number) || "—"} • <span class="capitalize">${postTypeLabel}</span>
+                  </p>
+                  ${promoBadge}
+                </div>
 
-                <p class="text-sm whitespace-pre-line text-mpCharcoal leading-relaxed">
+                ${promoExpiry}
+
+                <p class="text-sm whitespace-pre-line text-mpCharcoal leading-relaxed mt-1">
                   ${caption}
                 </p>
+
+                ${bookingHint}
 
                 <div class="flex flex-wrap gap-3 mt-4">
 
@@ -272,6 +318,51 @@ router.get("/", requireAuth, async (req, res) => {
               }).join("");
 
   /* -------------------------------------------------------------
+     UPCOMING PROMOTIONS SECTION
+  ------------------------------------------------------------- */
+  const upcomingPromoCards = upcomingPromos.length === 0 ? "" : `
+    <h2 class="text-xl font-bold text-mpCharcoal mb-3">Upcoming Promotions</h2>
+    <div class="mb-8 space-y-3">
+      ${upcomingPromos.map(p => {
+        const scheduledLocal = p.scheduled_for
+          ? (() => {
+              try {
+                return DateTime.fromSQL(p.scheduled_for, { zone: "utc" }).toFormat("MMM d, yyyy 'at' h:mm a");
+              } catch { return p.scheduled_for; }
+            })()
+          : null;
+        const displayImg = toProxyUrl(p.image_url);
+        const isPending = p.status === "manager_pending";
+        return `
+        <div class="flex items-center gap-4 rounded-xl bg-white border border-mpBorder px-4 py-3">
+          ${displayImg
+            ? `<img src="${esc(displayImg)}" class="w-14 h-14 rounded-lg object-cover border border-mpBorder flex-shrink-0" />`
+            : `<div class="w-14 h-14 rounded-lg bg-mpBg border border-mpBorder flex-shrink-0"></div>`}
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 mb-0.5 flex-wrap">
+              <span class="inline-flex items-center rounded-full bg-mpAccentLight text-mpAccent text-[10px] font-bold px-2 py-0.5 uppercase tracking-wide">Promotion</span>
+              ${isPending ? `<span class="inline-flex items-center rounded-full bg-yellow-100 text-yellow-700 text-[10px] font-bold px-2 py-0.5 uppercase tracking-wide">Awaiting Approval</span>` : `<span class="inline-flex items-center rounded-full bg-blue-50 text-blue-600 text-[10px] font-bold px-2 py-0.5 uppercase tracking-wide">Coming Up</span>`}
+            </div>
+            <p class="text-sm font-semibold text-mpCharcoal truncate">${esc((p.final_caption || p.base_caption || "Promotion").split("\n")[0])}</p>
+            <div class="flex gap-3 text-[11px] text-mpMuted mt-0.5">
+              ${scheduledLocal ? `<span>Scheduled: ${scheduledLocal}</span>` : ""}
+              ${p.promotion_expires_at ? `<span>· Expires: ${esc(p.promotion_expires_at.slice(0,10))}</span>` : ""}
+            </div>
+          </div>
+          <div class="flex flex-col gap-1.5 shrink-0">
+            ${isPending ? `<a href="/manager/approve?post=${p.id}" class="px-3 py-1 bg-green-600 hover:bg-green-700 rounded text-xs text-white text-center">Approve</a>` : ""}
+            <a href="/manager/cancel-post?post=${esc(p.id)}"
+               onclick="return confirm('Cancel this promotion?')"
+               class="px-3 py-1 bg-mpBg hover:bg-red-50 border border-mpBorder rounded text-xs text-red-400 hover:text-red-600 text-center">
+              Cancel
+            </a>
+          </div>
+        </div>`;
+      }).join("")}
+    </div>
+  `;
+
+  /* -------------------------------------------------------------
      PAGE BODY (old layout)
   ------------------------------------------------------------- */
   const body = `
@@ -287,6 +378,24 @@ router.get("/", requireAuth, async (req, res) => {
       <p class="text-sm text-mpMuted mb-8">
         Logged in as ${mgrName} (${managerPhone})
       </p>
+
+      <!-- Posts usage bar -->
+      <div class="mb-8 rounded-xl border border-mpBorder bg-white px-4 py-3">
+        <div class="flex items-center justify-between mb-1.5">
+          <p class="text-xs font-semibold text-mpMuted">Posts this month</p>
+          <p class="text-xs font-bold text-mpCharcoal">${postsThisMonth} / ${postLimit ?? "∞"}</p>
+        </div>
+        <div class="w-full bg-gray-100 rounded-full h-2">
+          <div class="${postBarColor} h-2 rounded-full transition-all" style="width:${postPct}%"></div>
+        </div>
+        ${postPct >= 80 ? `
+        <p class="mt-1.5 text-xs ${postPct >= 100 ? "text-red-500 font-semibold" : "text-yellow-600"}">
+          ${postPct >= 100 ? "Monthly post limit reached." : `${postLimit - postsThisMonth} posts remaining this month.`}
+          <a href="/manager/billing" class="underline text-mpAccent ml-1">Upgrade for more →</a>
+        </p>` : ""}
+      </div>
+
+      ${upcomingPromoCards}
 
       <h2 class="text-xl font-bold text-mpCharcoal mb-3">Pending Approval</h2>
       ${pendingCards}
@@ -324,18 +433,37 @@ router.get("/approve", requireAuth, async (req, res) => {
     return res.redirect("/manager");
   }
 
-  // 🔑 This does EVERYTHING:s
-  // - status = manager_approved
-  // - scheduled_for = now
-  // - stylist notification
-  // - scheduler eligibility
+  // Look up salon settings for notification prefs
+  const salonSettings = db.prepare(
+    `SELECT notify_on_approval, timezone FROM salons WHERE slug = ?`
+  ).get(pendingPost.salon_id);
+
+  // Approve and enqueue (no-op sendText — we handle notifications below)
   await handleManagerApproval(
     req.manager.phone || "dashboard",
     pendingPost,
-    (to, msg) => {
-      console.log("📤 Dashboard approval notify:", to);
-    }
+    async () => {} // suppress built-in SMS — we send below with correct content
   );
+
+  // Notify stylist if setting is enabled and they have a phone
+  if (salonSettings?.notify_on_approval && pendingPost.stylist_phone) {
+    try {
+      // Read scheduled_for set by enqueuePost
+      const updated = db.prepare(`SELECT scheduled_for FROM posts WHERE id = ?`).get(pendingPost.id);
+      let timeNote = "";
+      if (updated?.scheduled_for) {
+        const tz = salonSettings.timezone || "America/Indiana/Indianapolis";
+        const localTime = DateTime.fromSQL(updated.scheduled_for, { zone: "utc" }).setZone(tz);
+        timeNote = ` Scheduled for ${localTime.toFormat("cccc, MMM d 'at' h:mm a")} (${localTime.offsetNameShort}).`;
+      }
+      await sendViaTwilio(
+        pendingPost.stylist_phone,
+        `✅ Your post was approved by your manager!${timeNote} It will publish automatically during your salon's posting window.`
+      );
+    } catch (err) {
+      console.error("[Manager] Approval notify failed:", err.message);
+    }
+  }
 
   return res.redirect("/manager");
 });
@@ -345,6 +473,7 @@ router.get("/approve", requireAuth, async (req, res) => {
 ------------------------------------------------------------- */
 router.get("/post-now", requireAuth, (req, res) => {
   const id = req.query.post;
+  const salon_id = req.manager.salon_id;
 
   if (id) {
     db.prepare(`
@@ -353,8 +482,8 @@ router.get("/post-now", requireAuth, (req, res) => {
         status = 'manager_approved',
         scheduled_for = datetime('now'),
         approved_at = datetime('now','utc')
-      WHERE id = ?
-    `).run(id);
+      WHERE id = ? AND salon_id = ?
+    `).run(id, salon_id);
   }
 
   return res.redirect("/manager");
@@ -365,13 +494,14 @@ router.get("/post-now", requireAuth, (req, res) => {
 ------------------------------------------------------------- */
 router.get("/cancel", requireAuth, (req, res) => {
   const id = req.query.post;
+  const salon_id = req.manager.salon_id;
   if (id) {
     db.prepare(
       `UPDATE posts
        SET status='cancelled',
            updated_at=datetime('now')
-       WHERE id=?`
-    ).run(id);
+       WHERE id=? AND salon_id=?`
+    ).run(id, salon_id);
   }
   return res.redirect("/manager");
 });
@@ -429,16 +559,39 @@ router.get("/deny", requireAuth, (req, res) => {
 /* -------------------------------------------------------------
    DENY — SAVE
 ------------------------------------------------------------- */
-router.post("/deny", requireAuth, (req, res) => {
+router.post("/deny", requireAuth, async (req, res) => {
   const { post_id, reason } = req.body;
+  const salon_id = req.manager.salon_id;
+
+  const post = db.prepare(`SELECT * FROM posts WHERE id = ? AND salon_id = ?`).get(post_id, salon_id);
+  if (!post) return res.redirect("/manager");
 
   db.prepare(
     `UPDATE posts
      SET status='denied',
          denial_reason=?,
          updated_at=datetime('now')
-     WHERE id=?`
-  ).run(reason.trim(), post_id);
+     WHERE id=? AND salon_id=?`
+  ).run((reason || "").trim(), post_id, salon_id);
+
+  // Notify stylist if setting is enabled and they have a phone
+  if (post?.stylist_phone) {
+    const salonSettings = db.prepare(
+      `SELECT notify_on_denial FROM salons WHERE slug = ?`
+    ).get(post.salon_id);
+
+    if (salonSettings?.notify_on_denial) {
+      try {
+        const reasonText = (reason || "").trim();
+        const msg = reasonText
+          ? `Your post was not approved by your manager. Reason: "${reasonText}". Feel free to send a new photo to try again!`
+          : `Your post was not approved by your manager. Feel free to send a new photo to try again!`;
+        await sendViaTwilio(post.stylist_phone, msg);
+      } catch (err) {
+        console.error("[Manager] Denial notify failed:", err.message);
+      }
+    }
+  }
 
   return res.redirect("/manager");
 });
@@ -448,8 +601,9 @@ router.post("/deny", requireAuth, (req, res) => {
 ------------------------------------------------------------- */
 router.get("/edit/:id", requireAuth, (req, res) => {
   const id = req.params.id;
+  const salon_id = req.manager.salon_id;
 
-  const post = db.prepare(`SELECT * FROM posts WHERE id=?`).get(id);
+  const post = db.prepare(`SELECT * FROM posts WHERE id=? AND salon_id=?`).get(id, salon_id);
   if (!post) return res.redirect("/manager");
 
   const body = `
@@ -500,8 +654,8 @@ router.post("/edit/:id", requireAuth, (req, res) => {
   db.prepare(
     `UPDATE posts
      SET final_caption = ?, updated_at=datetime('now')
-     WHERE id = ?`
-  ).run(cleaned, id);
+     WHERE id = ? AND salon_id = ?`
+  ).run(cleaned, id, req.manager.salon_id);
 
   // Redirect back to manager for the appropriate salon
   const salonSlug = req.manager?.salon_id || "";

@@ -9,6 +9,7 @@ import path from "path";
 import { sendViaTwilio } from "../routes/twilio.js";
 import { sendVerificationEmail, sendWelcomeEmail, sendCancellationEmail } from "../core/email.js";
 import { UPLOADS_DIR, toUploadUrl } from "../core/uploadPath.js";
+import { logSecurityEvent } from "../core/auditLog.js";
 
 const SITE_URL = process.env.APP_ENV === "staging"
   ? "https://mostlypostly-staging-site.onrender.com"
@@ -861,6 +862,7 @@ router.post("/login", (req, res) => {
     .get(email);
 
   if (!manager || !manager.password_hash) {
+    logSecurityEvent({ eventType: "login_failure", req, metadata: { email, reason: "unknown_account" } });
     return res
       .status(401)
       .type("html")
@@ -869,21 +871,39 @@ router.post("/login", (req, res) => {
 
   const ok = bcrypt.compareSync(password, manager.password_hash);
   if (!ok) {
+    logSecurityEvent({ eventType: "login_failure", managerId: manager.id, salonId: manager.salon_id, req, metadata: { email } });
     return res
       .status(401)
       .type("html")
       .send("Invalid credentials.");
   }
 
-  // Use consistent session keys throughout the app
-  const groupRow = db.prepare("SELECT group_id FROM salons WHERE slug = ?").get(manager.salon_id);
-  req.session.manager_id = manager.id;
-  req.session.salon_id = manager.salon_id;
-  req.session.group_id = groupRow?.group_id || null;
-  req.session.manager_email = manager.email;
+  // Check if MFA is enrolled — if so, don't complete login yet
+  const mfaRow = db.prepare("SELECT manager_id FROM manager_mfa WHERE manager_id = ?").get(manager.id);
+  if (mfaRow) {
+    // Store pending manager ID in session — MFA verify route completes login
+    req.session.pendingMfaManagerId = manager.id;
+    req.session.save(() => res.redirect("/manager/mfa/verify"));
+    return;
+  }
 
-  // Redirect to dashboard
-  return res.redirect("/manager");
+  // No MFA — complete login directly with session regeneration (session fixation prevention)
+  const groupRow = db.prepare("SELECT group_id FROM salons WHERE slug = ?").get(manager.salon_id);
+  req.session.regenerate((err) => {
+    if (err) {
+      console.error("[login] Session regeneration failed:", err);
+      return res.status(500).send("Login error. Please try again.");
+    }
+    req.session.manager_id    = manager.id;
+    req.session.salon_id      = manager.salon_id;
+    req.session.group_id      = groupRow?.group_id || null;
+    req.session.manager_email = manager.email;
+
+    logSecurityEvent({ eventType: "login_success", managerId: manager.id, salonId: manager.salon_id, req });
+
+    req.session.save(() => res.redirect("/manager"));
+  });
+  return; // regenerate is async — must return here
 
 });
 
@@ -1007,7 +1027,7 @@ https://yourdomain.com/manager/reset-password?token=${token}
 
   console.log("📤 Sending password reset SMS to:", manager.phone);
   await sendViaTwilio(manager.phone, smsBody);
-
+  logSecurityEvent({ eventType: "password_reset_requested", managerId: manager.id, req });
 
   return res.redirect("/manager/forgot-password?sent=1");
 });
@@ -1138,6 +1158,7 @@ router.post("/reset-password", async (req, res) => {
     WHERE token = ?
   `).run(token);
 
+  logSecurityEvent({ eventType: "password_reset_completed", managerId: row.manager_id, req });
   return res.redirect("/manager/login?reset=success");
 });
 

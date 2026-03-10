@@ -3,6 +3,32 @@
 
 console.log("[Admin] admin.js loaded");
 
+// ─── CSRF helper ────────────────────────────────────────────────
+// Read the token injected by the server into <meta name="csrf-token">
+function getCsrfToken() {
+  return document.querySelector('meta[name="csrf-token"]')?.content || "";
+}
+
+// Patch fetch so all same-origin POST/PUT/PATCH/DELETE requests
+// automatically include the CSRF token header.
+(function patchFetch() {
+  const _fetch = window.fetch;
+  window.fetch = function (input, init = {}) {
+    const method = (init.method || "GET").toUpperCase();
+    const mutating = ["POST", "PUT", "PATCH", "DELETE"];
+    const isSameOrigin =
+      typeof input === "string"
+        ? input.startsWith("/") || input.startsWith(window.location.origin)
+        : true;
+    if (mutating.includes(method) && isSameOrigin) {
+      init.headers = Object.assign({}, init.headers, {
+        "X-CSRF-Token": getCsrfToken(),
+      });
+    }
+    return _fetch(input, init);
+  };
+})();
+
 // Global admin controller namespace
 window.admin = {
   templates: {},
@@ -132,7 +158,7 @@ window.admin = {
   },
 
   // -----------------------------------------
-  // Posting Rules Modal
+  // Posting Rules Modal (per-day schedule)
   // -----------------------------------------
   async openPostingRules() {
     const panel = await this.openModal("tpl-posting-rules");
@@ -140,56 +166,87 @@ window.admin = {
 
     const data = window.adminData;
 
-    const fields = [
-      "salon_id",
-      "posting_start_time",
-      "posting_end_time",
-      "spacing_min",
-      "spacing_max",
-    ];
-    fields.forEach((key) => {
+    // Fill spacing
+    ["spacing_min", "spacing_max"].forEach((key) => {
       const el = panel.querySelector(`[data-field='${key}']`);
-      if (!el) return;
-      el.value = data[key] ?? "";
+      if (el) el.value = data[key] ?? "";
     });
 
-    // Fill dropdown with human-readable labels
-    function populateTimeOptions(selectEl) {
-      const times = [
-        ["07:00", "7:00 AM"],
-        ["08:00", "8:00 AM"],
-        ["09:00", "9:00 AM"],
-        ["10:00", "10:00 AM"],
-        ["11:00", "11:00 AM"],
-        ["12:00", "12:00 PM"],
-        ["13:00", "1:00 PM"],
-        ["14:00", "2:00 PM"],
-        ["15:00", "3:00 PM"],
-        ["16:00", "4:00 PM"],
-        ["17:00", "5:00 PM"],
-        ["18:00", "6:00 PM"],
-        ["19:00", "7:00 PM"],
-        ["20:00", "8:00 PM"],
-        ["21:00", "9:00 PM"],
-        ["22:00", "10:00 PM"],
-      ];
-
-      selectEl.innerHTML = times
-        .map(
-          ([val, label]) =>
-            `<option value="${val}" ${
-              val === data.posting_start_time || val === data.posting_end_time
-                ? "selected"
-                : ""
-            }>${label}</option>`
-        )
-        .join("");
+    // Build time options (every 30 min, midnight through 11:30 PM)
+    function buildTimeOptions(selectedVal) {
+      const options = [];
+      for (let h = 0; h < 24; h++) {
+        for (let m = 0; m < 60; m += 30) {
+          const val = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+          const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+          const ampm = h < 12 ? "AM" : "PM";
+          const minStr = m === 0 ? "00" : "30";
+          const label = `${hour12}:${minStr} ${ampm}`;
+          const sel = val === selectedVal ? " selected" : "";
+          options.push(`<option value="${val}"${sel}>${label}</option>`);
+        }
+      }
+      return options.join("");
     }
 
-    populateTimeOptions(
-      panel.querySelector("[data-field='posting_start_time']")
-    );
-    populateTimeOptions(panel.querySelector("[data-field='posting_end_time']"));
+    const DAYS = ["monday","tuesday","wednesday","thursday","friday","saturday","sunday"];
+    const DAY_LABELS = { monday:"Mon", tuesday:"Tue", wednesday:"Wed", thursday:"Thu", friday:"Fri", saturday:"Sat", sunday:"Sun" };
+    const schedule = data.posting_schedule || {};
+    const grid = panel.querySelector("#posting-days-grid");
+    const hidden = panel.querySelector("#posting-schedule-json");
+    const form = panel.querySelector("#posting-rules-form");
+
+    function syncHidden() {
+      const result = {};
+      DAYS.forEach(day => {
+        const row = grid.querySelector(`[data-day="${day}"]`);
+        if (!row) return;
+        result[day] = {
+          enabled: row.querySelector(".day-toggle").checked,
+          start:   row.querySelector(".day-start").value,
+          end:     row.querySelector(".day-end").value,
+        };
+      });
+      hidden.value = JSON.stringify(result);
+    }
+
+    function renderGrid() {
+      grid.innerHTML = DAYS.map(day => {
+        const cfg = schedule[day] || { enabled: true, start: "09:00", end: "20:00" };
+        const disabledClass = cfg.enabled ? "" : "opacity-40 pointer-events-none";
+        return `
+          <div data-day="${day}" class="flex items-center gap-2 rounded-lg p-2 bg-gray-50 border border-gray-200">
+            <label class="flex items-center gap-1.5 cursor-pointer min-w-[52px]">
+              <input type="checkbox" class="day-toggle accent-mpAccent cursor-pointer" ${cfg.enabled ? "checked" : ""} />
+              <span class="text-xs font-semibold text-mpCharcoal">${DAY_LABELS[day]}</span>
+            </label>
+            <div class="flex items-center gap-1 flex-1 ${disabledClass}">
+              <select class="day-start flex-1 border border-gray-200 bg-white rounded px-2 py-1 text-xs text-mpCharcoal focus:border-mpAccent focus:outline-none">
+                ${buildTimeOptions(cfg.start)}
+              </select>
+              <span class="text-xs text-mpMuted">–</span>
+              <select class="day-end flex-1 border border-gray-200 bg-white rounded px-2 py-1 text-xs text-mpCharcoal focus:border-mpAccent focus:outline-none">
+                ${buildTimeOptions(cfg.end)}
+              </select>
+            </div>
+          </div>`;
+      }).join("");
+
+      // Toggle handler — enable/disable time pickers
+      DAYS.forEach(day => {
+        const row = grid.querySelector(`[data-day="${day}"]`);
+        const toggle = row.querySelector(".day-toggle");
+        const timesDiv = row.querySelector(".flex-1");
+        toggle.addEventListener("change", () => {
+          timesDiv.classList.toggle("opacity-40", !toggle.checked);
+          timesDiv.classList.toggle("pointer-events-none", !toggle.checked);
+        });
+      });
+    }
+
+    renderGrid();
+    syncHidden();
+    form.addEventListener("submit", syncHidden);
   },
 
   // -----------------------------------------
@@ -223,84 +280,87 @@ window.admin = {
 
     const data = window.adminData;
 
-    // Salon tag display
+    // Salon tag display (locked)
     const tagBox = panel.querySelector("[data-field='salon_tag_display']");
-    if (tagBox && data.salon_tag) {
-      tagBox.innerHTML = `<span class="inline-flex items-center rounded-full bg-mpAccentLight text-mpAccent px-2 py-0.5 text-[11px] font-medium">${data.salon_tag}</span>`;
-    }
+    if (tagBox) tagBox.textContent = data.salon_tag || "";
 
-    // Hidden field
-    const hidden = panel.querySelector("#hashtags-json");
-    hidden.value = JSON.stringify(data.custom_hashtags || []);
+    const hidden  = panel.querySelector("#hashtags-json");
+    const chips   = panel.querySelector("#hashtags-chips");
+    const inputEl = panel.querySelector("#hashtag-input");
+    const addBtn  = panel.querySelector("#hashtag-add-btn");
+    const form    = panel.querySelector("#hashtags-form");
 
-    // Build editable rows
-    const rows = panel.querySelector("#hashtags-rows");
     let tags = data.custom_hashtags ? [...data.custom_hashtags] : [];
 
-    function renderRows() {
-      rows.innerHTML = "";
+    function normalize(raw) {
+      return "#" + raw.trim().replace(/^#+/, "");
+    }
+
+    function sync() {
+      hidden.value = JSON.stringify(tags);
+    }
+
+    function renderChips() {
+      chips.innerHTML = "";
       tags.forEach((tag, idx) => {
-        const row = document.createElement("div");
-        row.className = "flex items-center gap-2";
+        const chip = document.createElement("div");
+        chip.className = "inline-flex items-center gap-1.5 rounded-full bg-mpAccentLight border border-mpBorder pl-3 pr-1.5 py-1 text-xs font-medium text-mpCharcoal";
 
-        const input = document.createElement("input");
-        input.className =
-          "flex-1 border border-gray-200 bg-gray-50 rounded-lg px-3 py-2 text-sm text-gray-800";
-        input.value = tag.replace(/^#+/, "");
-        input.oninput = () => {
-          tags[idx] = input.value;
-          syncHidden();
-        };
+        const lbl = document.createElement("span");
+        lbl.textContent = tag;
+        chip.appendChild(lbl);
 
-        const add = document.createElement("button");
-        add.textContent = "+";
-        add.className =
-          "px-2 py-1 rounded-full border border-gray-200 bg-white text-gray-700 text-xs hover:bg-gray-50";
-        add.onclick = () => {
-          if (tags.length < 4) {
-            tags.push("");
-            syncHidden();
-            renderRows();
-          }
-        };
+        // Move up
+        if (idx > 0) {
+          const up = document.createElement("button");
+          up.type = "button";
+          up.textContent = "↑";
+          up.className = "text-mpMuted hover:text-mpCharcoal text-[10px] leading-none px-0.5";
+          up.onclick = () => { [tags[idx-1], tags[idx]] = [tags[idx], tags[idx-1]]; sync(); renderChips(); };
+          chip.appendChild(up);
+        }
 
-        const remove = document.createElement("button");
-        remove.textContent = "×";
-        remove.className =
-          "px-2 py-1 rounded-full border border-gray-200 bg-white text-gray-500 text-xs hover:text-red-500 hover:border-red-200";
-        remove.onclick = () => {
-          tags.splice(idx, 1);
-          syncHidden();
-          renderRows();
-        };
+        // Move down
+        if (idx < tags.length - 1) {
+          const down = document.createElement("button");
+          down.type = "button";
+          down.textContent = "↓";
+          down.className = "text-mpMuted hover:text-mpCharcoal text-[10px] leading-none px-0.5";
+          down.onclick = () => { [tags[idx], tags[idx+1]] = [tags[idx+1], tags[idx]]; sync(); renderChips(); };
+          chip.appendChild(down);
+        }
 
-        row.appendChild(input);
-        row.appendChild(add);
-        row.appendChild(remove);
-        rows.appendChild(row);
+        // Remove
+        const rm = document.createElement("button");
+        rm.type = "button";
+        rm.textContent = "×";
+        rm.className = "text-mpMuted hover:text-red-500 text-sm leading-none ml-0.5";
+        rm.onclick = () => { tags.splice(idx, 1); sync(); renderChips(); };
+        chip.appendChild(rm);
+
+        chips.appendChild(chip);
       });
+    }
 
-      if (tags.length === 0) {
-        tags.push("");
-        renderRows();
+    function addTag() {
+      const val = normalize(inputEl.value);
+      if (val === "#" || tags.length >= 4) return;
+      if (!tags.includes(val)) { tags.push(val); sync(); renderChips(); }
+      inputEl.value = "";
+    }
+
+    inputEl.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === "Tab") {
+        if (inputEl.value.trim()) { e.preventDefault(); addTag(); }
       }
-    }
+    });
+    addBtn.addEventListener("click", addTag);
 
-    function syncHidden() {
-      const cleaned = tags
-        .map((t) => t.trim())
-        .filter(Boolean)
-        .map((t) => "#" + t.replace(/^#+/, ""));
-      hidden.value = JSON.stringify(cleaned);
-    }
+    // Sync hidden field right before form submits
+    form.addEventListener("submit", sync);
 
-    renderRows();
-    syncHidden();
-
-    // Public function for Save button
-    window.submitHashtagsForm = () => {
-      panel.querySelector("form").submit();
-    };
+    sync();
+    renderChips();
   },
 
   // -----------------------------------------
@@ -580,6 +640,9 @@ document.addEventListener("DOMContentLoaded", () => {
     posting_end_time: root.dataset.postingEnd || "",
     spacing_min: parseInt(root.dataset.spacingMin || "20"),
     spacing_max: parseInt(root.dataset.spacingMax || "45"),
+    posting_schedule: (() => {
+      try { return JSON.parse(root.dataset.postingSchedule || "null"); } catch { return null; }
+    })(),
 
     require_manager_approval: root.dataset.requireManagerApproval == "1",
     auto_approval: root.dataset.autoApproval == "1",

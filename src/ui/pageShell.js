@@ -135,10 +135,11 @@ export default function pageShell({
       ${navItem("/manager/stylists",   ICONS.team,      "Team",         "team")}
       ${navItem("/manager/scheduler",  ICONS.clock,     "Scheduler",    "scheduler")}
       ${navItem("/dashboard",          ICONS.database,  "Database",     "database")}
-      ${navItem("/manager/vendors",    ICONS.tag,       "Vendors",      "vendors")}
-      ${navItem("/manager/locations",  ICONS.building,  "Locations",    "locations")}
-      ${navItem("/manager/billing",    ICONS.card,      "Billing",      "billing")}
-      ${navItem("/manager/admin",      ICONS.cog,       "Admin",        "admin")}
+      ${navItem("/manager/vendors",       ICONS.tag,          "Vendors",       "vendors")}
+      ${navItem("/manager/integrations", ICONS.integration,  "Integrations",  "integrations")}
+      ${navItem("/manager/locations",    ICONS.building,     "Locations",     "locations")}
+      ${navItem("/manager/billing",      ICONS.card,         "Billing",       "billing")}
+      ${navItem("/manager/admin",        ICONS.cog,          "Admin",         "admin")}
     </nav>
 
     <!-- Logout at bottom -->
@@ -173,10 +174,11 @@ export default function pageShell({
       ${mobileNavLink("/manager/stylists",   "Team",       "team")}
       ${mobileNavLink("/manager/scheduler",  "Scheduler",  "scheduler")}
       ${mobileNavLink("/dashboard",          "Database",   "database")}
-      ${mobileNavLink("/manager/vendors",    "Vendors",    "vendors")}
-      ${mobileNavLink("/manager/locations",  "Locations",  "locations")}
-      ${mobileNavLink("/manager/billing",    "Billing",    "billing")}
-      ${mobileNavLink("/manager/admin",      "Admin",      "admin")}
+      ${mobileNavLink("/manager/vendors",       "Vendors",       "vendors")}
+      ${mobileNavLink("/manager/integrations", "Integrations",  "integrations")}
+      ${mobileNavLink("/manager/locations",    "Locations",     "locations")}
+      ${mobileNavLink("/manager/billing",      "Billing",       "billing")}
+      ${mobileNavLink("/manager/admin",        "Admin",         "admin")}
       <a href="/manager/logout"
          class="block py-2.5 text-sm font-medium text-mpMuted hover:text-mpCharcoal transition-colors">
         Logout
@@ -255,5 +257,9 @@ const ICONS = {
 
   queue: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75">
     <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 0 1 0 3.75H5.625a1.875 1.875 0 0 1 0-3.75Z" />
+  </svg>`,
+
+  integration: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75">
+    <path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" />
   </svg>`,
 };

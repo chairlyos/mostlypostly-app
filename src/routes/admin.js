@@ -13,6 +13,7 @@ import crypto from "crypto";
 import { isContentSafe, sanitizeText } from "../../src/utils/moderation.js";
 
 import { UPLOADS_DIR } from "../core/uploadPath.js";
+import { PLAN_LIMITS } from "./billing.js";
 
 const managerPhotoUpload = multer({
   storage: multer.diskStorage({
@@ -132,6 +133,19 @@ router.get("/", requireAuth, (req, res) => {
     )
     .all(salon_id);
 
+  // MFA status for this manager
+  const mfaEnabled = !!db.prepare("SELECT manager_id FROM manager_mfa WHERE manager_id = ?").get(req.manager.id);
+  const mfaError = req.query.mfa_error;
+  const mfaMsg   = req.query.mfa === "disabled" ? "Two-factor authentication has been disabled."
+                 : req.query.mfa === "already_enabled" ? "MFA is already enabled on this account."
+                 : null;
+
+  // Last 10 security events for this manager
+  const securityEvents = db.prepare(
+    `SELECT event_type, ip_address, created_at FROM security_events
+     WHERE manager_id = ? ORDER BY created_at DESC LIMIT 10`
+  ).all(req.manager.id);
+
   // Brand palette
   let brandPalette = null;
   try {
@@ -172,17 +186,41 @@ router.get("/", requireAuth, (req, res) => {
     website: salonRow.website,
     booking_url: salonRow.booking_url,
     timezone: salonRow.timezone || "America/Indiana/Indianapolis",
-    industry: (salonRow.industry || "Salon").trim().replace(/\b\w/g, x => x.toUpperCase()),
+    industry: salonRow.industry || "Hair Salon",
     tone_profile: salonRow.tone || "default",
     auto_publish: !!salonRow.auto_publish,
     default_hashtags: defaultHashtags,
   };
 
+  // Parse per-day posting schedule (migration 020)
+  const DEFAULT_DAY_SCHEDULE = (start = "09:00", end = "20:00") => ({
+    monday:    { enabled: true,  start, end },
+    tuesday:   { enabled: true,  start, end },
+    wednesday: { enabled: true,  start, end },
+    thursday:  { enabled: true,  start, end },
+    friday:    { enabled: true,  start, end },
+    saturday:  { enabled: true,  start: "10:00", end: "18:00" },
+    sunday:    { enabled: false, start: "10:00", end: "18:00" },
+  });
+
+  let postingSchedule;
+  try {
+    postingSchedule = salonRow.posting_schedule
+      ? JSON.parse(salonRow.posting_schedule)
+      : DEFAULT_DAY_SCHEDULE(
+          salonRow.posting_start_time || "09:00",
+          salonRow.posting_end_time   || "20:00"
+        );
+  } catch {
+    postingSchedule = DEFAULT_DAY_SCHEDULE();
+  }
+
   const settings = {
     posting_window: {
-      start: salonRow.posting_start_time || "07:00",
+      start: salonRow.posting_start_time || "09:00",
       end: salonRow.posting_end_time || "20:00",
     },
+    posting_schedule: postingSchedule,
     require_manager_approval: !!salonRow.require_manager_approval,
     random_delay_minutes: {
       min: salonRow.spacing_min ?? 20,
@@ -338,14 +376,25 @@ router.get("/", requireAuth, (req, res) => {
       <!-- Scheduler link card -->
       <div class="rounded-2xl border border-mpBorder bg-white px-4 py-4 flex flex-col justify-between">
         <div>
-          <h2 class="text-sm font-semibold text-mpCharcoal mb-1">Posting Schedule</h2>
-          <p class="text-xs text-mpMuted mb-3">Posting window, platform daily caps, content priority order, and stylist fairness rules are managed in the Scheduler.</p>
+          <div class="flex items-center justify-between mb-1">
+            <h2 class="text-sm font-semibold text-mpCharcoal">Posting Availability</h2>
+            <button onclick="window.admin.openPostingRules()" class="text-mpMuted hover:text-mpCharcoal text-xs">✏️</button>
+          </div>
+          <p class="text-xs text-mpMuted mb-3">Days and times when posts can be published, in your salon's timezone.</p>
           <dl class="space-y-1 text-xs text-mpCharcoal mb-4">
-            <div class="flex justify-between">
-              <dt class="text-mpMuted">Window</dt>
-              <dd>${fmtTime(settings.posting_window.start)} – ${fmtTime(settings.posting_window.end)}</dd>
-            </div>
-            <div class="flex justify-between">
+            ${(() => {
+              const days = ["monday","tuesday","wednesday","thursday","friday","saturday","sunday"];
+              const labels = { monday:"Mon", tuesday:"Tue", wednesday:"Wed", thursday:"Thu", friday:"Fri", saturday:"Sat", sunday:"Sun" };
+              const sched = postingSchedule;
+              return days.map(d => {
+                const cfg = sched[d];
+                if (!cfg || !cfg.enabled) {
+                  return `<div class="flex justify-between"><dt class="text-mpMuted">${labels[d]}</dt><dd class="text-gray-400">Off</dd></div>`;
+                }
+                return `<div class="flex justify-between"><dt class="text-mpMuted">${labels[d]}</dt><dd>${fmtTime(cfg.start)} – ${fmtTime(cfg.end)}</dd></div>`;
+              }).join("");
+            })()}
+            <div class="flex justify-between pt-1 border-t border-mpBorder mt-1">
               <dt class="text-mpMuted">Spacing</dt>
               <dd>${settings.random_delay_minutes.min}–${settings.random_delay_minutes.max} min</dd>
             </div>
@@ -441,7 +490,61 @@ router.get("/", requireAuth, (req, res) => {
       </div>
     </section>
 
+    <!-- ACCOUNT SECURITY -->
+    <section class="mb-6">
+      <div class="rounded-2xl border border-mpBorder bg-white px-5 py-5">
+        <h2 class="text-sm font-semibold text-mpCharcoal mb-1">Account Security</h2>
+        <p class="text-xs text-mpMuted mb-4">Protect your account with two-factor authentication. Required when using booking system or ad integrations.</p>
+
+        ${mfaMsg ? `<div class="rounded-lg bg-green-50 border border-green-200 px-3 py-2 text-xs text-green-700 font-medium mb-3">${mfaMsg}</div>` : ""}
+        ${mfaError === "wrong_password" ? `<div class="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-600 font-medium mb-3">Incorrect password — MFA not disabled.</div>` : ""}
+
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center gap-2">
+            <span class="text-sm font-medium text-mpCharcoal">Two-Factor Authentication (TOTP)</span>
+            ${mfaEnabled
+              ? `<span class="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-semibold text-green-700">● Enabled</span>`
+              : `<span class="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-mpMuted">Not enabled</span>`
+            }
+          </div>
+          ${mfaEnabled
+            ? `<button onclick="document.getElementById('mfa-disable-form').classList.toggle('hidden')" class="text-xs text-red-400 hover:text-red-600 underline">Disable</button>`
+            : `<a href="/manager/mfa/setup" class="inline-flex items-center gap-1 rounded-full bg-mpCharcoal px-4 py-1.5 text-xs font-semibold text-white hover:bg-mpCharcoalDark transition-colors">Enable MFA →</a>`
+          }
+        </div>
+
+        ${mfaEnabled ? `
+        <div id="mfa-disable-form" class="hidden border-t border-mpBorder pt-4 mt-2">
+          <p class="text-xs text-mpMuted mb-2">Enter your password to confirm disabling MFA.</p>
+          <form method="POST" action="/manager/mfa/disable" class="flex gap-2 items-center">
+            <input type="password" name="password" placeholder="Your password" required
+              class="flex-1 text-sm rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-mpCharcoal placeholder:text-gray-400 focus:outline-none focus:border-mpAccent" />
+            <button type="submit" class="rounded-full bg-red-500 hover:bg-red-600 px-4 py-2 text-xs font-semibold text-white transition-colors">Disable</button>
+          </form>
+        </div>` : ""}
+
+        ${securityEvents.length ? `
+        <div class="border-t border-mpBorder pt-3 mt-3">
+          <p class="text-xs font-semibold text-mpCharcoal mb-2">Recent Security Events</p>
+          <div class="space-y-1">
+            ${securityEvents.map(e => `
+              <div class="flex justify-between text-[11px]">
+                <span class="${e.event_type.includes('failure') || e.event_type.includes('mfa_disable') ? 'text-red-500' : 'text-mpMuted'}">${e.event_type.replace(/_/g,' ')}</span>
+                <span class="text-mpMuted">${e.created_at}</span>
+              </div>`).join("")}
+          </div>
+        </div>` : ""}
+      </div>
+    </section>
+
     <!-- TEAM MEMBERS — managed on dedicated Team page -->
+    ${(() => {
+      const planLimits = PLAN_LIMITS[salonRow.plan] || PLAN_LIMITS.trial;
+      const stylistLimit = planLimits.stylists; // null = unlimited (Pro)
+      const atLimit = stylistLimit !== null && dbStylists.length >= stylistLimit;
+      const pct = stylistLimit ? Math.round((dbStylists.length / stylistLimit) * 100) : 0;
+      const barColor = pct >= 100 ? "bg-red-400" : pct >= 75 ? "bg-yellow-400" : "bg-mpAccent";
+      return `
     <section class="mb-6">
       <div class="rounded-2xl border border-mpBorder bg-white px-4 py-4 flex flex-col justify-between">
         <div>
@@ -450,18 +553,28 @@ router.get("/", requireAuth, (req, res) => {
             Add stylists, set tone variants, upload profile photos, configure birthdays and anniversaries,
             and manage celebration posts — all from the Team page.
           </p>
-          <p class="text-xs text-mpMuted">
-            <span class="font-medium text-mpCharcoal">${dbStylists.length}</span> service provider${dbStylists.length !== 1 ? "s" : ""} registered
-          </p>
+          ${stylistLimit !== null ? `
+          <div class="mb-2">
+            <div class="flex justify-between text-xs mb-1">
+              <span class="text-mpMuted">Stylists used</span>
+              <span class="font-semibold text-mpCharcoal">${dbStylists.length} / ${stylistLimit}</span>
+            </div>
+            <div class="w-full bg-gray-100 rounded-full h-1.5">
+              <div class="${barColor} h-1.5 rounded-full" style="width:${Math.min(100,pct)}%"></div>
+            </div>
+          </div>
+          ${atLimit ? `<p class="text-xs text-red-500 font-medium mb-1">Stylist limit reached. <a href="/manager/billing" class="underline text-mpAccent">Upgrade to add more →</a></p>` : ""}
+          ` : `<p class="text-xs text-mpMuted mb-1">${dbStylists.length} stylists · <span class="text-mpCharcoal font-medium">Unlimited</span> on Pro</p>`}
         </div>
-        <div class="mt-4">
+        <div class="mt-3">
           <a href="/manager/stylists?salon=${salon_id}"
              class="inline-flex items-center gap-1.5 rounded-full bg-mpCharcoal px-4 py-2 text-xs font-semibold text-white hover:bg-mpCharcoalDark transition-colors">
             Manage Team
           </a>
         </div>
       </div>
-    </section>
+    </section>`;
+    })()}
                 <!-- Modal Backdrop -->
         <div
           id="admin-modal-backdrop"
@@ -509,6 +622,7 @@ router.get("/", requireAuth, (req, res) => {
           data-tone="${info.tone_profile}"
           data-auto-publish="${info.auto_publish ? "1" : "0"}"
 
+          data-posting-schedule='${JSON.stringify(settings.posting_schedule)}'
           data-posting-start="${settings.posting_window.start}"
           data-posting-end="${settings.posting_window.end}"
           data-spacing-min="${settings.random_delay_minutes.min}"
@@ -630,9 +744,9 @@ router.get("/", requireAuth, (req, res) => {
 // -------------------------------------------------------
 // POST: Update Salon Info
 // -------------------------------------------------------
-router.post("/update-salon-info", (req, res) => {
+router.post("/update-salon-info", requireAuth, (req, res) => {
+  const salon_id = req.manager.salon_id; // Always use session — never trust req.body.salon_id
   const {
-    salon_id,
     name,
     address,
     city,
@@ -686,10 +800,10 @@ router.post("/update-salon-info", (req, res) => {
 // -------------------------------------------------------
 // POST: Update Salon Logo
 // -------------------------------------------------------
-router.post("/update-salon-logo", salonLogoUpload.single("logo"), (req, res) => {
-  const salon_id = req.body.salon_id;
-  if (!salon_id || !req.file) {
-    return res.redirect(`/manager/admin?salon=${encodeURIComponent(salon_id || "")}`);
+router.post("/update-salon-logo", requireAuth, salonLogoUpload.single("logo"), (req, res) => {
+  const salon_id = req.manager.salon_id; // Always use session — never trust req.body.salon_id
+  if (!req.file) {
+    return res.redirect(`/manager/admin?salon=${encodeURIComponent(salon_id)}`);
   }
   const PUBLIC_BASE_URL = (process.env.PUBLIC_BASE_URL || "").replace(/\/$/, "");
   const logoUrl = `${PUBLIC_BASE_URL}/uploads/${req.file.filename}`;
@@ -702,10 +816,9 @@ router.post("/update-salon-logo", salonLogoUpload.single("logo"), (req, res) => 
 // -------------------------------------------------------
 router.post("/update-posting-rules", requireAuth, (req, res) => {
   try {
+    const salon_id = req.manager.salon_id; // Always use session — never trust req.body.salon_id
     const {
-      salon_id,
-      posting_start_time,
-      posting_end_time,
+      posting_schedule_json,
       spacing_min,
       spacing_max
     } = req.body;
@@ -714,27 +827,43 @@ router.post("/update-posting-rules", requireAuth, (req, res) => {
       return res.status(400).send("Missing salon_id");
     }
 
-    const spacingMinInt = parseInt(spacing_min, 10) || 0;
-    const spacingMaxInt = parseInt(spacing_max, 10) || 0;
+    const spacingMinInt = parseInt(spacing_min, 10) || 20;
+    const spacingMaxInt = parseInt(spacing_max, 10) || 45;
 
-    db.prepare(
-      `
-      UPDATE salons
-      SET 
-        posting_start_time = COALESCE(?, posting_start_time),
-        posting_end_time   = COALESCE(?, posting_end_time),
-        spacing_min        = COALESCE(?, spacing_min),
-        spacing_max        = COALESCE(?, spacing_max),
-        updated_at = datetime('now')
-      WHERE slug = ?
-    `
-    ).run(
-      posting_start_time || null,
-      posting_end_time || null,
-      spacingMinInt,
-      spacingMaxInt,
-      salon_id
-    );
+    // Validate and parse the per-day schedule JSON
+    let scheduleJson = null;
+    if (posting_schedule_json) {
+      try {
+        const parsed = JSON.parse(posting_schedule_json);
+        // Also extract a representative start/end from Monday (or first enabled day) for legacy fallback
+        const days = ["monday","tuesday","wednesday","thursday","friday","saturday","sunday"];
+        const firstEnabled = days.find(d => parsed[d]?.enabled) || "monday";
+        const legacyStart = parsed[firstEnabled]?.start || "09:00";
+        const legacyEnd   = parsed[firstEnabled]?.end   || "20:00";
+        scheduleJson = JSON.stringify(parsed);
+
+        db.prepare(
+          `UPDATE salons
+           SET posting_schedule    = ?,
+               posting_start_time  = ?,
+               posting_end_time    = ?,
+               spacing_min         = ?,
+               spacing_max         = ?,
+               updated_at          = datetime('now')
+           WHERE slug = ?`
+        ).run(scheduleJson, legacyStart, legacyEnd, spacingMinInt, spacingMaxInt, salon_id);
+      } catch {
+        return res.status(400).send("Invalid posting schedule format");
+      }
+    } else {
+      db.prepare(
+        `UPDATE salons
+         SET spacing_min = ?,
+             spacing_max = ?,
+             updated_at  = datetime('now')
+         WHERE slug = ?`
+      ).run(spacingMinInt, spacingMaxInt, salon_id);
+    }
 
     return res.redirect(`/manager/admin?salon=${encodeURIComponent(salon_id)}`);
   } catch (err) {
@@ -748,8 +877,8 @@ router.post("/update-posting-rules", requireAuth, (req, res) => {
 // -------------------------------------------------------
 router.post("/update-manager-rules", requireAuth, (req, res) => {
   try {
+    const salon_id = req.manager.salon_id; // Always use session — never trust req.body.salon_id
     const {
-      salon_id,
       require_manager_approval,
       auto_approval,
       auto_publish,
@@ -757,14 +886,10 @@ router.post("/update-manager-rules", requireAuth, (req, res) => {
       notify_on_denial
     } = req.body;
 
-    if (!salon_id) {
-      return res.status(400).send("Missing salon_id");
-    }
-
     db.prepare(
       `
       UPDATE salons
-      SET 
+      SET
         require_manager_approval   = ?,
         auto_approval              = ?,
         auto_publish               = ?,
@@ -795,12 +920,9 @@ router.post("/update-manager-rules", requireAuth, (req, res) => {
 //   - Receives salon_id and hashtags_json (custom tags only)
 //   - Preserves the first "salon tag" from existing default_hashtags
 // -------------------------------------------------------
-router.post("/update-hashtags", (req, res) => {
-  const { salon_id, hashtags_json } = req.body;
-
-  if (!salon_id) {
-    return res.status(400).send("Missing salon_id");
-  }
+router.post("/update-hashtags", requireAuth, (req, res) => {
+  const salon_id = req.manager.salon_id; // Always use session — never trust req.body.salon_id
+  const { hashtags_json } = req.body;
 
   try {
     const salon = db
@@ -979,17 +1101,16 @@ router.post("/update-stylist", (req, res) => {
 });
 
 router.get("/delete-stylist", requireAuth, (req, res) => {
-  // Accept both ?salon and ?salon_id because some templates send salon_id
   const id = req.query.id;
-  const salon = req.query.salon || req.query.salon_id;
+  const salon_id = req.manager.salon_id; // Always use session — never trust URL params
 
-  if (!id || !salon) {
+  if (!id) {
     return res.status(400).send("Missing parameters");
   }
 
   try {
-    db.prepare("DELETE FROM stylists WHERE id = ? AND salon_id = ?").run(id, salon);
-    return res.redirect(`/manager/admin?salon=${encodeURIComponent(salon)}`);
+    db.prepare("DELETE FROM stylists WHERE id = ? AND salon_id = ?").run(id, salon_id);
+    return res.redirect(`/manager/admin?salon=${encodeURIComponent(salon_id)}`);
   } catch (err) {
     console.error("Delete stylist failed:", err);
     return res.status(500).send("Failed to delete stylist");
@@ -1056,13 +1177,13 @@ router.post("/stock-photos/upload", requireAuth, stockPhotoUpload.single("stock_
 // STOCK PHOTOS — Delete
 // ───────────────────────────────────────────────────────────
 router.post("/stock-photos/delete", requireAuth, (req, res) => {
-  const salon_id = req.query.salon || req.manager?.salon_id;
+  const salon_id = req.manager.salon_id; // Always use session
   const { photo_id } = req.body;
 
   if (photo_id) {
     const row = db.prepare(`SELECT url FROM stock_photos WHERE id = ? AND salon_id = ?`).get(photo_id, salon_id);
     if (row) {
-      db.prepare(`DELETE FROM stock_photos WHERE id = ?`).run(photo_id);
+      db.prepare(`DELETE FROM stock_photos WHERE id = ? AND salon_id = ?`).run(photo_id, salon_id);
       // Optionally remove the file from disk
       try {
         const filePath = path.join(path.resolve("public"), new URL(row.url).pathname);
