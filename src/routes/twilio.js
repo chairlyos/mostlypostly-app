@@ -35,13 +35,43 @@ export async function sendViaTwilio(to, body) {
 
 const MessagingResponse = twilio.twiml.MessagingResponse;
 
+// ======================================================
+// Twilio webhook signature verification middleware
+// Validates X-Twilio-Signature on every inbound request.
+// Skipped in local dev (APP_ENV=local) so curl testing still works.
+// ======================================================
+function validateTwilioSignature(req, res, next) {
+  if (process.env.APP_ENV === "local") return next();
+
+  const authToken = process.env.TWILIO_AUTH_TOKEN;
+  if (!authToken) {
+    console.warn("⚠️ [Twilio] TWILIO_AUTH_TOKEN not set — skipping signature check");
+    return next();
+  }
+
+  // Reconstruct the full URL Twilio signed (protocol comes from trusted proxy header)
+  const fullUrl = `${req.protocol}://${req.get("host")}${req.originalUrl}`;
+  const signature = req.headers["x-twilio-signature"] || "";
+
+  const valid = twilio.validateRequest(authToken, signature, fullUrl, req.body || {});
+  if (!valid) {
+    console.warn(`[Twilio] ❌ Invalid signature from ${req.ip} on ${fullUrl}`);
+    return res.status(403).type("text/xml").send("<Response></Response>");
+  }
+
+  next();
+}
+
 export default function twilioRoute(drafts, _lookupStylist, generateCaption) {
   const router = express.Router();
 
   // Twilio posts application/x-www-form-urlencoded by default
   router.use(bodyParser.urlencoded({ extended: true }));
 
-    router.post("/", async (req, res) => {
+  // Verify every inbound webhook is genuinely from Twilio
+  router.use(validateTwilioSignature);
+
+  router.post("/", async (req, res) => {
     const from = (req.body.From || "").trim();
     const toNumber = (req.body.To || "").trim();
     const text = (req.body.Body || "").trim();
