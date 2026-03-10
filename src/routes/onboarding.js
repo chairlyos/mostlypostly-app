@@ -7,6 +7,14 @@ import fetch from "node-fetch";
 import db from "../../db.js";
 import { UPLOADS_DIR, toUploadUrl } from "../core/uploadPath.js";
 
+function normalizePhone(raw) {
+  if (!raw) return null;
+  const digits = String(raw).replace(/\D/g, "");
+  if (digits.length === 10) return `+1${digits}`;
+  if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`;
+  return raw.trim() || null;
+}
+
 const stylistPhotoUpload = multer({
   storage: multer.diskStorage({
     destination: (_req, _file, cb) => cb(null, UPLOADS_DIR),
@@ -1041,6 +1049,12 @@ router.post("/stylists", stylistPhotoUpload.single("stylist_photo"), (req, res) 
     return res.redirect("/onboarding/stylists");
   }
 
+  // Split full name into first/last
+  const nameParts = (stylist_name || "").trim().split(/\s+/);
+  const first_name = nameParts[0] || null;
+  const last_name = nameParts.length > 1 ? nameParts.slice(1).join(" ") : null;
+  const phone = normalizePhone(stylist_phone);
+
   // Build public photo URL if a file was uploaded
   const photoUrl = req.file ? toUploadUrl(req.file.filename) : null;
 
@@ -1049,22 +1063,22 @@ router.post("/stylists", stylistPhotoUpload.single("stylist_photo"), (req, res) 
     if (photoUrl) {
       db.prepare(
         `UPDATE stylists
-         SET name = ?, phone = ?, instagram_handle = ?, specialties = ?, photo_url = ?
+         SET name = ?, first_name = ?, last_name = ?, phone = ?, instagram_handle = ?, specialties = ?, photo_url = ?
          WHERE id = ? AND salon_id = ?`
-      ).run(stylist_name, stylist_phone, stylist_ig, specs, photoUrl, stylist_id, salon_id);
+      ).run(stylist_name, first_name, last_name, phone, stylist_ig, specs, photoUrl, stylist_id, salon_id);
     } else {
       db.prepare(
         `UPDATE stylists
-         SET name = ?, phone = ?, instagram_handle = ?, specialties = ?
+         SET name = ?, first_name = ?, last_name = ?, phone = ?, instagram_handle = ?, specialties = ?
          WHERE id = ? AND salon_id = ?`
-      ).run(stylist_name, stylist_phone, stylist_ig, specs, stylist_id, salon_id);
+      ).run(stylist_name, first_name, last_name, phone, stylist_ig, specs, stylist_id, salon_id);
     }
   } else {
     // INSERT new stylist
     db.prepare(
-      `INSERT INTO stylists (id, salon_id, name, phone, instagram_handle, specialties, photo_url)
-       VALUES (lower(hex(randomblob(16))), ?, ?, ?, ?, ?, ?)`
-    ).run(salon_id, stylist_name, stylist_phone, stylist_ig, specs, photoUrl);
+      `INSERT INTO stylists (id, salon_id, name, first_name, last_name, phone, instagram_handle, specialties, photo_url)
+       VALUES (lower(hex(randomblob(16))), ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(salon_id, stylist_name, first_name, last_name, phone, stylist_ig, specs, photoUrl);
   }
 
   res.redirect("/onboarding/stylists");

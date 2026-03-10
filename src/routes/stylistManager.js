@@ -12,7 +12,20 @@ import { TONE_GROUPS, TONE_VARIANT_MAP } from "../core/toneVariants.js";
 
 const router = express.Router();
 
-import { UPLOADS_DIR } from "../core/uploadPath.js";
+import { UPLOADS_DIR, toUploadUrl } from "../core/uploadPath.js";
+
+function normalizePhone(raw) {
+  if (!raw) return null;
+  const digits = String(raw).replace(/\D/g, "");
+  if (digits.length === 10) return `+1${digits}`;
+  if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`;
+  return raw.trim() || null;
+}
+
+function normalizeBirthday(raw) {
+  if (!raw) return null;
+  return String(raw).trim().replace(/\//g, "-") || null;
+}
 
 const photoUpload = multer({
   storage: multer.diskStorage({
@@ -241,7 +254,7 @@ router.post("/add", requireAuth, photoUpload.single("photo"), (req, res) => {
     specialtiesRaw.split(",").map(x => x.trim()).filter(Boolean)
   );
 
-  const photo_url = req.file ? `/uploads/${req.file.filename}` : null;
+  const photo_url = req.file ? toUploadUrl(req.file.filename) : null;
   const id = crypto.randomUUID();
   const name = [first_name, last_name].filter(Boolean).join(" ") || "Unknown";
 
@@ -254,9 +267,9 @@ router.post("/add", requireAuth, photoUpload.single("photo"), (req, res) => {
       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     `).run(
       id, salon_id, name, first_name || null, last_name || null,
-      phone || null, instagram_handle || null,
+      normalizePhone(phone), instagram_handle || null,
       tone_variant || null,
-      birthday_mmdd || null,
+      normalizeBirthday(birthday_mmdd),
       hire_date || null,
       specialties,
       bio || null,
@@ -308,7 +321,7 @@ router.post("/edit/:id", requireAuth, photoUpload.single("photo"), (req, res) =>
   const existing = db.prepare("SELECT photo_url FROM stylists WHERE id = ? AND salon_id = ?").get(req.params.id, salon_id);
   if (!existing) return res.redirect(`/manager/stylists?salon=${encodeURIComponent(salon_id)}`);
 
-  const photo_url = req.file ? `/uploads/${req.file.filename}` : existing.photo_url;
+  const photo_url = req.file ? toUploadUrl(req.file.filename) : existing.photo_url;
 
   db.prepare(`
     UPDATE stylists SET
@@ -319,9 +332,9 @@ router.post("/edit/:id", requireAuth, photoUpload.single("photo"), (req, res) =>
       photo_url = ?, celebrations_enabled = ?
     WHERE id = ? AND salon_id = ?
   `).run(
-    name, first_name || null, last_name || null, phone || null,
+    name, first_name || null, last_name || null, normalizePhone(phone),
     instagram_handle || null, tone_variant || null,
-    birthday_mmdd || null, hire_date || null,
+    normalizeBirthday(birthday_mmdd), hire_date || null,
     specialties, bio || null, profile_url || null,
     photo_url, celebrations_enabled === "1" ? 1 : 0,
     req.params.id, salon_id,
