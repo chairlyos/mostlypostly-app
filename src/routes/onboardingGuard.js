@@ -56,6 +56,9 @@ if (url.startsWith("/inbound/telegram")) {
   // Allow public help/KB pages
   if (url.startsWith("/help")) return next();
 
+  // Allow public leaderboard TV display (token-secured, no login)
+  if (url.startsWith("/leaderboard")) return next();
+
   const manager_id = req.session?.manager_id;
   const salon_id = req.session?.salon_id;
 

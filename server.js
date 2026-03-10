@@ -87,6 +87,8 @@ import postQueueRoute from "./src/routes/postQueue.js";
 import integrationsRoute from "./src/routes/integrations.js";
 import mfaRoute from "./src/routes/mfa.js";
 import helpRoute from "./src/routes/help.js";
+import teamPerformanceRoute from "./src/routes/teamPerformance.js";
+import leaderboardRoute from "./src/routes/leaderboard.js";
 import { lookupStylist } from "./src/core/salonLookup.js";
 
 // Scheduler
@@ -442,6 +444,8 @@ app.use("/internal/vendors", vendorAdminRoute);
 // -------------------------------------------------------
 app.use("/manager/mfa", mfaRoute);
 app.use("/help", helpRoute);
+app.use("/manager/performance", teamPerformanceRoute);
+app.use("/leaderboard", leaderboardRoute);
 
 // -------------------------------------------------------
 // 14. INTEGRATIONS (Zenoti, Vagaro, etc.)
