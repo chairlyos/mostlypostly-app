@@ -72,10 +72,17 @@ If no clear times exist, return the message split into short meaningful lines.`;
 }
 
 // ─────────────────────────────────────────────────────────
-// Pick background: stylist photo → salon stock → DALL-E
+// Pick background: stylist photo → stylist stock → salon stock → Pexels
 // ─────────────────────────────────────────────────────────
+import { fetchPexelsBackground } from "./pexels.js";
+
+function pickRandom(arr) {
+  if (!arr || !arr.length) return null;
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
 async function pickBackground(stylistId, salonId) {
-  // 1. Personal photo — check both stylists and managers tables
+  // 1. Personal profile photo from stylists table
   if (stylistId) {
     const stylistRow = db.prepare(`SELECT photo_url FROM stylists WHERE id = ?`).get(stylistId);
     if (stylistRow?.photo_url) {
@@ -83,64 +90,30 @@ async function pickBackground(stylistId, salonId) {
       return stylistRow.photo_url;
     }
 
-    const managerRow = db.prepare(`SELECT photo_url FROM managers WHERE id = ?`).get(stylistId);
-    if (managerRow?.photo_url) {
-      console.log("[Availability] Using manager personal photo");
-      return managerRow.photo_url;
-    }
-
-    // 2. Stylist-linked stock photo
-    const stockStyled = db.prepare(
-      `SELECT url FROM stock_photos WHERE salon_id = ? AND stylist_id = ? LIMIT 1`
-    ).get(salonId, stylistId);
-    if (stockStyled?.url) {
+    // 2. Stylist-linked stock photos — pick randomly for variety
+    const stylistPhotos = db.prepare(
+      `SELECT url FROM stock_photos WHERE salon_id = ? AND stylist_id = ? ORDER BY RANDOM() LIMIT 5`
+    ).all(salonId, stylistId);
+    const pick = pickRandom(stylistPhotos);
+    if (pick?.url) {
       console.log("[Availability] Using stylist stock photo");
-      return stockStyled.url;
+      return pick.url;
     }
   }
 
-  // 3. Salon-wide stock photo
-  const stockSalon = db.prepare(
-    `SELECT url FROM stock_photos WHERE salon_id = ? AND stylist_id IS NULL ORDER BY created_at DESC LIMIT 1`
-  ).get(salonId);
-  if (stockSalon?.url) {
+  // 3. Salon-wide stock photos — pick randomly
+  const salonPhotos = db.prepare(
+    `SELECT url FROM stock_photos WHERE salon_id = ? AND stylist_id IS NULL ORDER BY RANDOM() LIMIT 10`
+  ).all(salonId);
+  const salonPick = pickRandom(salonPhotos);
+  if (salonPick?.url) {
     console.log("[Availability] Using salon-wide stock photo");
-    return stockSalon.url;
+    return salonPick.url;
   }
 
-  // 4. DALL-E generated background
-  console.log("[Availability] No stock photo found — generating DALL-E background");
-  return await generateDalleBackground();
-}
-
-async function generateDalleBackground() {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) return null;
-
-  try {
-    const resp = await fetch("https://api.openai.com/v1/images/generations", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "dall-e-3",
-        prompt: "Vibrant editorial hair salon portrait, bold jewel-tone colors, electric teal and magenta accents, artistic fashion photography, dramatic studio lighting, colorful blurred bokeh, magazine cover aesthetic, ultra high-end glamour, vertical 9:16 portrait",
-        n: 1,
-        size: "1024x1792",
-      }),
-    });
-    const data = await resp.json();
-    const url = data?.data?.[0]?.url;
-    if (url) {
-      console.log("[Availability] DALL-E background generated");
-      return url;
-    }
-  } catch (err) {
-    console.warn("[Availability] DALL-E generation failed:", err.message);
-  }
-  return null;
+  // 4. Pexels real photo fallback
+  console.log("[Availability] No stock photo found — fetching Pexels background");
+  return await fetchPexelsBackground("availability");
 }
 
 async function fetchBuffer(url) {
@@ -158,89 +131,104 @@ async function fetchBuffer(url) {
 }
 
 // ─────────────────────────────────────────────────────────
-// Build the availability story image
+// Build the availability story image — photo-first design
+// Large background photo shows through, text lives in a
+// frosted glass panel at the bottom. Clean and editorial.
 // ─────────────────────────────────────────────────────────
 function buildOverlaySvg({ slots, stylistName, salonName, bookingCta, instagramHandle, palette }) {
-  const slotLineHeight = 90;
-  const slotsStartY = 980;
-
   const font = `'Open Sans', Arial, Helvetica, sans-serif`;
 
-  // Brand palette — DB values with sensible defaults
-  const NAVY   = palette?.primary       || "#03263B";
-  const TEAL   = palette?.accent        || "#64B8B1";
-  const CORAL  = palette?.cta           || "#FF6663";
-  const L_BLUE = palette?.accent_light  || "#BDDAE6";
+  // Brand palette with sensible defaults
+  const ACCENT  = palette?.cta    || palette?.accent || "#D4897A";
+  const LIGHT   = palette?.accent_light || "#F2DDD9";
 
-  // Slot rows — solid teal pill for readability
-  const slotRows = slots.map((slot, i) => `
-    <g>
-      <rect x="60" y="${slotsStartY + i * slotLineHeight}" width="${W - 120}" height="72"
-        rx="14" fill="${TEAL}" fill-opacity="0.75" />
-      <line x1="60" y1="${slotsStartY + i * slotLineHeight}" x2="60" y2="${slotsStartY + i * slotLineHeight + 72}"
-        stroke="white" stroke-width="6" stroke-linecap="round"/>
-      <text x="${W / 2}" y="${slotsStartY + i * slotLineHeight + 49}"
-        font-family="${font}" font-size="38" font-weight="800"
-        fill="white" text-anchor="middle">${escSvg(slot)}</text>
-    </g>
-  `).join("");
+  // Layout: glass panel starts at 55% down — photo visible in top half
+  const PANEL_Y     = Math.round(H * 0.52);
+  const PANEL_H     = H - PANEL_Y;
+  const SLOT_H      = 88;
+  const SLOTS_START = PANEL_Y + 230;
+  const slotCount   = Math.min(slots.length, 5);
+
+  const slotRows = slots.slice(0, slotCount).map((slot, i) => {
+    const y = SLOTS_START + i * (SLOT_H + 12);
+    const isFirst = i === 0;
+    return `
+      <rect x="60" y="${y}" width="${W - 120}" height="${SLOT_H}" rx="16"
+        fill="white" fill-opacity="${isFirst ? "0.18" : "0.12"}" />
+      <line x1="84" y1="${y + 18}" x2="84" y2="${y + SLOT_H - 18}"
+        stroke="${ACCENT}" stroke-width="4" stroke-linecap="round"/>
+      <text x="112" y="${y + 56}"
+        font-family="${font}" font-size="36" font-weight="800"
+        fill="white">${escSvg(slot)}</text>
+    `;
+  }).join("");
+
+  // Thin accent line above "NOW BOOKING"
+  const accentLineY = PANEL_Y + 100;
 
   return Buffer.from(`
     <svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
       <defs>
         <style>${FONT_FACE}</style>
-        <!-- Strong navy at top/bottom, lighter in middle so photo shows through -->
-        <linearGradient id="grad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%"   stop-color="${NAVY}" stop-opacity="0.92" />
-          <stop offset="30%"  stop-color="${NAVY}" stop-opacity="0.50" />
-          <stop offset="70%"  stop-color="${NAVY}" stop-opacity="0.50" />
-          <stop offset="100%" stop-color="${NAVY}" stop-opacity="0.95" />
+        <!-- Subtle vignette — darkens edges, barely touches center -->
+        <radialGradient id="vign" cx="50%" cy="40%" r="75%">
+          <stop offset="0%"   stop-color="black" stop-opacity="0" />
+          <stop offset="100%" stop-color="black" stop-opacity="0.55" />
+        </radialGradient>
+        <!-- Bottom panel: dark frosted glass feel -->
+        <linearGradient id="panel" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%"   stop-color="black" stop-opacity="0.55" />
+          <stop offset="100%" stop-color="black" stop-opacity="0.82" />
         </linearGradient>
       </defs>
-      <rect width="${W}" height="${H}" fill="url(#grad)" />
 
-      <!-- Salon name — light blue -->
-      <text x="${W / 2}" y="560"
-        font-family="${font}" font-size="48" font-weight="800"
-        fill="${L_BLUE}" text-anchor="middle" letter-spacing="6">
+      <!-- Vignette over entire image -->
+      <rect width="${W}" height="${H}" fill="url(#vign)" />
+
+      <!-- Frosted bottom panel -->
+      <rect x="0" y="${PANEL_Y}" width="${W}" height="${PANEL_H}" fill="url(#panel)" />
+
+      <!-- Thin accent line -->
+      <rect x="60" y="${accentLineY}" width="80" height="5" rx="2.5" fill="${ACCENT}" />
+
+      <!-- Salon name — small, elegant, above headline -->
+      <text x="60" y="${PANEL_Y + 76}"
+        font-family="${font}" font-size="28" font-weight="800"
+        fill="${LIGHT}" letter-spacing="5">
         ${escSvg(salonName.toUpperCase())}
       </text>
 
-      <!-- "NOW BOOKING" — white with teal underline bar -->
-      <text x="${W / 2}" y="690"
-        font-family="${font}" font-size="100" font-weight="800"
-        fill="white" text-anchor="middle" letter-spacing="2">
+      <!-- "NOW BOOKING" headline -->
+      <text x="60" y="${PANEL_Y + 170}"
+        font-family="${font}" font-size="86" font-weight="800"
+        fill="white" letter-spacing="-1">
         NOW BOOKING
       </text>
-      <rect x="200" y="706" width="${W - 400}" height="6" rx="3" fill="${TEAL}" />
 
-      <!-- Availability slots -->
+      <!-- Slot rows -->
       ${slotRows}
 
-      <!-- Stylist name — white -->
-      <text x="${W / 2}" y="${H - 215}"
-        font-family="${font}" font-size="46" font-weight="800"
-        fill="white" text-anchor="middle">
+      <!-- Stylist credit + Instagram at very bottom -->
+      <text x="${W / 2}" y="${H - 120}"
+        font-family="${font}" font-size="34" font-weight="700"
+        fill="white" text-anchor="middle" fill-opacity="0.9">
         ${escSvg(stylistName)}
       </text>
 
       ${instagramHandle ? `
-      <!-- Instagram handle — teal pill -->
-      <rect x="${W / 2 - 180}" y="${H - 196}" width="360" height="52" rx="26"
-        fill="${TEAL}" fill-opacity="0.30" />
-      <text x="${W / 2}" y="${H - 159}"
-        font-family="${font}" font-size="30" font-weight="800"
-        fill="${L_BLUE}" text-anchor="middle">
+      <text x="${W / 2}" y="${H - 76}"
+        font-family="${font}" font-size="28" font-weight="600"
+        fill="${ACCENT}" text-anchor="middle">
         @${escSvg(instagramHandle.replace(/^@/, ""))}
       </text>` : ""}
 
-      <!-- Booking CTA — coral pill -->
-      <rect x="100" y="${H - 120}" width="${W - 200}" height="80" rx="40"
-        fill="${CORAL}" />
-      <text x="${W / 2}" y="${H - 68}"
-        font-family="${font}" font-size="34" font-weight="800"
+      <!-- Booking CTA pill -->
+      <rect x="60" y="${H - 52}" width="${W - 120}" height="44" rx="22"
+        fill="${ACCENT}" fill-opacity="0.92" />
+      <text x="${W / 2}" y="${H - 22}"
+        font-family="${font}" font-size="26" font-weight="800"
         fill="white" text-anchor="middle">
-        ${escSvg(bookingCta || "Book via link in bio.")}
+        ${escSvg(bookingCta || "Book via link in bio")}
       </text>
     </svg>
   `);
@@ -285,12 +273,11 @@ export async function buildAvailabilityImage({ text, stylistName, salonName, sal
         .resize(W, H, { fit: "cover", position: "center" })
         .toBuffer();
     } catch (err) {
-      console.warn("[Availability] Background fetch failed, trying DALL-E:", err.message);
-      // Photo URL unreachable (e.g. ephemeral file gone after deploy) — fall through to DALL-E
-      const dalleUrl = await generateDalleBackground();
-      if (dalleUrl) {
+      console.warn("[Availability] Background fetch failed, trying Pexels:", err.message);
+      const pexelsUrl = await fetchPexelsBackground("availability");
+      if (pexelsUrl) {
         try {
-          const buf = await fetchBuffer(dalleUrl);
+          const buf = await fetchBuffer(pexelsUrl);
           bgLayer = await sharp(buf)
             .resize(W, H, { fit: "cover", position: "center" })
             .toBuffer();

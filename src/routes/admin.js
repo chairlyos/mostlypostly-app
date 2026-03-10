@@ -573,7 +573,7 @@ router.get("/", requireAuth, (req, res) => {
           <h2 class="text-sm font-semibold text-mpCharcoal">Stock Photos</h2>
           <span class="text-[11px] text-mpMuted">${stockPhotos.length} photo${stockPhotos.length !== 1 ? "s" : ""}</span>
         </div>
-        <p class="text-[11px] text-mpMuted mb-4">Background images used for availability posts. Upload salon-wide or link to a specific stylist.</p>
+        <p class="text-[11px] text-mpMuted mb-4">Background images used for availability and promotion posts. Upload salon-wide photos here. To add photos for a specific stylist, use the <a href="/manager/stylists${qs}" class="text-mpAccent underline">Team → Edit Stylist → Photo Library</a> page.</p>
 
         <div class="space-y-2 mb-5">
           ${photoCards}
@@ -1033,11 +1033,12 @@ router.post("/stock-photos/upload", requireAuth, stockPhotoUpload.single("stock_
   const url  = `${base}/uploads/${req.file.filename}`;
   const label      = (req.body.label || "").trim() || null;
   const stylist_id = req.body.stylist_id || null;
+  const category   = ["salon", "profile", "styling", "general"].includes(req.body.category) ? req.body.category : "salon";
 
   db.prepare(`
-    INSERT INTO stock_photos (id, salon_id, stylist_id, label, url)
-    VALUES (lower(hex(randomblob(16))), ?, ?, ?, ?)
-  `).run(salon_id, stylist_id || null, label, url);
+    INSERT INTO stock_photos (id, salon_id, stylist_id, label, url, category)
+    VALUES (lower(hex(randomblob(16))), ?, ?, ?, ?, ?)
+  `).run(salon_id, stylist_id || null, label, url, category);
 
   console.log(`[Admin] Stock photo uploaded for salon ${salon_id}: ${url}`);
   return res.redirect(`/manager/admin?salon=${salon_id}`);

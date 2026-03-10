@@ -29,6 +29,20 @@ const photoUpload = multer({
   limits: { fileSize: 10 * 1024 * 1024 },
 });
 
+const libraryUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, UPLOADS_DIR),
+    filename: (_req, file, cb) => {
+      const ext = path.extname(file.originalname) || ".jpg";
+      cb(null, `stylist-lib-${Date.now()}${ext}`);
+    },
+  }),
+  fileFilter: (_req, file, cb) => {
+    cb(null, /image\/(jpeg|png|webp|gif)/.test(file.mimetype));
+  },
+  limits: { fileSize: 10 * 1024 * 1024 },
+});
+
 const csvUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 2 * 1024 * 1024 } });
 
 // ── Auth ─────────────────────────────────────────────────────────────────────
@@ -317,6 +331,115 @@ router.post("/edit/:id", requireAuth, photoUpload.single("photo"), (req, res) =>
   res.redirect(`/manager/stylists?salon=${encodeURIComponent(salon_id)}`);
 });
 
+// ── GET /edit/:id/photos — photo library page ─────────────────────────────────
+router.get("/edit/:id/photos", requireAuth, (req, res) => {
+  const salon_id = req.manager.salon_id;
+  const stylist = db.prepare("SELECT id, name, photo_url FROM stylists WHERE id = ? AND salon_id = ?").get(req.params.id, salon_id);
+  if (!stylist) return res.redirect(`/manager/stylists?salon=${encodeURIComponent(salon_id)}`);
+
+  const photos = db.prepare(
+    `SELECT id, url, category, label FROM stock_photos WHERE salon_id = ? AND stylist_id = ? ORDER BY created_at DESC`
+  ).all(salon_id, stylist.id);
+
+  const qs = `?salon=${encodeURIComponent(salon_id)}`;
+  const photoCards = photos.length
+    ? photos.map(p => `
+        <div class="relative group rounded-2xl overflow-hidden border border-mpBorder bg-white">
+          <img src="${safe(p.url)}" class="w-full h-44 object-cover" />
+          <div class="px-3 py-2">
+            <span class="inline-block text-[10px] font-semibold uppercase tracking-wide rounded-full px-2 py-0.5 bg-mpAccentLight text-mpAccent">${safe(p.category || "general")}</span>
+            ${p.label ? `<p class="text-xs text-mpMuted mt-0.5 truncate">${safe(p.label)}</p>` : ""}
+          </div>
+          <form method="POST" action="/manager/stylists/${safe(stylist.id)}/photos/delete${qs}" class="absolute top-2 right-2">
+            <input type="hidden" name="photo_id" value="${safe(p.id)}" />
+            <button class="rounded-full bg-white border border-mpBorder shadow px-2 py-0.5 text-xs text-red-500 hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100">Remove</button>
+          </form>
+        </div>`).join("")
+    : `<p class="text-sm text-mpMuted col-span-2">No photos uploaded yet.</p>`;
+
+  const body = `
+    <div class="mb-6">
+      <h1 class="text-2xl font-bold">Photo Library — ${safe(stylist.name)}</h1>
+      <p class="text-sm text-mpMuted mt-0.5">
+        <a href="/manager/stylists/edit/${safe(stylist.id)}${qs}" class="text-mpAccent underline">← Back to stylist</a>
+      </p>
+    </div>
+
+    <div class="rounded-2xl border border-mpBorder bg-white p-6 mb-6 max-w-2xl">
+      <h2 class="text-sm font-bold text-mpCharcoal mb-1">Upload Photos</h2>
+      <p class="text-xs text-mpMuted mb-4">These photos are used as backgrounds for availability and promotion posts. Upload in-chair shots, styling photos, or professional headshots.</p>
+      <form method="POST" action="/manager/stylists/${safe(stylist.id)}/photos/upload${qs}" enctype="multipart/form-data" class="space-y-3">
+        <input type="file" name="photo" accept="image/*" required multiple
+          class="w-full text-sm text-mpMuted file:mr-3 file:py-1.5 file:px-3 file:rounded-full file:border-0
+                 file:text-xs file:font-semibold file:bg-mpAccentLight file:text-mpAccent
+                 hover:file:bg-mpAccent hover:file:text-white transition-colors" />
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-mpMuted mb-1">Category</label>
+            <select name="category" class="w-full rounded-xl border border-mpBorder px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-mpAccent">
+              <option value="styling">In Chair / Styling</option>
+              <option value="profile">Profile / Headshot</option>
+              <option value="salon">Salon Interior</option>
+              <option value="general">General</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-mpMuted mb-1">Label <span class="font-normal text-mpMuted">(optional)</span></label>
+            <input type="text" name="label" placeholder="e.g. Balayage session"
+              class="w-full rounded-xl border border-mpBorder px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-mpAccent" />
+          </div>
+        </div>
+        <button class="inline-flex items-center gap-1.5 rounded-full bg-mpCharcoal px-5 py-2 text-xs font-semibold text-white hover:bg-mpCharcoalDark transition-colors">
+          Upload Photos
+        </button>
+      </form>
+    </div>
+
+    <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 max-w-2xl">
+      ${photoCards}
+    </div>
+  `;
+
+  res.send(pageShell({ title: `${stylist.name} Photos`, body, salon_id, current: "team" }));
+});
+
+// ── POST /edit/:id/photos/upload ──────────────────────────────────────────────
+router.post("/:id/photos/upload", requireAuth, libraryUpload.single("photo"), (req, res) => {
+  const salon_id = req.manager.salon_id;
+  const stylist = db.prepare("SELECT id FROM stylists WHERE id = ? AND salon_id = ?").get(req.params.id, salon_id);
+  if (!stylist || !req.file) return res.redirect(`/manager/stylists?salon=${encodeURIComponent(salon_id)}`);
+
+  const base = (process.env.PUBLIC_BASE_URL || "").replace(/\/$/, "");
+  const url = `${base}/uploads/${req.file.filename}`;
+  const category = ["styling", "profile", "salon", "general"].includes(req.body.category) ? req.body.category : "general";
+  const label = (req.body.label || "").trim() || null;
+
+  db.prepare(`
+    INSERT INTO stock_photos (id, salon_id, stylist_id, label, url, category)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(crypto.randomUUID(), salon_id, stylist.id, label, url, category);
+
+  res.redirect(`/manager/stylists/edit/${stylist.id}/photos?salon=${encodeURIComponent(salon_id)}`);
+});
+
+// ── POST /:id/photos/delete ───────────────────────────────────────────────────
+router.post("/:id/photos/delete", requireAuth, (req, res) => {
+  const salon_id = req.manager.salon_id;
+  const { photo_id } = req.body;
+  if (photo_id) {
+    const row = db.prepare("SELECT url FROM stock_photos WHERE id = ? AND salon_id = ?").get(photo_id, salon_id);
+    if (row) {
+      db.prepare("DELETE FROM stock_photos WHERE id = ?").run(photo_id);
+      // Remove local file if it's a local upload
+      try {
+        const localPath = path.join("public/uploads", path.basename(row.url));
+        if (fs.existsSync(localPath)) fs.unlinkSync(localPath);
+      } catch { /* ignore */ }
+    }
+  }
+  res.redirect(`/manager/stylists/edit/${req.params.id}/photos?salon=${encodeURIComponent(salon_id)}`);
+});
+
 // ── POST /delete/:id ──────────────────────────────────────────────────────────
 router.post("/delete/:id", requireAuth, (req, res) => {
   const salon_id = req.manager.salon_id;
@@ -417,11 +540,18 @@ function buildStylistForm({ salon_id, salonTone, stylist, isEdit }) {
     </div>`;
 
   return `
-    <div class="mb-6">
-      <h1 class="text-2xl font-bold">${isEdit ? "Edit" : "Add"} Stylist</h1>
-      <p class="text-sm text-mpMuted mt-0.5">
-        <a href="/manager/stylists${qs}" class="text-mpAccent underline">← Back to Team</a>
-      </p>
+    <div class="mb-6 flex items-start justify-between gap-4">
+      <div>
+        <h1 class="text-2xl font-bold">${isEdit ? "Edit" : "Add"} Stylist</h1>
+        <p class="text-sm text-mpMuted mt-0.5">
+          <a href="/manager/stylists${qs}" class="text-mpAccent underline">← Back to Team</a>
+        </p>
+      </div>
+      ${isEdit ? `
+      <a href="/manager/stylists/edit/${safe(s.id)}/photos${qs}"
+         class="inline-flex items-center gap-1.5 rounded-full border border-mpBorder bg-white px-4 py-2 text-xs font-semibold text-mpMuted hover:bg-mpBg hover:text-mpCharcoal transition-colors shadow-sm flex-shrink-0">
+        📷 Photo Library
+      </a>` : ""}
     </div>
 
     <form method="POST" action="${action}" enctype="multipart/form-data">

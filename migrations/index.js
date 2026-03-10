@@ -19,6 +19,7 @@ import { run as run015 } from "./015_salon_groups.js";
 import { run as run016 } from "./016_logo_address.js";
 import { run as run017 } from "./017_email_verification.js";
 import { run as run018 } from "./018_vendor_approvals.js";
+import { run as run019 } from "./019_stock_photo_category.js";
 
 export const migrations = [
   { name: "001_baseline_patches",        run: run001 },
@@ -39,4 +40,5 @@ export const migrations = [
   { name: "016_logo_address",            run: run016 },
   { name: "017_email_verification",      run: run017 },
   { name: "018_vendor_approvals",        run: run018 },
+  { name: "019_stock_photo_category",   run: run019 },
 ];
