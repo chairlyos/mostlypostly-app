@@ -238,28 +238,32 @@ router.get("/", requireAuth, (req, res) => {
     </form>
 
     <!-- Stylist Quick Start Guide -->
+    ${(() => {
+      const twilioNum = process.env.TWILIO_PHONE_NUMBER || "";
+      return `
     <section class="mb-6">
       <div class="rounded-2xl border border-mpBorder bg-white px-5 py-5">
         <div class="flex items-center justify-between mb-3">
           <h2 class="text-sm font-semibold text-mpCharcoal">How Stylists Post</h2>
-          <span class="text-[11px] text-mpMuted font-mono">${salon?.phone ? salon.phone : "No Twilio number set"}</span>
+          <span class="text-[11px] text-mpMuted font-mono">${twilioNum || "No Twilio number configured"}</span>
         </div>
         <p class="text-xs text-mpMuted mb-4">Share this number and these steps with your team. New stylists receive a welcome text with instructions when you add them.</p>
         <ol class="space-y-2 text-xs text-mpCharcoal mb-4">
-          <li class="flex gap-2"><span class="flex-shrink-0 w-5 h-5 rounded-full bg-mpAccentLight text-mpAccent font-bold text-[10px] flex items-center justify-center">1</span><span>Text a photo to <strong>${salon?.phone || "your salon number"}</strong> — add a note about the service if you like.</span></li>
-          <li class="flex gap-2"><span class="flex-shrink-0 w-5 h-5 rounded-full bg-mpAccentLight text-mpAccent font-bold text-[10px] flex items-center justify-center">2</span><span>AI generates a branded caption. You'll receive a link to review and edit it.</span></li>
-          <li class="flex gap-2"><span class="flex-shrink-0 w-5 h-5 rounded-full bg-mpAccentLight text-mpAccent font-bold text-[10px] flex items-center justify-center">3</span><span>Review on the preview page — regenerate with notes, or submit for manager approval.</span></li>
+          <li class="flex gap-2"><span class="flex-shrink-0 w-5 h-5 rounded-full bg-mpAccentLight text-mpAccent font-bold text-[10px] flex items-center justify-center">1</span><span>Text a photo to <strong>${twilioNum || "your MostlyPostly number"}</strong> — add a note about the service if you like.</span></li>
+          <li class="flex gap-2"><span class="flex-shrink-0 w-5 h-5 rounded-full bg-mpAccentLight text-mpAccent font-bold text-[10px] flex items-center justify-center">2</span><span>AI generates a branded caption. You'll get a link to review and edit it.</span></li>
+          <li class="flex gap-2"><span class="flex-shrink-0 w-5 h-5 rounded-full bg-mpAccentLight text-mpAccent font-bold text-[10px] flex items-center justify-center">3</span><span>Review on the preview page — tweak or regenerate with notes, then submit for manager approval.</span></li>
           <li class="flex gap-2"><span class="flex-shrink-0 w-5 h-5 rounded-full bg-mpAccentLight text-mpAccent font-bold text-[10px] flex items-center justify-center">4</span><span>Once approved, the post is scheduled and publishes automatically.</span></li>
         </ol>
         <div class="border-t border-mpBorder pt-3 flex flex-wrap gap-3 text-[11px]">
-          <span class="font-semibold text-mpMuted">SMS commands:</span>
+          <span class="font-semibold text-mpMuted">SMS shortcuts:</span>
           <span class="font-mono bg-mpBg px-2 py-0.5 rounded text-mpCharcoal">APPROVE</span>
-          <span class="text-mpMuted">— submit immediately without editing</span>
+          <span class="text-mpMuted">— submit without editing</span>
           <span class="font-mono bg-mpBg px-2 py-0.5 rounded text-mpCharcoal">CANCEL</span>
-          <span class="text-mpMuted">— discard the current draft</span>
+          <span class="text-mpMuted">— discard draft</span>
         </div>
       </div>
-    </section>
+    </section>`;
+    })()}
 
     <section class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       ${cards}${empty}
@@ -334,15 +338,14 @@ router.post("/add", requireAuth, photoUpload.single("photo"), (req, res) => {
 
     // Send welcome SMS to new stylist
     const stylistPhone = normalizePhone(phone);
-    const salonRecord = db.prepare("SELECT name, phone FROM salons WHERE slug = ?").get(salon_id);
-    const salonPhone = salonRecord?.phone || "";
+    const twilioNumber = process.env.TWILIO_PHONE_NUMBER || "";
     const PUBLIC_BASE_URL = process.env.PUBLIC_BASE_URL || process.env.BASE_URL || "";
-    if (stylistPhone && salonPhone) {
+    if (stylistPhone && twilioNumber) {
       const firstName = first_name || name.split(" ")[0] || "there";
       const welcomeMsg = [
-        `Hi ${firstName}! Welcome to MostlyPostly — the easiest way to share your work on social media. 💇`,
+        `Hi ${firstName}! Welcome to MostlyPostly — the easiest way to share your work on social media.`,
         ``,
-        `To post, just text a photo to this number (${salonPhone}). You can add a note about the service if you like. AI will write a caption and send you a link to review it.`,
+        `To post, just text a photo to ${twilioNumber}. Add a quick note about the service if you like. AI will write a caption and send you a link to review it.`,
         ``,
         `Quick guide: ${PUBLIC_BASE_URL}/help/stylists`,
         ``,

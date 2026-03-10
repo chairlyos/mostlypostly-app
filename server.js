@@ -91,6 +91,7 @@ import { lookupStylist } from "./src/core/salonLookup.js";
 
 // Scheduler
 import { enqueuePost, runSchedulerOnce, startScheduler } from "./src/scheduler.js";
+import { runVendorScheduler } from "./src/core/vendorScheduler.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -562,6 +563,14 @@ app.get("/health/scheduler", (_req, res) => {
 // =====================================================
 console.log("WEB MODE: Scheduler enabled.");
 startScheduler();
+
+// Vendor scheduler — runs once at startup then every 24 hours
+(async () => {
+  try { await runVendorScheduler(); } catch (e) { console.error("❌ Vendor scheduler startup run failed:", e.message); }
+})();
+setInterval(async () => {
+  try { await runVendorScheduler(); } catch (e) { console.error("❌ Vendor scheduler interval run failed:", e.message); }
+}, 24 * 60 * 60 * 1000);
 
 // =====================================================
 // Socket.IO
