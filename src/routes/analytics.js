@@ -167,7 +167,7 @@ router.get("/", (req, res) => {
         <p class="text-sm font-bold text-mpCharcoal">No social insights synced yet</p>
         <p class="text-xs text-mpMuted mt-0.5">Click Sync to pull likes, reach, saves, and engagement from Facebook &amp; Instagram.</p>
       </div>
-      <button onclick="runSync()" class="shrink-0 rounded-full bg-mpCharcoal px-5 py-2.5 text-sm font-semibold text-white hover:bg-mpCharcoalDark transition-colors">Sync Now</button>
+      <button onclick="runSync()" data-sync-btn class="shrink-0 rounded-full bg-mpCharcoal px-5 py-2.5 text-sm font-semibold text-white hover:bg-mpCharcoalDark transition-colors">Sync Now</button>
     </div>` : "";
 
   const summaryCards = `
@@ -280,7 +280,7 @@ router.get("/", (req, res) => {
         <h2 class="text-base font-bold text-mpCharcoal">Recent Published Posts</h2>
         <p class="text-xs text-mpMuted mt-0.5">Last 20 posts with performance data.</p>
       </div>
-      <button onclick="runSync()" id="syncBtn" class="rounded-full border border-mpBorder bg-mpBg px-4 py-1.5 text-xs font-semibold text-mpCharcoal hover:border-mpAccent hover:bg-white transition-colors">
+      <button onclick="runSync()" data-sync-btn class="rounded-full border border-mpBorder bg-mpBg px-4 py-1.5 text-xs font-semibold text-mpCharcoal hover:border-mpAccent hover:bg-white transition-colors">
         Sync Insights
       </button>
     </div>
@@ -325,74 +325,76 @@ router.get("/", (req, res) => {
   </div>`;
 
   const syncScript = `
-  <div id="sync-toast" class="fixed bottom-6 right-6 hidden z-50">
-    <div class="rounded-2xl bg-mpCharcoal text-white px-5 py-3 text-sm font-medium shadow-xl"></div>
+  <div id="sync-toast" class="fixed bottom-6 right-6 z-50 transition-all duration-300" style="display:none">
+    <div id="sync-toast-msg" class="rounded-2xl bg-mpCharcoal text-white px-5 py-3 text-sm font-medium shadow-xl max-w-xs"></div>
   </div>
   <script>
-    const _csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
-    const _postHeaders = { 'Content-Type': 'application/json', 'X-CSRF-Token': _csrf };
+    function showToast(text, durationMs, onHide) {
+      const el = document.getElementById('sync-toast');
+      const msg = document.getElementById('sync-toast-msg');
+      if (!el || !msg) return;
+      msg.textContent = text;
+      el.style.display = 'block';
+      clearTimeout(el._hideTimer);
+      el._hideTimer = setTimeout(() => { el.style.display = 'none'; if (onHide) onHide(); }, durationMs || 4000);
+    }
+
+    function setSyncBtns(label, disabled) {
+      document.querySelectorAll('[data-sync-btn]').forEach(b => { b.textContent = label; b.disabled = disabled; });
+    }
 
     async function runBackfill() {
-      const toast = document.getElementById('sync-toast');
-      const msg = toast.querySelector('div');
-      toast.classList.remove('hidden');
-      msg.textContent = 'Backfilling FB post IDs...';
+      setSyncBtns('Working…', true);
+      showToast('Backfilling FB post IDs…', 30000);
       try {
-        const res = await fetch('/analytics/backfill-fb-ids${qs}', { method: 'POST', headers: _postHeaders });
+        const res = await fetch('/analytics/backfill-fb-ids${qs}', { method: 'POST' });
         const data = await res.json();
-        msg.textContent = res.ok
-          ? 'Matched ' + data.matched + ' of ' + data.scanned + ' posts to FB IDs.'
-          : 'Error: ' + (data.error || 'unknown');
-        setTimeout(() => {
-          toast.classList.add('hidden');
-          if (res.ok && data.matched > 0) location.reload();
-        }, 3000);
+        const msg = res.ok ? 'Matched ' + data.matched + ' of ' + data.scanned + ' posts.' : 'Error: ' + (data.error || 'unknown');
+        showToast(msg, 5000, () => { if (res.ok && data.matched > 0) location.reload(); });
       } catch(e) {
-        msg.textContent = 'Backfill failed: ' + e.message;
-        setTimeout(() => toast.classList.add('hidden'), 3000);
+        showToast('Backfill failed: ' + e.message, 6000);
+      } finally {
+        setSyncBtns('Sync Insights', false);
       }
     }
+
     async function runResetBackfill() {
       if (!confirm('This will clear all stored FB post IDs and re-match from the live Facebook page. Continue?')) return;
-      const toast = document.getElementById('sync-toast');
-      const msg = toast.querySelector('div');
-      toast.classList.remove('hidden');
-      msg.textContent = 'Resetting & relinking FB post IDs...';
+      setSyncBtns('Working…', true);
+      showToast('Resetting & relinking FB post IDs…', 30000);
       try {
-        const res = await fetch('/analytics/reset-and-backfill-fb-ids${qs}', { method: 'POST', headers: _postHeaders });
+        const res = await fetch('/analytics/reset-and-backfill-fb-ids${qs}', { method: 'POST' });
         const data = await res.json();
-        msg.textContent = res.ok
-          ? 'Cleared ' + data.cleared + ' IDs, fetched ' + data.fb_posts_fetched + ' FB posts, matched ' + data.matched + '.'
+        const msg = res.ok
+          ? 'Cleared ' + data.cleared + ' IDs, matched ' + data.matched + ' of ' + data.fb_posts_fetched + ' FB posts.'
           : 'Error: ' + (data.error || 'unknown');
-        setTimeout(() => { toast.classList.add('hidden'); if (res.ok) location.reload(); }, 4000);
+        showToast(msg, 6000, () => { if (res.ok) location.reload(); });
       } catch(e) {
-        msg.textContent = 'Reset failed: ' + e.message;
-        setTimeout(() => toast.classList.add('hidden'), 3000);
+        showToast('Reset failed: ' + e.message, 6000);
+      } finally {
+        setSyncBtns('Sync Insights', false);
       }
     }
+
     async function runSync() {
-      const btn = document.getElementById('syncBtn');
-      const toast = document.getElementById('sync-toast');
-      const msg = toast.querySelector('div');
-      if (btn) { btn.textContent = 'Syncing...'; btn.disabled = true; }
+      setSyncBtns('Syncing…', true);
+      showToast('Syncing insights from Facebook & Instagram…', 30000);
       try {
-        const res = await fetch('/analytics/sync${qs}', { method: 'POST', headers: _postHeaders });
+        const res = await fetch('/analytics/sync${qs}', { method: 'POST' });
         const data = await res.json();
+        let msg;
         if (!res.ok) {
-          msg.textContent = 'Error: ' + (data.error || 'unknown');
+          msg = 'Error: ' + (data.error || 'unknown');
         } else if (data.errors && data.errors.length) {
-          msg.textContent = 'Synced ' + data.synced + ' records. ' + data.errors.length + ' error(s): ' + data.errors[0];
+          msg = 'Synced ' + data.synced + ' records. ' + data.errors.length + ' error(s): ' + data.errors[0];
         } else {
-          msg.textContent = 'Synced ' + data.synced + ' insight records.';
+          msg = 'Synced ' + data.synced + ' insight record' + (data.synced === 1 ? '' : 's') + '.';
         }
-        toast.classList.remove('hidden');
-        setTimeout(() => { toast.classList.add('hidden'); if (res.ok && data.synced > 0) location.reload(); }, 4000);
+        showToast(msg, 5000, () => { if (res.ok && data.synced > 0) location.reload(); });
       } catch(e) {
-        msg.textContent = 'Sync failed: ' + e.message;
-        toast.classList.remove('hidden');
-        setTimeout(() => toast.classList.add('hidden'), 3000);
+        showToast('Sync failed: ' + e.message, 6000);
       } finally {
-        if (btn) { btn.textContent = 'Sync Insights'; btn.disabled = false; }
+        setSyncBtns('Sync Insights', false);
       }
     }
   </script>`;
@@ -407,7 +409,7 @@ router.get("/", (req, res) => {
         <button onclick="runResetBackfill()" class="shrink-0 rounded-full border border-mpBorder bg-white px-4 py-2.5 text-sm font-semibold text-mpCharcoal hover:border-mpAccent transition-colors">
           Reset &amp; Relink FB
         </button>
-        <button onclick="runSync()" class="shrink-0 rounded-full bg-mpCharcoal px-5 py-2.5 text-sm font-semibold text-white hover:bg-mpCharcoalDark transition-colors">
+        <button onclick="runSync()" data-sync-btn class="shrink-0 rounded-full bg-mpCharcoal px-5 py-2.5 text-sm font-semibold text-white hover:bg-mpCharcoalDark transition-colors">
           Sync Insights
         </button>
       </div>
