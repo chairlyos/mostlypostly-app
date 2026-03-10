@@ -14,6 +14,7 @@ const router = express.Router();
 
 import { UPLOADS_DIR, toUploadUrl } from "../core/uploadPath.js";
 import { PLAN_LIMITS } from "./billing.js";
+import { sendViaTwilio } from "./twilio.js";
 
 function normalizePhone(raw) {
   if (!raw) return null;
@@ -236,6 +237,30 @@ router.get("/", requireAuth, (req, res) => {
       <input type="file" name="csv" id="csvFormInput" accept=".csv" />
     </form>
 
+    <!-- Stylist Quick Start Guide -->
+    <section class="mb-6">
+      <div class="rounded-2xl border border-mpBorder bg-white px-5 py-5">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-sm font-semibold text-mpCharcoal">How Stylists Post</h2>
+          <span class="text-[11px] text-mpMuted font-mono">${salon?.phone ? salon.phone : "No Twilio number set"}</span>
+        </div>
+        <p class="text-xs text-mpMuted mb-4">Share this number and these steps with your team. New stylists receive a welcome text with instructions when you add them.</p>
+        <ol class="space-y-2 text-xs text-mpCharcoal mb-4">
+          <li class="flex gap-2"><span class="flex-shrink-0 w-5 h-5 rounded-full bg-mpAccentLight text-mpAccent font-bold text-[10px] flex items-center justify-center">1</span><span>Text a photo to <strong>${salon?.phone || "your salon number"}</strong> — add a note about the service if you like.</span></li>
+          <li class="flex gap-2"><span class="flex-shrink-0 w-5 h-5 rounded-full bg-mpAccentLight text-mpAccent font-bold text-[10px] flex items-center justify-center">2</span><span>AI generates a branded caption. You'll receive a link to review and edit it.</span></li>
+          <li class="flex gap-2"><span class="flex-shrink-0 w-5 h-5 rounded-full bg-mpAccentLight text-mpAccent font-bold text-[10px] flex items-center justify-center">3</span><span>Review on the preview page — regenerate with notes, or submit for manager approval.</span></li>
+          <li class="flex gap-2"><span class="flex-shrink-0 w-5 h-5 rounded-full bg-mpAccentLight text-mpAccent font-bold text-[10px] flex items-center justify-center">4</span><span>Once approved, the post is scheduled and publishes automatically.</span></li>
+        </ol>
+        <div class="border-t border-mpBorder pt-3 flex flex-wrap gap-3 text-[11px]">
+          <span class="font-semibold text-mpMuted">SMS commands:</span>
+          <span class="font-mono bg-mpBg px-2 py-0.5 rounded text-mpCharcoal">APPROVE</span>
+          <span class="text-mpMuted">— submit immediately without editing</span>
+          <span class="font-mono bg-mpBg px-2 py-0.5 rounded text-mpCharcoal">CANCEL</span>
+          <span class="text-mpMuted">— discard the current draft</span>
+        </div>
+      </div>
+    </section>
+
     <section class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       ${cards}${empty}
     </section>
@@ -306,6 +331,28 @@ router.post("/add", requireAuth, photoUpload.single("photo"), (req, res) => {
       photo_url,
       celebrations_enabled === "1" ? 1 : 0,
     );
+
+    // Send welcome SMS to new stylist
+    const stylistPhone = normalizePhone(phone);
+    const salonRecord = db.prepare("SELECT name, phone FROM salons WHERE slug = ?").get(salon_id);
+    const salonPhone = salonRecord?.phone || "";
+    const PUBLIC_BASE_URL = process.env.PUBLIC_BASE_URL || process.env.BASE_URL || "";
+    if (stylistPhone && salonPhone) {
+      const firstName = first_name || name.split(" ")[0] || "there";
+      const welcomeMsg = [
+        `Hi ${firstName}! Welcome to MostlyPostly — the easiest way to share your work on social media. 💇`,
+        ``,
+        `To post, just text a photo to this number (${salonPhone}). You can add a note about the service if you like. AI will write a caption and send you a link to review it.`,
+        ``,
+        `Quick guide: ${PUBLIC_BASE_URL}/help/stylists`,
+        ``,
+        `Reply STOP to opt out. Msg & data rates may apply.`,
+      ].join("\n");
+      sendViaTwilio(stylistPhone, welcomeMsg).catch(err =>
+        console.warn("[stylistManager] Welcome SMS failed:", err.message)
+      );
+    }
+
     res.redirect(`/manager/stylists?salon=${encodeURIComponent(salon_id)}`);
   } catch (err) {
     console.error("[stylistManager] add error:", err);

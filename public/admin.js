@@ -3,6 +3,32 @@
 
 console.log("[Admin] admin.js loaded");
 
+// ─── CSRF helper ────────────────────────────────────────────────
+// Read the token injected by the server into <meta name="csrf-token">
+function getCsrfToken() {
+  return document.querySelector('meta[name="csrf-token"]')?.content || "";
+}
+
+// Patch fetch so all same-origin POST/PUT/PATCH/DELETE requests
+// automatically include the CSRF token header.
+(function patchFetch() {
+  const _fetch = window.fetch;
+  window.fetch = function (input, init = {}) {
+    const method = (init.method || "GET").toUpperCase();
+    const mutating = ["POST", "PUT", "PATCH", "DELETE"];
+    const isSameOrigin =
+      typeof input === "string"
+        ? input.startsWith("/") || input.startsWith(window.location.origin)
+        : true;
+    if (mutating.includes(method) && isSameOrigin) {
+      init.headers = Object.assign({}, init.headers, {
+        "X-CSRF-Token": getCsrfToken(),
+      });
+    }
+    return _fetch(input, init);
+  };
+})();
+
 // Global admin controller namespace
 window.admin = {
   templates: {},

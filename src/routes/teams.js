@@ -183,7 +183,7 @@ export default function teamsRoute(drafts, lookupStylist, safeGenerateCaption) {
           );
           await sendMessage.sendText(
             chatId,
-            "Now send a photo (or a photo + notes) and I’ll generate a caption preview. Reply APPROVE / REGENERATE / CANCEL."
+            "You’re all set! Text a photo (or photo + notes) to this number and I’ll generate a caption. You’ll get a link to review and edit it. Reply APPROVE to submit directly, or CANCEL to discard."
           );
           return;
         }

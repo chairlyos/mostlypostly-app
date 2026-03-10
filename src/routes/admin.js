@@ -133,6 +133,19 @@ router.get("/", requireAuth, (req, res) => {
     )
     .all(salon_id);
 
+  // MFA status for this manager
+  const mfaEnabled = !!db.prepare("SELECT manager_id FROM manager_mfa WHERE manager_id = ?").get(req.manager.id);
+  const mfaError = req.query.mfa_error;
+  const mfaMsg   = req.query.mfa === "disabled" ? "Two-factor authentication has been disabled."
+                 : req.query.mfa === "already_enabled" ? "MFA is already enabled on this account."
+                 : null;
+
+  // Last 10 security events for this manager
+  const securityEvents = db.prepare(
+    `SELECT event_type, ip_address, created_at FROM security_events
+     WHERE manager_id = ? ORDER BY created_at DESC LIMIT 10`
+  ).all(req.manager.id);
+
   // Brand palette
   let brandPalette = null;
   try {
@@ -477,6 +490,53 @@ router.get("/", requireAuth, (req, res) => {
       </div>
     </section>
 
+    <!-- ACCOUNT SECURITY -->
+    <section class="mb-6">
+      <div class="rounded-2xl border border-mpBorder bg-white px-5 py-5">
+        <h2 class="text-sm font-semibold text-mpCharcoal mb-1">Account Security</h2>
+        <p class="text-xs text-mpMuted mb-4">Protect your account with two-factor authentication. Required when using booking system or ad integrations.</p>
+
+        ${mfaMsg ? `<div class="rounded-lg bg-green-50 border border-green-200 px-3 py-2 text-xs text-green-700 font-medium mb-3">${mfaMsg}</div>` : ""}
+        ${mfaError === "wrong_password" ? `<div class="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-600 font-medium mb-3">Incorrect password — MFA not disabled.</div>` : ""}
+
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center gap-2">
+            <span class="text-sm font-medium text-mpCharcoal">Two-Factor Authentication (TOTP)</span>
+            ${mfaEnabled
+              ? `<span class="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-semibold text-green-700">● Enabled</span>`
+              : `<span class="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-mpMuted">Not enabled</span>`
+            }
+          </div>
+          ${mfaEnabled
+            ? `<button onclick="document.getElementById('mfa-disable-form').classList.toggle('hidden')" class="text-xs text-red-400 hover:text-red-600 underline">Disable</button>`
+            : `<a href="/manager/mfa/setup" class="inline-flex items-center gap-1 rounded-full bg-mpCharcoal px-4 py-1.5 text-xs font-semibold text-white hover:bg-mpCharcoalDark transition-colors">Enable MFA →</a>`
+          }
+        </div>
+
+        ${mfaEnabled ? `
+        <div id="mfa-disable-form" class="hidden border-t border-mpBorder pt-4 mt-2">
+          <p class="text-xs text-mpMuted mb-2">Enter your password to confirm disabling MFA.</p>
+          <form method="POST" action="/manager/mfa/disable" class="flex gap-2 items-center">
+            <input type="password" name="password" placeholder="Your password" required
+              class="flex-1 text-sm rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-mpCharcoal placeholder:text-gray-400 focus:outline-none focus:border-mpAccent" />
+            <button type="submit" class="rounded-full bg-red-500 hover:bg-red-600 px-4 py-2 text-xs font-semibold text-white transition-colors">Disable</button>
+          </form>
+        </div>` : ""}
+
+        ${securityEvents.length ? `
+        <div class="border-t border-mpBorder pt-3 mt-3">
+          <p class="text-xs font-semibold text-mpCharcoal mb-2">Recent Security Events</p>
+          <div class="space-y-1">
+            ${securityEvents.map(e => `
+              <div class="flex justify-between text-[11px]">
+                <span class="${e.event_type.includes('failure') || e.event_type.includes('mfa_disable') ? 'text-red-500' : 'text-mpMuted'}">${e.event_type.replace(/_/g,' ')}</span>
+                <span class="text-mpMuted">${e.created_at}</span>
+              </div>`).join("")}
+          </div>
+        </div>` : ""}
+      </div>
+    </section>
+
     <!-- TEAM MEMBERS — managed on dedicated Team page -->
     ${(() => {
       const planLimits = PLAN_LIMITS[salonRow.plan] || PLAN_LIMITS.trial;
@@ -684,9 +744,9 @@ router.get("/", requireAuth, (req, res) => {
 // -------------------------------------------------------
 // POST: Update Salon Info
 // -------------------------------------------------------
-router.post("/update-salon-info", (req, res) => {
+router.post("/update-salon-info", requireAuth, (req, res) => {
+  const salon_id = req.manager.salon_id; // Always use session — never trust req.body.salon_id
   const {
-    salon_id,
     name,
     address,
     city,
@@ -740,10 +800,10 @@ router.post("/update-salon-info", (req, res) => {
 // -------------------------------------------------------
 // POST: Update Salon Logo
 // -------------------------------------------------------
-router.post("/update-salon-logo", salonLogoUpload.single("logo"), (req, res) => {
-  const salon_id = req.body.salon_id;
-  if (!salon_id || !req.file) {
-    return res.redirect(`/manager/admin?salon=${encodeURIComponent(salon_id || "")}`);
+router.post("/update-salon-logo", requireAuth, salonLogoUpload.single("logo"), (req, res) => {
+  const salon_id = req.manager.salon_id; // Always use session — never trust req.body.salon_id
+  if (!req.file) {
+    return res.redirect(`/manager/admin?salon=${encodeURIComponent(salon_id)}`);
   }
   const PUBLIC_BASE_URL = (process.env.PUBLIC_BASE_URL || "").replace(/\/$/, "");
   const logoUrl = `${PUBLIC_BASE_URL}/uploads/${req.file.filename}`;
@@ -756,8 +816,8 @@ router.post("/update-salon-logo", salonLogoUpload.single("logo"), (req, res) => 
 // -------------------------------------------------------
 router.post("/update-posting-rules", requireAuth, (req, res) => {
   try {
+    const salon_id = req.manager.salon_id; // Always use session — never trust req.body.salon_id
     const {
-      salon_id,
       posting_schedule_json,
       spacing_min,
       spacing_max
@@ -817,8 +877,8 @@ router.post("/update-posting-rules", requireAuth, (req, res) => {
 // -------------------------------------------------------
 router.post("/update-manager-rules", requireAuth, (req, res) => {
   try {
+    const salon_id = req.manager.salon_id; // Always use session — never trust req.body.salon_id
     const {
-      salon_id,
       require_manager_approval,
       auto_approval,
       auto_publish,
@@ -826,14 +886,10 @@ router.post("/update-manager-rules", requireAuth, (req, res) => {
       notify_on_denial
     } = req.body;
 
-    if (!salon_id) {
-      return res.status(400).send("Missing salon_id");
-    }
-
     db.prepare(
       `
       UPDATE salons
-      SET 
+      SET
         require_manager_approval   = ?,
         auto_approval              = ?,
         auto_publish               = ?,
@@ -864,12 +920,9 @@ router.post("/update-manager-rules", requireAuth, (req, res) => {
 //   - Receives salon_id and hashtags_json (custom tags only)
 //   - Preserves the first "salon tag" from existing default_hashtags
 // -------------------------------------------------------
-router.post("/update-hashtags", (req, res) => {
-  const { salon_id, hashtags_json } = req.body;
-
-  if (!salon_id) {
-    return res.status(400).send("Missing salon_id");
-  }
+router.post("/update-hashtags", requireAuth, (req, res) => {
+  const salon_id = req.manager.salon_id; // Always use session — never trust req.body.salon_id
+  const { hashtags_json } = req.body;
 
   try {
     const salon = db
@@ -1048,17 +1101,16 @@ router.post("/update-stylist", (req, res) => {
 });
 
 router.get("/delete-stylist", requireAuth, (req, res) => {
-  // Accept both ?salon and ?salon_id because some templates send salon_id
   const id = req.query.id;
-  const salon = req.query.salon || req.query.salon_id;
+  const salon_id = req.manager.salon_id; // Always use session — never trust URL params
 
-  if (!id || !salon) {
+  if (!id) {
     return res.status(400).send("Missing parameters");
   }
 
   try {
-    db.prepare("DELETE FROM stylists WHERE id = ? AND salon_id = ?").run(id, salon);
-    return res.redirect(`/manager/admin?salon=${encodeURIComponent(salon)}`);
+    db.prepare("DELETE FROM stylists WHERE id = ? AND salon_id = ?").run(id, salon_id);
+    return res.redirect(`/manager/admin?salon=${encodeURIComponent(salon_id)}`);
   } catch (err) {
     console.error("Delete stylist failed:", err);
     return res.status(500).send("Failed to delete stylist");
@@ -1125,13 +1177,13 @@ router.post("/stock-photos/upload", requireAuth, stockPhotoUpload.single("stock_
 // STOCK PHOTOS — Delete
 // ───────────────────────────────────────────────────────────
 router.post("/stock-photos/delete", requireAuth, (req, res) => {
-  const salon_id = req.query.salon || req.manager?.salon_id;
+  const salon_id = req.manager.salon_id; // Always use session
   const { photo_id } = req.body;
 
   if (photo_id) {
     const row = db.prepare(`SELECT url FROM stock_photos WHERE id = ? AND salon_id = ?`).get(photo_id, salon_id);
     if (row) {
-      db.prepare(`DELETE FROM stock_photos WHERE id = ?`).run(photo_id);
+      db.prepare(`DELETE FROM stock_photos WHERE id = ? AND salon_id = ?`).run(photo_id, salon_id);
       // Optionally remove the file from disk
       try {
         const filePath = path.join(path.resolve("public"), new URL(row.url).pathname);
