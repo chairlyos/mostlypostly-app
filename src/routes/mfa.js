@@ -50,23 +50,23 @@ function mfaShell(title, content) {
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Plus Jakarta Sans', sans-serif; background: #FDF8F6; color: #2B2D35; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
-    .card { width: 100%; max-width: 440px; background: #fff; border-radius: 20px; padding: 40px 36px; box-shadow: 0 4px 32px rgba(43,45,53,0.08); border: 1px solid #EDE7E4; }
+    body { font-family: 'Plus Jakarta Sans', sans-serif; background: #F8FAFC; color: #2B2D35; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+    .card { width: 100%; max-width: 440px; background: #fff; border-radius: 20px; padding: 40px 36px; box-shadow: 0 4px 32px rgba(43,45,53,0.08); border: 1px solid #E2E8F0; }
     .logo { text-align: center; margin-bottom: 28px; }
     .logo img { width: 200px; height: auto; }
     h1 { font-size: 20px; font-weight: 800; color: #2B2D35; margin-bottom: 6px; }
-    p { font-size: 13px; color: #7A7C85; line-height: 1.6; margin-bottom: 16px; }
+    p { font-size: 13px; color: #6B7280; line-height: 1.6; margin-bottom: 16px; }
     label { display: block; font-size: 12px; font-weight: 600; color: #2B2D35; margin-bottom: 5px; }
-    input[type=text], input[type=password] { width: 100%; border-radius: 10px; padding: 11px 14px; border: 1px solid #EDE7E4; background: #FDF8F6; font-size: 14px; color: #2B2D35; margin-bottom: 16px; font-family: inherit; }
+    input[type=text], input[type=password] { width: 100%; border-radius: 10px; padding: 11px 14px; border: 1px solid #E2E8F0; background: #F8FAFC; font-size: 14px; color: #2B2D35; margin-bottom: 16px; font-family: inherit; }
     input[type=text]:focus, input[type=password]:focus { outline: none; border-color: #3B72B9; }
     .btn { background: #2B2D35; color: #fff; font-weight: 700; border-radius: 999px; padding: 13px 0; width: 100%; font-size: 14px; border: none; cursor: pointer; font-family: inherit; }
     .btn:hover { background: #1a1c22; }
-    .btn-ghost { background: transparent; color: #7A7C85; border: 1px solid #EDE7E4; margin-top: 10px; }
-    .btn-ghost:hover { color: #2B2D35; background: #FDF8F6; }
+    .btn-ghost { background: transparent; color: #6B7280; border: 1px solid #E2E8F0; margin-top: 10px; }
+    .btn-ghost:hover { color: #2B2D35; background: #F8FAFC; }
     .error { background: #FEE2E2; border: 1px solid #FECACA; border-radius: 10px; padding: 10px 14px; font-size: 13px; color: #B91C1C; margin-bottom: 14px; }
     .success { background: #D1FAE5; border: 1px solid #A7F3D0; border-radius: 10px; padding: 10px 14px; font-size: 13px; color: #065F46; margin-bottom: 14px; }
     .back { text-align: center; margin-top: 14px; font-size: 12px; }
-    .back a { color: #7A7C85; text-decoration: none; }
+    .back a { color: #6B7280; text-decoration: none; }
     .back a:hover { color: #2B2D35; }
     .backup-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0; }
     .backup-code { font-family: monospace; font-size: 13px; font-weight: 700; background: #F3F4F6; border-radius: 6px; padding: 6px 10px; text-align: center; letter-spacing: 1px; }
@@ -113,7 +113,7 @@ router.get("/setup", requireAuth, async (req, res) => {
     <p>Scan this QR code with your authenticator app (Google Authenticator, Authy, or 1Password), then enter the 6-digit code to confirm.</p>
     ${error}
     <div class="qr-wrap">
-      <img src="${qrDataUrl}" width="200" height="200" alt="QR Code" style="border-radius:12px;border:1px solid #EDE7E4;" />
+      <img src="${qrDataUrl}" width="200" height="200" alt="QR Code" style="border-radius:12px;border:1px solid #E2E8F0;" />
     </div>
     <p style="margin-bottom:4px">Can't scan? Enter this secret manually:</p>
     <div class="secret-box">${secret}</div>

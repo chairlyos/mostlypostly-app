@@ -34,16 +34,16 @@ function emailWrapper({ preheader, body }) {
   <title>MostlyPostly</title>
   <!--[if mso]><noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript><![endif]-->
 </head>
-<body style="margin:0;padding:0;background:#FDF8F6;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
+<body style="margin:0;padding:0;background:#F8FAFC;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
   <span style="display:none;max-height:0;overflow:hidden;">${preheader}</span>
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#FDF8F6;padding:32px 0;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#F8FAFC;padding:32px 0;">
     <tr><td align="center">
       <table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;">
 
         <!-- Card (logo inside so white PNG background blends seamlessly) -->
-        <tr><td style="background:#fff;border:1px solid #EDE7E4;border-radius:16px;padding:0;">
+        <tr><td style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;padding:0;">
           <table width="100%" cellpadding="0" cellspacing="0">
-            <tr><td style="padding:24px 40px 20px;border-bottom:1px solid #EDE7E4;">
+            <tr><td style="padding:24px 40px 20px;border-bottom:1px solid #E2E8F0;">
               <img src="https://mostlypostly.com/logo/MostlyPostly%20Logo%20-%20Primary%20(Trimmed).png"
                    alt="MostlyPostly" height="32"
                    style="display:block;border:0;outline:none;text-decoration:none;" />
@@ -55,10 +55,10 @@ function emailWrapper({ preheader, body }) {
         </td></tr>
 
         <!-- Footer -->
-        <tr><td style="padding:24px 0 0 0;text-align:center;font-size:12px;color:#7A7C85;line-height:1.6;">
+        <tr><td style="padding:24px 0 0 0;text-align:center;font-size:12px;color:#6B7280;line-height:1.6;">
           MostlyPostly · Carmel, Indiana<br />
-          <a href="https://mostlypostly.com/legal/privacy.html" style="color:#7A7C85;">Privacy Policy</a> ·
-          <a href="https://mostlypostly.com/legal/terms.html" style="color:#7A7C85;">Terms</a>
+          <a href="https://mostlypostly.com/legal/privacy.html" style="color:#6B7280;">Privacy Policy</a> ·
+          <a href="https://mostlypostly.com/legal/terms.html" style="color:#6B7280;">Terms</a>
         </td></tr>
 
       </table>
@@ -78,7 +78,7 @@ export async function sendVerificationEmail({ to, name, token }) {
       preheader: "One click to confirm your email and start your free trial.",
       body: `
         <h1 style="margin:0 0 8px;font-size:24px;font-weight:800;color:#2B2D35;">You're almost in.</h1>
-        <p style="margin:0 0 24px;font-size:14px;color:#7A7C85;line-height:1.6;">
+        <p style="margin:0 0 24px;font-size:14px;color:#6B7280;line-height:1.6;">
           Hi ${name || "there"}, thanks for signing up for MostlyPostly!<br />
           Click the button below to verify your email and activate your account.
         </p>
@@ -89,10 +89,10 @@ export async function sendVerificationEmail({ to, name, token }) {
             </a>
           </td></tr>
         </table>
-        <p style="margin:0 0 8px;font-size:12px;color:#7A7C85;line-height:1.6;">
+        <p style="margin:0 0 8px;font-size:12px;color:#6B7280;line-height:1.6;">
           This link expires in 24 hours. If you didn't sign up for MostlyPostly, you can safely ignore this email.
         </p>
-        <p style="margin:0;font-size:12px;color:#7A7C85;">
+        <p style="margin:0;font-size:12px;color:#6B7280;">
           Or copy this URL into your browser:<br />
           <a href="${verifyUrl}" style="color:#3B72B9;word-break:break-all;">${verifyUrl}</a>
         </p>
@@ -111,10 +111,10 @@ export async function sendWelcomeEmail({ to, name, salonName }) {
       preheader: "Your salon's social presence just got a lot easier.",
       body: `
         <h1 style="margin:0 0 8px;font-size:24px;font-weight:800;color:#2B2D35;">Welcome aboard! 🎉</h1>
-        <p style="margin:0 0 16px;font-size:14px;color:#7A7C85;line-height:1.6;">
+        <p style="margin:0 0 16px;font-size:14px;color:#6B7280;line-height:1.6;">
           Hi ${name || "there"}, your MostlyPostly account for <strong style="color:#2B2D35;">${salonName}</strong> is active and ready to go.
         </p>
-        <p style="margin:0 0 24px;font-size:14px;color:#7A7C85;line-height:1.6;">
+        <p style="margin:0 0 24px;font-size:14px;color:#6B7280;line-height:1.6;">
           Here's what to do next:
         </p>
         <table cellpadding="0" cellspacing="0" style="margin:0 0 24px;width:100%;">
@@ -124,12 +124,12 @@ export async function sendWelcomeEmail({ to, name, salonName }) {
             ["📱", "Connect Facebook & Instagram", "Link your pages so posts can publish automatically on schedule."],
           ].map(([icon, title, desc]) => `
             <tr>
-              <td style="padding:12px 0;vertical-align:top;border-bottom:1px solid #EDE7E4;">
+              <td style="padding:12px 0;vertical-align:top;border-bottom:1px solid #E2E8F0;">
                 <table cellpadding="0" cellspacing="0"><tr>
                   <td style="width:36px;font-size:20px;vertical-align:middle;">${icon}</td>
                   <td style="padding-left:12px;vertical-align:middle;">
                     <strong style="font-size:13px;color:#2B2D35;display:block;">${title}</strong>
-                    <span style="font-size:12px;color:#7A7C85;line-height:1.5;">${desc}</span>
+                    <span style="font-size:12px;color:#6B7280;line-height:1.5;">${desc}</span>
                   </td>
                 </tr></table>
               </td>
@@ -143,7 +143,7 @@ export async function sendWelcomeEmail({ to, name, salonName }) {
             </a>
           </td></tr>
         </table>
-        <p style="margin:0;font-size:12px;color:#7A7C85;line-height:1.6;">
+        <p style="margin:0;font-size:12px;color:#6B7280;line-height:1.6;">
           Questions? Reply to this email or reach us at
           <a href="mailto:support@mostlypostly.com" style="color:#3B72B9;">support@mostlypostly.com</a> — we're here to help.
         </p>
@@ -165,7 +165,7 @@ export async function sendCancellationEmail({ to, name, accessEndsAt }) {
       preheader: `Your access continues until ${formattedDate}.`,
       body: `
         <h1 style="margin:0 0 8px;font-size:24px;font-weight:800;color:#2B2D35;">We're sorry to see you go.</h1>
-        <p style="margin:0 0 16px;font-size:14px;color:#7A7C85;line-height:1.6;">
+        <p style="margin:0 0 16px;font-size:14px;color:#6B7280;line-height:1.6;">
           Hi ${name || "there"}, your MostlyPostly subscription has been cancelled.
         </p>
         <table cellpadding="0" cellspacing="0" style="width:100%;margin:0 0 24px;background:#EBF3FF;border-radius:12px;">
@@ -174,7 +174,7 @@ export async function sendCancellationEmail({ to, name, accessEndsAt }) {
             <p style="margin:0;font-size:20px;font-weight:800;color:#2B2D35;">${formattedDate}</p>
           </td></tr>
         </table>
-        <p style="margin:0 0 24px;font-size:14px;color:#7A7C85;line-height:1.6;">
+        <p style="margin:0 0 24px;font-size:14px;color:#6B7280;line-height:1.6;">
           After that date, your account will be suspended and new posts won't be published. Your salon data and post history will be retained for 90 days in case you'd like to reactivate.
         </p>
         <table cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
@@ -184,7 +184,7 @@ export async function sendCancellationEmail({ to, name, accessEndsAt }) {
             </a>
           </td></tr>
         </table>
-        <p style="margin:0;font-size:12px;color:#7A7C85;line-height:1.6;">
+        <p style="margin:0;font-size:12px;color:#6B7280;line-height:1.6;">
           Changed your mind? You can reactivate anytime from your billing page. Questions? Email us at
           <a href="mailto:support@mostlypostly.com" style="color:#3B72B9;">support@mostlypostly.com</a>.
         </p>

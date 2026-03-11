@@ -152,25 +152,25 @@ router.get("/callback", async (req, res) => {
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: ‘Plus Jakarta Sans’, ui-sans-serif, system-ui, sans-serif; background: #FDF8F6; color: #2B2D35; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+    body { font-family: ‘Plus Jakarta Sans’, ui-sans-serif, system-ui, sans-serif; background: #F8FAFC; color: #2B2D35; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
   </style>
 </head>
 <body>
-  <div style="width:100%;max-width:440px;background:#fff;border-radius:20px;padding:40px 36px;box-shadow:0 4px 32px rgba(43,45,53,0.08);border:1px solid #EDE7E4;text-align:center;">
+  <div style="width:100%;max-width:440px;background:#fff;border-radius:20px;padding:40px 36px;box-shadow:0 4px 32px rgba(43,45,53,0.08);border:1px solid #E2E8F0;text-align:center;">
     <img src="/public/logo/logo-trimmed.png" alt="MostlyPostly" style="width:240px;height:auto;margin-bottom:28px;" />
 
     <div style="width:60px;height:60px;border-radius:50%;background:#EBF3FF;display:flex;align-items:center;justify-content:center;margin:0 auto 18px;font-size:28px;">✓</div>
 
     <h1 style="font-size:22px;font-weight:800;color:#2B2D35;margin-bottom:8px;">Facebook Connected!</h1>
-    <p style="font-size:13px;color:#7A7C85;margin-bottom:24px;line-height:1.6;">Your Facebook page and Instagram account have been linked to your salon.</p>
+    <p style="font-size:13px;color:#6B7280;margin-bottom:24px;line-height:1.6;">Your Facebook page and Instagram account have been linked to your salon.</p>
 
-    <div style="background:#FDF8F6;border:1px solid #EDE7E4;border-radius:12px;padding:16px 20px;margin-bottom:28px;text-align:left;">
-      <div style="font-size:12px;font-weight:700;color:#7A7C85;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px;">Connected accounts</div>
+    <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:12px;padding:16px 20px;margin-bottom:28px;text-align:left;">
+      <div style="font-size:12px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px;">Connected accounts</div>
       <div style="font-size:13px;color:#2B2D35;margin-bottom:6px;">
-        <span style="color:#7A7C85;">Facebook page:</span> ${page.name}
+        <span style="color:#6B7280;">Facebook page:</span> ${page.name}
       </div>
       <div style="font-size:13px;color:#2B2D35;">
-        <span style="color:#7A7C85;">Instagram:</span> ${instagramUsername ? "@" + instagramUsername : "Not detected"}
+        <span style="color:#6B7280;">Instagram:</span> ${instagramUsername ? "@" + instagramUsername : "Not detected"}
       </div>
     </div>
 
