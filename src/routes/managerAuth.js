@@ -66,7 +66,7 @@ router.get("/login", (req, res) => {
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
-      background: #FDF8F6;
+      background: #F8FAFC;
       color: #2B2D35;
       min-height: 100vh;
     }
@@ -213,11 +213,11 @@ router.get("/login", (req, res) => {
     }
     .login-card { width: 100%; max-width: 400px; }
     .login-card h1 { font-size: 24px; font-weight: 800; color: #2B2D35; margin-bottom: 6px; }
-    .login-card .sub { font-size: 13px; color: #7A7C85; margin-bottom: 28px; }
+    .login-card .sub { font-size: 13px; color: #6B7280; margin-bottom: 28px; }
     label { display: block; font-size: 12px; font-weight: 600; color: #2B2D35; margin-bottom: 5px; }
     .input-box {
       width: 100%; border-radius: 10px; padding: 11px 14px;
-      border: 1px solid #EDE7E4; background: #FDF8F6;
+      border: 1px solid #E2E8F0; background: #F8FAFC;
       font-size: 14px; color: #2B2D35; margin-bottom: 16px; font-family: inherit;
     }
     .input-box:focus { border-color: #3B72B9; outline: none; box-shadow: 0 0 0 3px rgba(59,114,185,0.15); }
@@ -227,11 +227,11 @@ router.get("/login", (req, res) => {
       cursor: pointer; transition: background 0.2s; font-family: inherit;
     }
     .login-btn:hover { background: #1a1c22; }
-    .divider { border: none; border-top: 1px solid #EDE7E4; margin: 22px 0; }
-    .footer-links { text-align: center; font-size: 13px; color: #7A7C85; }
+    .divider { border: none; border-top: 1px solid #E2E8F0; margin: 22px 0; }
+    .footer-links { text-align: center; font-size: 13px; color: #6B7280; }
     .footer-links a { color: #3B72B9; font-weight: 600; text-decoration: none; }
     .footer-links a:hover { text-decoration: underline; }
-    .forgot { display: block; text-align: center; font-size: 12px; color: #7A7C85; margin-top: 12px; }
+    .forgot { display: block; text-align: center; font-size: 12px; color: #6B7280; margin-top: 12px; }
     .forgot:hover { color: #2B2D35; }
 
     @media(max-width: 768px) {
@@ -301,7 +301,7 @@ router.get("/login", (req, res) => {
         New to MostlyPostly? <a href="/manager/signup">Sign up</a>
       </div>
       <div style="text-align:center;margin-top:16px;">
-        <a href="${SITE_URL}" style="font-size:12px;color:#7A7C85;text-decoration:none;">← Back to MostlyPostly</a>
+        <a href="${SITE_URL}" style="font-size:12px;color:#6B7280;text-decoration:none;">← Back to MostlyPostly</a>
       </div>
     </div>
   </div>
@@ -335,7 +335,7 @@ router.get("/signup", (req, res) => {
   ${googleKey ? `<script src="https://maps.googleapis.com/maps/api/js?key=${googleKey}&libraries=places&loading=async" defer></script>` : ""}
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif; background: #FDF8F6; color: #2B2D35; min-height: 100vh; }
+    body { font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif; background: #F8FAFC; color: #2B2D35; min-height: 100vh; }
     .split-wrapper { display: flex; min-height: 100vh; }
 
     /* Left panel — matches login */
@@ -371,15 +371,15 @@ router.get("/signup", (req, res) => {
     .right-panel { flex: 1; background: #fff; display: flex; align-items: center; justify-content: center; padding: 32px; overflow-y: auto; }
     .signup-card { width: 100%; max-width: 420px; }
     .signup-card h1 { font-size: 24px; font-weight: 800; color: #2B2D35; margin-bottom: 6px; }
-    .signup-card .sub { font-size: 13px; color: #7A7C85; margin-bottom: 28px; }
+    .signup-card .sub { font-size: 13px; color: #6B7280; margin-bottom: 28px; }
     label { display: block; font-size: 12px; font-weight: 600; color: #2B2D35; margin-bottom: 5px; }
     .input-box {
       width: 100%; border-radius: 10px; padding: 11px 14px;
-      border: 1px solid #EDE7E4; background: #FDF8F6;
+      border: 1px solid #E2E8F0; background: #F8FAFC;
       font-size: 14px; color: #2B2D35; margin-bottom: 16px; font-family: inherit;
     }
     .input-box:focus { border-color: #3B72B9; outline: none; box-shadow: 0 0 0 3px rgba(59,114,185,0.15); }
-    .check-row { display: flex; align-items: flex-start; gap: 10px; font-size: 13px; color: #7A7C85; margin-bottom: 12px; }
+    .check-row { display: flex; align-items: flex-start; gap: 10px; font-size: 13px; color: #6B7280; margin-bottom: 12px; }
     .check-row input { margin-top: 2px; accent-color: #3B72B9; }
     .check-row a { color: #3B72B9; font-weight: 600; text-decoration: none; }
     .check-row a:hover { text-decoration: underline; }
@@ -389,8 +389,8 @@ router.get("/signup", (req, res) => {
       cursor: pointer; transition: background 0.2s; font-family: inherit; margin-top: 4px;
     }
     .signup-btn:hover { background: #1a1c22; }
-    .divider { border: none; border-top: 1px solid #EDE7E4; margin: 20px 0; }
-    .footer-links { text-align: center; font-size: 13px; color: #7A7C85; }
+    .divider { border: none; border-top: 1px solid #E2E8F0; margin: 20px 0; }
+    .footer-links { text-align: center; font-size: 13px; color: #6B7280; }
     .footer-links a { color: #3B72B9; font-weight: 600; text-decoration: none; }
     .footer-links a:hover { text-decoration: underline; }
 
@@ -442,13 +442,13 @@ router.get("/signup", (req, res) => {
         <label>Phone Number</label>
         <input type="tel" name="phone" class="input-box" placeholder="Mobile number" required />
 
-        <label style="margin-top:14px;">Salon Logo <span style="font-weight:400;color:#7A7C85;">(optional)</span></label>
+        <label style="margin-top:14px;">Salon Logo <span style="font-weight:400;color:#6B7280;">(optional)</span></label>
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
-          <div id="logoPreviewWrap" style="display:none;width:52px;height:52px;border-radius:10px;border:1px solid #EDE7E4;overflow:hidden;flex-shrink:0;">
+          <div id="logoPreviewWrap" style="display:none;width:52px;height:52px;border-radius:10px;border:1px solid #E2E8F0;overflow:hidden;flex-shrink:0;">
             <img id="logoPreview" src="" alt="" style="width:100%;height:100%;object-fit:contain;" />
           </div>
-          <label for="logoFile" style="flex:1;cursor:pointer;border:1px dashed #EDE7E4;border-radius:10px;padding:10px 14px;
-            font-size:12px;color:#7A7C85;text-align:center;background:#FDF8F6;margin-bottom:0;">
+          <label for="logoFile" style="flex:1;cursor:pointer;border:1px dashed #E2E8F0;border-radius:10px;padding:10px 14px;
+            font-size:12px;color:#6B7280;text-align:center;background:#F8FAFC;margin-bottom:0;">
             <span id="logoFileLabel">Click to upload PNG, JPG, or WebP (max 5 MB)</span>
             <input type="file" id="logoFile" name="logo" accept="image/*" style="display:none;" />
           </label>
@@ -466,7 +466,7 @@ router.get("/signup", (req, res) => {
         </div>
         <div class="check-row">
           <input type="checkbox" name="marketing_opt_in" value="yes" checked />
-          <span>Send me product updates and salon marketing tips. <span style="color:#7A7C85;font-size:11px;">(You can unsubscribe anytime.)</span></span>
+          <span>Send me product updates and salon marketing tips. <span style="color:#6B7280;font-size:11px;">(You can unsubscribe anytime.)</span></span>
         </div>
 
         <button type="submit" class="signup-btn" id="signup-btn">Get Started →</button>
@@ -499,7 +499,7 @@ router.get("/signup", (req, res) => {
       <hr class="divider" />
       <div class="footer-links">Already have an account? <a href="/manager/login">Sign in</a></div>
       <div style="text-align:center;margin-top:16px;">
-        <a href="${SITE_URL}" style="font-size:12px;color:#7A7C85;text-decoration:none;">← Back to MostlyPostly</a>
+        <a href="${SITE_URL}" style="font-size:12px;color:#6B7280;text-decoration:none;">← Back to MostlyPostly</a>
       </div>
     </div>
   </div>
@@ -694,18 +694,18 @@ router.get("/check-your-email", (req, res) => {
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet" />
   <style>
     *{box-sizing:border-box;margin:0;padding:0;}
-    body{font-family:'Plus Jakarta Sans',sans-serif;background:#FDF8F6;color:#2B2D35;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;}
-    .card{background:#fff;border:1px solid #EDE7E4;border-radius:20px;padding:48px 40px;max-width:460px;width:100%;text-align:center;box-shadow:0 4px 24px rgba(43,45,53,0.07);}
+    body{font-family:'Plus Jakarta Sans',sans-serif;background:#F8FAFC;color:#2B2D35;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;}
+    .card{background:#fff;border:1px solid #E2E8F0;border-radius:20px;padding:48px 40px;max-width:460px;width:100%;text-align:center;box-shadow:0 4px 24px rgba(43,45,53,0.07);}
     .icon{font-size:48px;margin-bottom:20px;}
     h1{font-size:22px;font-weight:800;margin-bottom:8px;}
-    .sub{font-size:14px;color:#7A7C85;line-height:1.6;margin-bottom:28px;}
+    .sub{font-size:14px;color:#6B7280;line-height:1.6;margin-bottom:28px;}
     .email-badge{background:#EBF3FF;border-radius:8px;padding:10px 16px;font-size:13px;font-weight:600;color:#2B2D35;display:inline-block;margin-bottom:28px;}
     .resend-form{margin-top:8px;}
     .resend-btn{background:none;border:none;color:#3B72B9;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;text-decoration:underline;}
     .success{font-size:13px;color:#059669;font-weight:600;margin-top:8px;}
     .pulse{display:inline-block;width:8px;height:8px;border-radius:50%;background:#3B72B9;margin-right:6px;animation:pulse 1.5s ease-in-out infinite;}
     @keyframes pulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:0.4;transform:scale(0.8);}}
-    .waiting{font-size:12px;color:#7A7C85;margin-top:16px;display:flex;align-items:center;justify-content:center;}
+    .waiting{font-size:12px;color:#6B7280;margin-top:16px;display:flex;align-items:center;justify-content:center;}
   </style>
 </head>
 <body>
@@ -717,12 +717,12 @@ router.get("/check-your-email", (req, res) => {
     <p class="sub">Click the link in that email to verify your account and continue setup. It expires in 24 hours.</p>
     ${resent ? `<p class="success">✓ A new verification email has been sent.</p>` : `
     <form class="resend-form" method="POST" action="/manager/resend-verification">
-      <p style="font-size:13px;color:#7A7C85;margin-bottom:8px;">Didn't get it? Check your spam folder, or</p>
+      <p style="font-size:13px;color:#6B7280;margin-bottom:8px;">Didn't get it? Check your spam folder, or</p>
       <button class="resend-btn" type="submit">resend the verification email</button>
     </form>`}
     <p class="waiting"><span class="pulse"></span> Waiting for verification…</p>
-    <div style="margin-top:24px;padding-top:20px;border-top:1px solid #EDE7E4;">
-      <a href="${SITE_URL}" style="font-size:12px;color:#7A7C85;text-decoration:none;">← Back to MostlyPostly</a>
+    <div style="margin-top:24px;padding-top:20px;border-top:1px solid #E2E8F0;">
+      <a href="${SITE_URL}" style="font-size:12px;color:#6B7280;text-decoration:none;">← Back to MostlyPostly</a>
     </div>
   </div>
   <script>
@@ -790,9 +790,9 @@ router.get("/verify-email", async (req, res) => {
   if (!manager) {
     return res.send(`<!DOCTYPE html><html><head><meta charset="UTF-8"/><title>Verification Failed</title>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;700;800&display=swap" rel="stylesheet"/>
-    <style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'Plus Jakarta Sans',sans-serif;background:#FDF8F6;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px;}
-    .card{background:#fff;border:1px solid #EDE7E4;border-radius:20px;padding:48px 40px;max-width:420px;text-align:center;}
-    h1{font-size:20px;font-weight:800;margin-bottom:12px;}p{font-size:14px;color:#7A7C85;margin-bottom:20px;}
+    <style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'Plus Jakarta Sans',sans-serif;background:#F8FAFC;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px;}
+    .card{background:#fff;border:1px solid #E2E8F0;border-radius:20px;padding:48px 40px;max-width:420px;text-align:center;}
+    h1{font-size:20px;font-weight:800;margin-bottom:12px;}p{font-size:14px;color:#6B7280;margin-bottom:20px;}
     a{color:#3B72B9;font-weight:600;}</style></head>
     <body><div class="card"><div style="font-size:40px;margin-bottom:16px;">⚠️</div>
     <h1>Link expired or already used</h1>
@@ -922,24 +922,24 @@ router.get("/forgot-password", (req, res) => {
     <div style="text-align:center;padding:8px 0 24px;">
       <div style="width:56px;height:56px;border-radius:50%;background:#EBF3FF;display:flex;align-items:center;justify-content:center;margin:0 auto 18px;font-size:26px;">📱</div>
       <h1 style="font-size:22px;font-weight:800;color:#2B2D35;margin-bottom:8px;">Check your texts</h1>
-      <p style="font-size:13px;color:#7A7C85;line-height:1.6;margin-bottom:24px;">If an account exists for that email, we texted a secure reset link to the phone number on file. It expires in 45 minutes.</p>
+      <p style="font-size:13px;color:#6B7280;line-height:1.6;margin-bottom:24px;">If an account exists for that email, we texted a secure reset link to the phone number on file. It expires in 45 minutes.</p>
       <a href="/manager/login" style="display:inline-block;background:#2B2D35;color:#fff;font-weight:700;border-radius:999px;padding:12px 28px;font-size:14px;text-decoration:none;">Back to Login</a>
     </div>
   ` : `
     <h1 style="font-size:22px;font-weight:800;color:#2B2D35;margin-bottom:6px;">Reset your password</h1>
-    <p style="font-size:13px;color:#7A7C85;margin-bottom:24px;">Enter your email and we'll text you a secure reset link.</p>
+    <p style="font-size:13px;color:#6B7280;margin-bottom:24px;">Enter your email and we'll text you a secure reset link.</p>
 
     <form method="POST" action="/manager/forgot-password">
       <label style="display:block;font-size:12px;font-weight:600;color:#2B2D35;margin-bottom:5px;">Email address</label>
       <input type="email" name="email" required placeholder="you@yoursalon.com"
-        style="width:100%;border-radius:10px;padding:11px 14px;border:1px solid #EDE7E4;background:#FDF8F6;font-size:14px;color:#2B2D35;margin-bottom:20px;font-family:inherit;box-sizing:border-box;" />
+        style="width:100%;border-radius:10px;padding:11px 14px;border:1px solid #E2E8F0;background:#F8FAFC;font-size:14px;color:#2B2D35;margin-bottom:20px;font-family:inherit;box-sizing:border-box;" />
       <button type="submit"
         style="background:#2B2D35;color:#fff;font-weight:700;border-radius:999px;padding:13px 0;width:100%;font-size:14px;border:none;cursor:pointer;font-family:inherit;">
         Send reset link →
       </button>
     </form>
     <div style="text-align:center;margin-top:16px;">
-      <a href="/manager/login" style="font-size:12px;color:#7A7C85;text-decoration:none;">← Back to login</a>
+      <a href="/manager/login" style="font-size:12px;color:#6B7280;text-decoration:none;">← Back to login</a>
     </div>
   `;
 
@@ -955,11 +955,11 @@ router.get("/forgot-password", (req, res) => {
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif; background: #FDF8F6; color: #2B2D35; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+    body { font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif; background: #F8FAFC; color: #2B2D35; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
   </style>
 </head>
 <body>
-  <div style="width:100%;max-width:420px;background:#fff;border-radius:20px;padding:40px 36px;box-shadow:0 4px 32px rgba(43,45,53,0.08);border:1px solid #EDE7E4;">
+  <div style="width:100%;max-width:420px;background:#fff;border-radius:20px;padding:40px 36px;box-shadow:0 4px 32px rgba(43,45,53,0.08);border:1px solid #E2E8F0;">
     <div style="text-align:center;margin-bottom:28px;">
       <img src="/public/logo/logo-trimmed.png" alt="MostlyPostly" style="width:240px;height:auto;" />
     </div>
@@ -1073,29 +1073,29 @@ router.get("/reset-password", (req, res) => {
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif; background: #FDF8F6; color: #2B2D35; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+    body { font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif; background: #F8FAFC; color: #2B2D35; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
   </style>
 </head>
 <body>
-  <div style="width:100%;max-width:420px;background:#fff;border-radius:20px;padding:40px 36px;box-shadow:0 4px 32px rgba(43,45,53,0.08);border:1px solid #EDE7E4;">
+  <div style="width:100%;max-width:420px;background:#fff;border-radius:20px;padding:40px 36px;box-shadow:0 4px 32px rgba(43,45,53,0.08);border:1px solid #E2E8F0;">
 
     <div style="text-align:center;margin-bottom:28px;">
       <img src="/public/logo/logo-trimmed.png" alt="MostlyPostly" style="width:240px;height:auto;" />
     </div>
 
     <h1 style="font-size:22px;font-weight:800;color:#2B2D35;margin-bottom:6px;">Set a new password</h1>
-    <p style="font-size:13px;color:#7A7C85;margin-bottom:24px;">Choose a secure password for your MostlyPostly account.</p>
+    <p style="font-size:13px;color:#6B7280;margin-bottom:24px;">Choose a secure password for your MostlyPostly account.</p>
 
     <form method="POST" action="/manager/reset-password">
       <input type="hidden" name="token" value="${safeToken}" />
 
       <label style="display:block;font-size:12px;font-weight:600;color:#2B2D35;margin-bottom:5px;">New password</label>
       <input type="password" name="password" required minlength="8" placeholder="At least 8 characters"
-        style="width:100%;border-radius:10px;padding:11px 14px;border:1px solid #EDE7E4;background:#FDF8F6;font-size:14px;color:#2B2D35;margin-bottom:16px;font-family:inherit;" />
+        style="width:100%;border-radius:10px;padding:11px 14px;border:1px solid #E2E8F0;background:#F8FAFC;font-size:14px;color:#2B2D35;margin-bottom:16px;font-family:inherit;" />
 
       <label style="display:block;font-size:12px;font-weight:600;color:#2B2D35;margin-bottom:5px;">Confirm new password</label>
       <input type="password" name="password_confirm" required minlength="8" placeholder="Re-enter password"
-        style="width:100%;border-radius:10px;padding:11px 14px;border:1px solid #EDE7E4;background:#FDF8F6;font-size:14px;color:#2B2D35;margin-bottom:20px;font-family:inherit;" />
+        style="width:100%;border-radius:10px;padding:11px 14px;border:1px solid #E2E8F0;background:#F8FAFC;font-size:14px;color:#2B2D35;margin-bottom:20px;font-family:inherit;" />
 
       <button type="submit"
         style="background:#2B2D35;color:#fff;font-weight:700;border-radius:999px;padding:13px 0;width:100%;font-size:14px;border:none;cursor:pointer;font-family:inherit;">
@@ -1104,7 +1104,7 @@ router.get("/reset-password", (req, res) => {
     </form>
 
     <div style="text-align:center;margin-top:16px;">
-      <a href="/manager/login" style="font-size:12px;color:#7A7C85;text-decoration:none;">← Back to login</a>
+      <a href="/manager/login" style="font-size:12px;color:#6B7280;text-decoration:none;">← Back to login</a>
     </div>
 
   </div>

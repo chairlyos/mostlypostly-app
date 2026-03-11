@@ -150,7 +150,7 @@ router.get("/", requireAuth, (req, res) => {
       function flashStatus(msg, isError) {
         if (!statusEl) return;
         statusEl.textContent = msg;
-        statusEl.style.color = isError ? '#dc2626' : '#7A7C85';
+        statusEl.style.color = isError ? '#dc2626' : '#6B7280';
         statusEl.style.opacity = '1';
         clearTimeout(statusEl._hideTimer);
         statusEl._hideTimer = setTimeout(() => { statusEl.style.opacity = '0'; }, 2500);

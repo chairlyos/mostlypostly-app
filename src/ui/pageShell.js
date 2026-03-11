@@ -83,10 +83,10 @@ export default function pageShell({
             mpCharcoalDark: "#1a1c22",
             mpAccent:       "#3B72B9",
             mpAccentLight:  "#EBF3FF",
-            mpBg:           "#FDF8F6",
+            mpBg:           "#F8FAFC",
             mpCard:         "#FFFFFF",
-            mpBorder:       "#EDE7E4",
-            mpMuted:        "#7A7C85",
+            mpBorder:       "#E2E8F0",
+            mpMuted:        "#6B7280",
           }
         }
       }

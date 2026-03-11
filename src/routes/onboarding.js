@@ -170,23 +170,23 @@ function pageTemplate({ step, stepLabel, content }) {
               mpCharcoalDark: "#1a1c22",
               mpAccent:       "#3B72B9",
               mpAccentLight:  "#EBF3FF",
-              mpBg:           "#FDF8F6",
+              mpBg:           "#F8FAFC",
               mpCard:         "#FFFFFF",
-              mpBorder:       "#EDE7E4",
-              mpMuted:        "#7A7C85",
+              mpBorder:       "#E2E8F0",
+              mpMuted:        "#6B7280",
             }
           }
         }
       };
     </script>
     <style>
-      body { font-family: ‘Plus Jakarta Sans’, ui-sans-serif, system-ui, sans-serif; background: #FDF8F6; color: #2B2D35; }
+      body { font-family: ‘Plus Jakarta Sans’, ui-sans-serif, system-ui, sans-serif; background: #F8FAFC; color: #2B2D35; }
     </style>
   </head>
 
   <body>
     <!-- Header -->
-    <header style="background:#fff;border-bottom:1px solid #EDE7E4;padding:12px 24px 12px 0;">
+    <header style="background:#fff;border-bottom:1px solid #E2E8F0;padding:12px 24px 12px 0;">
       <img src="/public/logo/logo-trimmed.png" alt="MostlyPostly" style="height:40px;width:auto;display:block;" />
     </header>
 
@@ -195,11 +195,11 @@ function pageTemplate({ step, stepLabel, content }) {
       <!-- Progress / step info (top on mobile, left sidebar on desktop) -->
       <div class="md:w-1/3 mb-6 md:mb-0">
         <h1 class="text-2xl font-extrabold mb-2" style="color:#2B2D35;">Set up your salon</h1>
-        <p style="color:#7A7C85;font-size:14px;margin-bottom:20px;line-height:1.6;">Let’s get MostlyPostly configured for your team. It only takes a few minutes.</p>
+        <p style="color:#6B7280;font-size:14px;margin-bottom:20px;line-height:1.6;">Let’s get MostlyPostly configured for your team. It only takes a few minutes.</p>
 
         <div class="mb-4">
-          <div style="font-size:12px;font-weight:600;color:#7A7C85;margin-bottom:8px;">Step ${step} of 7</div>
-          <div style="width:100%;background:#EDE7E4;height:6px;border-radius:99px;overflow:hidden;">
+          <div style="font-size:12px;font-weight:600;color:#6B7280;margin-bottom:8px;">Step ${step} of 7</div>
+          <div style="width:100%;background:#E2E8F0;height:6px;border-radius:99px;overflow:hidden;">
             <div style="background:#3B72B9;height:6px;border-radius:99px;width:${Math.round((step / 7) * 100)}%;transition:width 0.3s;"></div>
           </div>
         </div>
@@ -209,11 +209,11 @@ function pageTemplate({ step, stepLabel, content }) {
 
       <!-- Form content -->
       <div class="md:w-2/3">
-        <div style="background:#fff;border:1px solid #EDE7E4;border-radius:16px;padding:28px;box-shadow:0 2px 12px rgba(43,45,53,0.05);">
+        <div style="background:#fff;border:1px solid #E2E8F0;border-radius:16px;padding:28px;box-shadow:0 2px 12px rgba(43,45,53,0.05);">
 
           ${content}
 
-          ${step > 1 ? `<a href="/onboarding/${backRoute}" style="display:inline-block;margin-top:20px;font-size:13px;color:#7A7C85;text-decoration:underline;">← Back</a>` : ""}
+          ${step > 1 ? `<a href="/onboarding/${backRoute}" style="display:inline-block;margin-top:20px;font-size:13px;color:#6B7280;text-decoration:underline;">← Back</a>` : ""}
         </div>
       </div>
 
@@ -463,7 +463,7 @@ function paletteSwatches(palette) {
       <div class="flex-1">
         <p class="text-sm font-medium" style="color:#2B2D35;">${label}</p>
         <input type="text" name="${key}" value="${palette[key] || ''}" placeholder="#000000"
-               style="font-family:monospace;font-size:13px;border:1px solid #EDE7E4;border-radius:8px;padding:4px 10px;width:110px;color:#2B2D35;background:#fff;"
+               style="font-family:monospace;font-size:13px;border:1px solid #E2E8F0;border-radius:8px;padding:4px 10px;width:110px;color:#2B2D35;background:#fff;"
                oninput="var el=document.getElementById('swatch-${key}');if(this.value.match(/^#[0-9a-fA-F]{6}$/))el.style.background=this.value;" />
       </div>
     </div>
@@ -504,17 +504,17 @@ router.get("/brand", async (req, res) => {
       <form method="POST" class="space-y-4">
         ${paletteSwatches(palette)}
         <div class="pt-4 border-t border-mpBorder mt-4">
-          <p class="text-xs mb-4" style="color:#7A7C85;">These colors will be used on your availability and promotion posts. Edit any hex value above to adjust.</p>
+          <p class="text-xs mb-4" style="color:#6B7280;">These colors will be used on your availability and promotion posts. Edit any hex value above to adjust.</p>
           <button type="submit" style="width:100%;background:#2B2D35;color:#fff;font-weight:700;padding:12px;border-radius:999px;border:none;font-size:14px;cursor:pointer;">
             Looks good — Continue →
           </button>
-          <a href="/onboarding/brand?reset=1" style="display:block;text-align:center;font-size:13px;color:#7A7C85;text-decoration:underline;margin-top:12px;">
+          <a href="/onboarding/brand?reset=1" style="display:block;text-align:center;font-size:13px;color:#6B7280;text-decoration:underline;margin-top:12px;">
             Re-extract colors
           </a>
         </div>
       </form>
     ` : `
-      <p class="text-sm mb-5" style="color:#7A7C85;">
+      <p class="text-sm mb-5" style="color:#6B7280;">
         ${salon.website
           ? `We couldn't automatically extract colors from <span style="font-family:monospace;color:#3B72B9;">${salon.website}</span>.`
           : `No website set — colors couldn't be auto-extracted.`}
@@ -523,11 +523,11 @@ router.get("/brand", async (req, res) => {
       <form method="POST" class="space-y-4">
         ${paletteSwatches({ primary: "", secondary: "", accent: "", accent_light: "", cta: "" })}
         <div class="pt-4 border-t border-mpBorder mt-2">
-          <p class="text-xs mb-4" style="color:#7A7C85;">These colors will be used on your promotion and availability posts. You can update them anytime in Admin → Brand Colors.</p>
+          <p class="text-xs mb-4" style="color:#6B7280;">These colors will be used on your promotion and availability posts. You can update them anytime in Admin → Brand Colors.</p>
           <button type="submit" style="width:100%;background:#2B2D35;color:#fff;font-weight:700;padding:12px;border-radius:999px;border:none;font-size:14px;cursor:pointer;">
             Save Colors — Continue →
           </button>
-          <button type="submit" name="skip" value="1" style="display:block;width:100%;margin-top:12px;background:transparent;border:none;font-size:13px;color:#7A7C85;text-decoration:underline;cursor:pointer;text-align:center;">
+          <button type="submit" name="skip" value="1" style="display:block;width:100%;margin-top:12px;background:transparent;border:none;font-size:13px;color:#6B7280;text-decoration:underline;cursor:pointer;text-align:center;">
             Skip for now
           </button>
         </div>

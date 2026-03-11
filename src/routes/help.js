@@ -21,19 +21,19 @@ function shell(title, body) {
         extend: {
           colors: {
             mpCharcoal: "#2B2D35", mpAccent: "#3B72B9",
-            mpAccentLight: "#EBF3FF", mpBg: "#FDF8F6",
-            mpBorder: "#EDE7E4", mpMuted: "#7A7C85",
+            mpAccentLight: "#EBF3FF", mpBg: "#F8FAFC",
+            mpBorder: "#E2E8F0", mpMuted: "#6B7280",
           }
         }
       }
     };
   </script>
   <style>
-    body { font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif; background: #FDF8F6; color: #2B2D35; }
+    body { font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif; background: #F8FAFC; color: #2B2D35; }
   </style>
 </head>
 <body class="max-w-xl mx-auto px-5 pb-16">
-  <header style="padding:18px 0 14px; margin-bottom:24px; border-bottom:1px solid #EDE7E4;">
+  <header style="padding:18px 0 14px; margin-bottom:24px; border-bottom:1px solid #E2E8F0;">
     <img src="/public/logo/logo-trimmed.png" alt="MostlyPostly" style="height:36px;width:auto;" />
   </header>
   ${body}
