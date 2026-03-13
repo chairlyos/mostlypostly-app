@@ -343,11 +343,13 @@ router.get("/", (req, res) => {
       document.querySelectorAll('[data-sync-btn]').forEach(b => { b.textContent = label; b.disabled = disabled; });
     }
 
+    const csrfToken = () => document.querySelector('meta[name="csrf-token"]')?.content || '';
+
     async function runBackfill() {
       setSyncBtns('Working…', true);
       showToast('Backfilling FB post IDs…', 30000);
       try {
-        const res = await fetch('/analytics/backfill-fb-ids${qs}', { method: 'POST' });
+        const res = await fetch('/analytics/backfill-fb-ids${qs}', { method: 'POST', headers: { 'X-CSRF-Token': csrfToken() } });
         const data = await res.json();
         const msg = res.ok ? 'Matched ' + data.matched + ' of ' + data.scanned + ' posts.' : 'Error: ' + (data.error || 'unknown');
         showToast(msg, 5000, () => { if (res.ok && data.matched > 0) location.reload(); });
@@ -363,7 +365,7 @@ router.get("/", (req, res) => {
       setSyncBtns('Working…', true);
       showToast('Resetting & relinking FB post IDs…', 30000);
       try {
-        const res = await fetch('/analytics/reset-and-backfill-fb-ids${qs}', { method: 'POST' });
+        const res = await fetch('/analytics/reset-and-backfill-fb-ids${qs}', { method: 'POST', headers: { 'X-CSRF-Token': csrfToken() } });
         const data = await res.json();
         const msg = res.ok
           ? 'Cleared ' + data.cleared + ' IDs, matched ' + data.matched + ' of ' + data.fb_posts_fetched + ' FB posts.'
@@ -380,7 +382,7 @@ router.get("/", (req, res) => {
       setSyncBtns('Syncing…', true);
       showToast('Syncing insights from Facebook & Instagram…', 30000);
       try {
-        const res = await fetch('/analytics/sync${qs}', { method: 'POST' });
+        const res = await fetch('/analytics/sync${qs}', { method: 'POST', headers: { 'X-CSRF-Token': csrfToken() } });
         const data = await res.json();
         let msg;
         if (!res.ok) {
