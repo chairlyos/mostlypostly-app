@@ -2,7 +2,7 @@
 // Manager profile self-service: update name, email, phone, password, MFA.
 
 import express from "express";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import db from "../../db.js";
 import pageShell from "../ui/pageShell.js";
 
