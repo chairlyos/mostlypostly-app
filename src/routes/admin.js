@@ -649,10 +649,9 @@ router.get("/", requireAuth, (req, res) => {
   <!-- ═══════════════════════════════════════════════════════ -->
   ${(() => {
     const stockPhotos = db.prepare(
-      `SELECT sp.id, sp.label, sp.url, sp.stylist_id, s.name AS stylist_name
+      `SELECT sp.id, sp.label, sp.url
        FROM stock_photos sp
-       LEFT JOIN stylists s ON s.id = sp.stylist_id
-       WHERE sp.salon_id = ?
+       WHERE sp.salon_id = ? AND sp.stylist_id IS NULL
        ORDER BY sp.created_at DESC`
     ).all(salon_id);
 
