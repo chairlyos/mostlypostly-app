@@ -65,14 +65,29 @@ export default function csrfProtection() {
 
     // Auto-inject CSRF token into all HTML responses:
     //   1. Hidden field in every <form method="POST"> — no per-route changes needed
-    //   2. <meta name="csrf-token"> in <head> — for client-side JS (admin.js modals)
+    //   2. For multipart/form-data forms, inject token as ?_csrf= query param in the
+    //      action URL instead, because the body isn't parsed until multer runs (after
+    //      this middleware), so req.body._csrf would always be undefined for file uploads.
+    //   3. <meta name="csrf-token"> in <head> — for client-side JS (admin.js modals)
     const originalSend = res.send.bind(res);
     res.send = function (body) {
       if (typeof body === "string" && body.includes("<form")) {
-        // Inject hidden field after opening tag of any POST form
         body = body.replace(
           /(<form[^>]+method=["']?post["']?[^>]*>)/gi,
-          `$1<input type="hidden" name="_csrf" value="${token}">`
+          (match) => {
+            const isMultipart = /enctype=["']multipart\/form-data["']/i.test(match);
+            if (isMultipart) {
+              // Inject token into the action URL query string
+              return match.replace(
+                /(action=["'])([^"']*)(["'])/i,
+                (_, q1, url, q2) => {
+                  const sep = url.includes("?") ? "&" : "?";
+                  return `${q1}${url}${sep}_csrf=${token}${q2}`;
+                }
+              );
+            }
+            return `${match}<input type="hidden" name="_csrf" value="${token}">`;
+          }
         );
       }
       if (typeof body === "string" && body.includes("</head>")) {

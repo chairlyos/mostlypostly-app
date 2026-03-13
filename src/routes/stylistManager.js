@@ -435,78 +435,166 @@ router.get("/edit/:id/photos", requireAuth, (req, res) => {
   const qs = `?salon=${encodeURIComponent(salon_id)}`;
   const photoCards = photos.length
     ? photos.map(p => `
-        <div class="relative group rounded-2xl overflow-hidden border border-mpBorder bg-white">
+        <div class="relative group rounded-2xl overflow-hidden border border-mpBorder bg-white shadow-sm">
           <img src="${safe(p.url)}" class="w-full h-44 object-cover" />
-          <div class="px-3 py-2">
+          <div class="px-3 py-2.5">
             <span class="inline-block text-[10px] font-semibold uppercase tracking-wide rounded-full px-2 py-0.5 bg-mpAccentLight text-mpAccent">${safe(p.category || "general")}</span>
-            ${p.label ? `<p class="text-xs text-mpMuted mt-0.5 truncate">${safe(p.label)}</p>` : ""}
+            ${p.label ? `<p class="text-xs text-mpMuted mt-1 truncate">${safe(p.label)}</p>` : `<p class="text-xs text-mpBorder mt-1">No label</p>`}
           </div>
-          <form method="POST" action="/manager/stylists/${safe(stylist.id)}/photos/delete${qs}" class="absolute top-2 right-2">
+          <form method="POST" action="/manager/stylists/${safe(stylist.id)}/photos/delete${qs}" class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
             <input type="hidden" name="photo_id" value="${safe(p.id)}" />
-            <button class="rounded-full bg-white border border-mpBorder shadow px-2 py-0.5 text-xs text-red-500 hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100">Remove</button>
+            <button class="rounded-full bg-white border border-mpBorder shadow px-2.5 py-1 text-xs font-semibold text-red-500 hover:bg-red-50 transition-colors">Remove</button>
           </form>
         </div>`).join("")
-    : `<p class="text-sm text-mpMuted col-span-2">No photos uploaded yet.</p>`;
+    : `<p class="text-sm text-mpMuted col-span-full">No photos uploaded yet.</p>`;
 
   const body = `
-    <div class="mb-6">
-      <h1 class="text-2xl font-bold">Photo Library — ${safe(stylist.name)}</h1>
-      <p class="text-sm text-mpMuted mt-0.5">
-        <a href="/manager/stylists/edit/${safe(stylist.id)}${qs}" class="text-mpAccent underline">← Back to stylist</a>
-      </p>
+    <div class="mb-6 flex items-start justify-between gap-4">
+      <div>
+        <h1 class="text-2xl font-bold text-mpCharcoal">Photo Library — ${safe(stylist.name)}</h1>
+        <p class="text-sm text-mpMuted mt-0.5">
+          <a href="/manager/stylists/edit/${safe(stylist.id)}${qs}" class="text-mpAccent hover:underline">← Back to stylist</a>
+        </p>
+      </div>
+      <button onclick="document.getElementById('photo-file-input').click()"
+        class="shrink-0 inline-flex items-center gap-2 rounded-full bg-mpCharcoal px-5 py-2.5 text-sm font-semibold text-white hover:bg-mpCharcoalDark transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+        Select Photos
+      </button>
     </div>
 
-    <div class="rounded-2xl border border-mpBorder bg-white p-6 mb-6 max-w-2xl">
-      <h2 class="text-sm font-bold text-mpCharcoal mb-1">Upload Photos</h2>
-      <p class="text-xs text-mpMuted mb-4">These photos are used as backgrounds for availability and promotion posts. Upload in-chair shots, styling photos, or professional headshots.</p>
-      <form method="POST" action="/manager/stylists/${safe(stylist.id)}/photos/upload${qs}" enctype="multipart/form-data" class="space-y-3">
-        <input type="file" name="photo" accept="image/*" required multiple
-          class="w-full text-sm text-mpMuted file:mr-3 file:py-1.5 file:px-3 file:rounded-full file:border-0
-                 file:text-xs file:font-semibold file:bg-mpAccentLight file:text-mpAccent
-                 hover:file:bg-mpAccent hover:file:text-white transition-colors" />
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="block text-xs font-semibold text-mpMuted mb-1">Category</label>
-            <select name="category" class="w-full rounded-xl border border-mpBorder px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-mpAccent">
-              <option value="styling">Stylist Work</option>
-              <option value="profile">Profile / Headshot</option>
-            </select>
+    <!-- Upload form — hidden file input, preview grid shown after selection -->
+    <form id="photo-upload-form" method="POST" action="/manager/stylists/${safe(stylist.id)}/photos/upload${qs}" enctype="multipart/form-data">
+      <input id="photo-file-input" type="file" name="photos" accept="image/*" multiple class="hidden" />
+
+      <!-- Preview area — shown after files selected -->
+      <div id="upload-preview-area" class="hidden mb-6">
+        <div class="rounded-2xl border border-mpBorder bg-white p-5 shadow-sm">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-sm font-bold text-mpCharcoal">Tag your photos before uploading</h2>
+            <button type="button" onclick="clearSelection()" class="text-xs text-mpMuted hover:text-red-500 transition-colors">Clear selection</button>
           </div>
-          <div>
-            <label class="block text-xs font-semibold text-mpMuted mb-1">Label <span class="font-normal text-mpMuted">(optional)</span></label>
-            <input type="text" name="label" placeholder="e.g. Balayage session"
-              class="w-full rounded-xl border border-mpBorder px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-mpAccent" />
+          <div id="photo-preview-grid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mb-5"></div>
+          <div class="flex items-center justify-between pt-4 border-t border-mpBorder">
+            <p id="upload-count-label" class="text-xs text-mpMuted"></p>
+            <button type="submit" id="upload-submit-btn"
+              class="inline-flex items-center gap-2 rounded-full bg-mpAccent px-6 py-2.5 text-sm font-bold text-white hover:bg-[#2E5E9E] transition-colors">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+              Upload Photos
+            </button>
           </div>
         </div>
-        <button class="inline-flex items-center gap-1.5 rounded-full bg-mpCharcoal px-5 py-2 text-xs font-semibold text-white hover:bg-mpCharcoalDark transition-colors">
-          Upload Photos
-        </button>
-      </form>
-    </div>
+      </div>
 
-    <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 max-w-2xl">
+      <!-- Empty state prompt — shown before any selection -->
+      <div id="upload-empty-state" class="rounded-2xl border-2 border-dashed border-mpBorder bg-mpBg p-10 text-center mb-6 cursor-pointer hover:border-mpAccent transition-colors" onclick="document.getElementById('photo-file-input').click()">
+        <div class="mx-auto w-12 h-12 rounded-2xl bg-mpAccentLight flex items-center justify-center mb-3">
+          <svg class="w-6 h-6 text-mpAccent" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3 20.25h18M20.25 7.5l-.625.025M12 12.75a3 3 0 110-6 3 3 0 010 6z"/></svg>
+        </div>
+        <p class="text-sm font-semibold text-mpCharcoal">Click to select photos</p>
+        <p class="text-xs text-mpMuted mt-1">JPEG, PNG, WebP · Up to 10 MB each · Select multiple at once</p>
+      </div>
+    </form>
+
+    <!-- Uploaded photos grid -->
+    <div class="mb-3 flex items-center justify-between">
+      <h2 class="text-sm font-bold text-mpCharcoal">Uploaded Photos <span class="font-normal text-mpMuted">(${photos.length})</span></h2>
+    </div>
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
       ${photoCards}
     </div>
+
+    <script>
+      const fileInput = document.getElementById('photo-file-input');
+      const previewArea = document.getElementById('upload-preview-area');
+      const emptyState = document.getElementById('upload-empty-state');
+      const previewGrid = document.getElementById('photo-preview-grid');
+      const countLabel = document.getElementById('upload-count-label');
+
+      const CATEGORIES = [
+        { value: 'styling', label: 'Stylist Work' },
+        { value: 'profile', label: 'Profile / Headshot' },
+      ];
+
+      fileInput.addEventListener('change', () => {
+        const files = Array.from(fileInput.files);
+        if (!files.length) return;
+
+        previewGrid.innerHTML = '';
+        files.forEach((file, i) => {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            const card = document.createElement('div');
+            card.className = 'rounded-xl border border-mpBorder bg-white overflow-hidden';
+            card.innerHTML = \`
+              <div class="relative">
+                <img src="\${e.target.result}" class="w-full h-36 object-cover" />
+                <div class="absolute top-1.5 left-1.5 rounded-full bg-black/50 px-2 py-0.5 text-[10px] font-semibold text-white">\${i + 1}</div>
+              </div>
+              <div class="p-2.5 space-y-2">
+                <select name="categories" class="w-full rounded-lg border border-gray-200 bg-gray-50 px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-mpAccent">
+                  \${CATEGORIES.map(c => '<option value="' + c.value + '">' + c.label + '</option>').join('')}
+                </select>
+                <input type="text" name="labels" placeholder="Label (optional)"
+                  class="w-full rounded-lg border border-gray-200 bg-gray-50 px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-mpAccent" />
+              </div>
+            \`;
+            previewGrid.appendChild(card);
+          };
+          reader.readAsDataURL(file);
+        });
+
+        countLabel.textContent = files.length === 1 ? '1 photo selected' : files.length + ' photos selected';
+        previewArea.classList.remove('hidden');
+        emptyState.classList.add('hidden');
+      });
+
+      function clearSelection() {
+        fileInput.value = '';
+        previewGrid.innerHTML = '';
+        previewArea.classList.add('hidden');
+        emptyState.classList.remove('hidden');
+      }
+
+      // Show spinner on submit
+      document.getElementById('photo-upload-form').addEventListener('submit', () => {
+        const btn = document.getElementById('upload-submit-btn');
+        btn.disabled = true;
+        btn.textContent = 'Uploading…';
+      });
+    </script>
   `;
 
   res.send(pageShell({ title: `${stylist.name} Photos`, body, salon_id, current: "team" }));
 });
 
-// ── POST /edit/:id/photos/upload ──────────────────────────────────────────────
-router.post("/:id/photos/upload", requireAuth, libraryUpload.single("photo"), (req, res) => {
+// ── POST /edit/:id/photos/upload — multi-file ─────────────────────────────────
+router.post("/:id/photos/upload", requireAuth, libraryUpload.array("photos", 20), (req, res) => {
   const salon_id = req.manager.salon_id;
   const stylist = db.prepare("SELECT id FROM stylists WHERE id = ? AND salon_id = ?").get(req.params.id, salon_id);
-  if (!stylist || !req.file) return res.redirect(`/manager/stylists?salon=${encodeURIComponent(salon_id)}`);
+  if (!stylist || !req.files?.length) return res.redirect(`/manager/stylists/edit/${req.params.id}/photos?salon=${encodeURIComponent(salon_id)}`);
 
   const base = (process.env.PUBLIC_BASE_URL || "").replace(/\/$/, "");
-  const url = `${base}/uploads/${req.file.filename}`;
-  const category = ["styling", "profile"].includes(req.body.category) ? req.body.category : "styling";
-  const label = (req.body.label || "").trim() || null;
 
-  db.prepare(`
+  // labels and categories arrive as parallel arrays (or single strings if only 1 file)
+  const rawLabels = Array.isArray(req.body.labels) ? req.body.labels : [req.body.labels ?? ""];
+  const rawCats   = Array.isArray(req.body.categories) ? req.body.categories : [req.body.categories ?? "styling"];
+
+  const insert = db.prepare(`
     INSERT INTO stock_photos (id, salon_id, stylist_id, label, url, category)
     VALUES (?, ?, ?, ?, ?, ?)
-  `).run(crypto.randomUUID(), salon_id, stylist.id, label, url, category);
+  `);
+
+  const insertMany = db.transaction((files) => {
+    files.forEach((file, i) => {
+      const url      = `${base}/uploads/${file.filename}`;
+      const category = ["styling", "profile"].includes(rawCats[i]) ? rawCats[i] : "styling";
+      const label    = (rawLabels[i] || "").trim() || null;
+      insert.run(crypto.randomUUID(), salon_id, stylist.id, label, url, category);
+    });
+  });
+
+  insertMany(req.files);
 
   res.redirect(`/manager/stylists/edit/${stylist.id}/photos?salon=${encodeURIComponent(salon_id)}`);
 });
