@@ -283,7 +283,7 @@ router.get("/", requireAuth, (req, res) => {
       <div class="rounded-2xl border border-mpBorder bg-white px-4 py-4">
         <div class="flex items-center justify-between mb-3">
           <h2 class="text-sm font-semibold text-mpCharcoal">Business Info</h2>
-          <button onclick="window.admin.openSalonInfo()" class="text-mpMuted hover:text-mpCharcoal text-xs">✏️</button>
+          <a href="/manager/admin/edit/business-info" class="text-xs text-mpAccent hover:text-mpCharcoal font-medium">Edit</a>
         </div>
 
         <!-- Logo -->
@@ -350,7 +350,7 @@ router.get("/", requireAuth, (req, res) => {
           <div class="flex flex-col gap-1 mt-2">
             <div class="flex justify-between mb-1">
               <dt class="text-mpMuted">Default Hashtags</dt>
-              <button onclick="window.admin.openHashtags()" class="text-mpMuted hover:text-mpCharcoal text-xs">✏️</button>
+              <a href="/manager/admin/edit/business-info#hashtags" class="text-xs text-mpAccent hover:text-mpCharcoal font-medium">Edit</a>
             </div>
             <dd class="flex flex-wrap gap-1">
               <!-- Primary salon tag (locked) -->
@@ -381,7 +381,6 @@ router.get("/", requireAuth, (req, res) => {
         <div>
           <div class="flex items-center justify-between mb-1">
             <h2 class="text-sm font-semibold text-mpCharcoal">Posting Availability</h2>
-            <button onclick="window.admin.openPostingRules()" class="text-mpMuted hover:text-mpCharcoal text-xs">✏️</button>
           </div>
           <p class="text-xs text-mpMuted mb-3">Days and times when posts can be published, in your salon's timezone.</p>
           <dl class="space-y-1 text-xs text-mpCharcoal mb-4">
@@ -413,7 +412,7 @@ router.get("/", requireAuth, (req, res) => {
       <div class="rounded-2xl border border-mpBorder bg-white px-4 py-4">
         <div class="flex items-center justify-between mb-2">
           <h2 class="text-sm font-semibold text-mpCharcoal">Manager Rules</h2>
-          <button onclick="window.admin.openManagerRules()" class="text-mpMuted hover:text-mpCharcoal text-xs">✏️</button>
+          <a href="/manager/admin/edit/manager-rules" class="text-xs text-mpAccent hover:text-mpCharcoal font-medium">Edit</a>
         </div>
 
         <dl class="space-y-1 text-xs text-mpCharcoal">
@@ -749,6 +748,196 @@ router.get("/", requireAuth, (req, res) => {
 });
 
 // -------------------------------------------------------
+// GET: Edit Business Info page
+// -------------------------------------------------------
+router.get("/edit/business-info", requireAuth, (req, res) => {
+  const salon_id = req.manager.salon_id;
+  const manager_phone = req.manager?.manager_phone;
+  const row = db.prepare(`SELECT * FROM salons WHERE slug = ?`).get(salon_id);
+  if (!row) return res.redirect("/manager/admin");
+
+  let defaultHashtags = [];
+  try {
+    const parsed = JSON.parse(row.default_hashtags || "[]");
+    defaultHashtags = Array.isArray(parsed) ? parsed : [];
+  } catch {}
+  const salonTag = defaultHashtags[0] || "";
+  const customTags = defaultHashtags.slice(1);
+
+  const tzOptions = [
+    ["America/New_York",               "Eastern (US & Canada)"],
+    ["America/Chicago",                "Central (US & Canada)"],
+    ["America/Indiana/Indianapolis",   "Eastern — Indiana"],
+    ["America/Denver",                 "Mountain (US & Canada)"],
+    ["America/Phoenix",                "Mountain (No DST) — Arizona"],
+    ["America/Los_Angeles",            "Pacific (US & Canada)"],
+    ["America/Anchorage",              "Alaska"],
+    ["Pacific/Honolulu",               "Hawaii"],
+  ];
+  const cur_tz = row.timezone || "America/Indiana/Indianapolis";
+
+  const industryOptions = ["Hair Salon","Beauty Salon","Nail Salon","Spa","Barber Shop","Med Spa"];
+  const toneOptions = ["Professional","Fun & Energetic","Clean & Modern","Bold & Trendy","Warm & Friendly","Minimalistic","Classic Salon Voice"];
+
+  const inputCls = "w-full mt-1 border border-mpBorder bg-mpBg rounded-lg px-3 py-2 text-sm text-mpCharcoal focus:border-mpAccent focus:outline-none focus:ring-2 focus:ring-mpAccent/20";
+
+  const body = `
+    <div class="max-w-lg mx-auto">
+      <div class="mb-6 flex items-center gap-3">
+        <a href="/manager/admin" class="text-mpMuted hover:text-mpCharcoal text-sm">← Admin</a>
+        <h1 class="text-xl font-bold text-mpCharcoal">Edit Business Info</h1>
+      </div>
+
+      <form method="POST" action="/manager/admin/update-salon-info" class="space-y-4 bg-white rounded-2xl border border-mpBorder p-6 mb-6">
+        <div>
+          <label class="text-xs font-semibold text-mpMuted">Salon Name</label>
+          <input name="name" value="${row.name || ""}" class="${inputCls}" />
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-mpMuted">Street Address</label>
+          <input name="address" value="${row.address || ""}" placeholder="123 Main St" class="${inputCls}" />
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs font-semibold text-mpMuted">City</label>
+            <input name="city" value="${row.city || ""}" class="${inputCls}" />
+          </div>
+          <div>
+            <label class="text-xs font-semibold text-mpMuted">State</label>
+            <select name="state" class="${inputCls}">
+              <option value="">Select State</option>
+              ${["AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","MA","MD","ME","MI","MN","MO","MS","MT","NC","ND","NE","NH","NJ","NM","NV","NY","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VA","VT","WA","WI","WV","WY"]
+                .map(s => `<option value="${s}"${row.state === s ? " selected" : ""}>${s}</option>`).join("")}
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-mpMuted">ZIP</label>
+          <input name="zip" value="${row.zip || ""}" class="${inputCls}" />
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-mpMuted">Website</label>
+          <input name="website" value="${row.website || ""}" class="${inputCls}" />
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-mpMuted">Booking URL</label>
+          <input name="booking_url" value="${row.booking_url || ""}" class="${inputCls}" />
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-mpMuted">Industry</label>
+          <select name="industry" class="${inputCls}">
+            ${industryOptions.map(o => `<option${row.industry === o ? " selected" : ""}>${o}</option>`).join("")}
+          </select>
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-mpMuted">Timezone</label>
+          <select name="timezone" class="${inputCls}">
+            ${tzOptions.map(([val, label]) => `<option value="${val}"${cur_tz === val ? " selected" : ""}>${label}</option>`).join("")}
+          </select>
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-mpMuted">Brand Voice / Tone</label>
+          <select name="tone_profile" class="${inputCls}">
+            ${toneOptions.map(o => `<option${(row.tone || "") === o ? " selected" : ""}>${o}</option>`).join("")}
+          </select>
+        </div>
+        <div class="flex gap-3 pt-2">
+          <button type="submit" class="flex-1 bg-mpCharcoal hover:bg-mpCharcoalDark text-white font-semibold rounded-full py-2.5 transition-colors">Save Changes</button>
+          <a href="/manager/admin" class="flex-1 text-center border border-mpBorder rounded-full py-2.5 text-sm text-mpMuted hover:text-mpCharcoal transition-colors">Cancel</a>
+        </div>
+      </form>
+
+      <div class="bg-white rounded-2xl border border-mpBorder p-6">
+        <h2 class="text-sm font-semibold text-mpCharcoal mb-4">Default Hashtags</h2>
+        <form method="POST" action="/manager/admin/update-hashtags" class="space-y-3">
+          <div>
+            <label class="text-xs font-semibold text-mpMuted">Primary Salon Tag (locked)</label>
+            <input name="salon_tag" value="${salonTag}" class="${inputCls}" />
+            <p class="text-[11px] text-mpMuted mt-1">Used on every post. Usually your salon handle.</p>
+          </div>
+          <div>
+            <label class="text-xs font-semibold text-mpMuted">Custom Hashtags (up to 4, space or comma separated)</label>
+            <input name="custom_tags_raw" value="${customTags.join(" ")}"
+              placeholder="#balayage #haircolor #hairstyle" class="${inputCls}" />
+          </div>
+          <input type="hidden" name="hashtags_json" id="hashtags-json-input" />
+          <div class="flex gap-3 pt-1">
+            <button type="submit" onclick="
+              const salon = document.querySelector('[name=salon_tag]').value.trim().replace(/^#+/,'');
+              const custom = document.querySelector('[name=custom_tags_raw]').value
+                .split(/[,\\s]+/).map(t=>t.trim().replace(/^#+/,'')).filter(Boolean).slice(0,4);
+              const all = (salon ? ['#'+salon] : []).concat(custom.map(t=>'#'+t));
+              document.getElementById('hashtags-json-input').value = JSON.stringify(all);
+            " class="flex-1 bg-mpCharcoal hover:bg-mpCharcoalDark text-white font-semibold rounded-full py-2.5 transition-colors">Save Hashtags</button>
+            <a href="/manager/admin" class="flex-1 text-center border border-mpBorder rounded-full py-2.5 text-sm text-mpMuted hover:text-mpCharcoal transition-colors">Cancel</a>
+          </div>
+        </form>
+      </div>
+    </div>`;
+
+  res.send(pageShell({ title: "Edit Business Info", body, salon_id, manager_phone, current: "admin" }));
+});
+
+// -------------------------------------------------------
+// GET: Edit Manager Rules page
+// -------------------------------------------------------
+router.get("/edit/manager-rules", requireAuth, (req, res) => {
+  const salon_id = req.manager.salon_id;
+  const manager_phone = req.manager?.manager_phone;
+  const row = db.prepare(`SELECT * FROM salons WHERE slug = ?`).get(salon_id);
+  if (!row) return res.redirect("/manager/admin");
+
+  const selectCls = "w-full mt-1 border border-mpBorder bg-mpBg rounded-lg px-3 py-2 text-sm text-mpCharcoal focus:border-mpAccent focus:outline-none focus:ring-2 focus:ring-mpAccent/20";
+  const sel = (val) => val ? ' selected' : '';
+
+  const body = `
+    <div class="max-w-lg mx-auto">
+      <div class="mb-6 flex items-center gap-3">
+        <a href="/manager/admin" class="text-mpMuted hover:text-mpCharcoal text-sm">← Admin</a>
+        <h1 class="text-xl font-bold text-mpCharcoal">Edit Manager Rules</h1>
+      </div>
+      <form method="POST" action="/manager/admin/update-manager-rules" class="space-y-4 bg-white rounded-2xl border border-mpBorder p-6">
+        <div>
+          <label class="text-xs font-semibold text-mpMuted">Require Manager Approval</label>
+          <p class="text-[11px] text-mpMuted mb-1">When enabled, all stylist posts require your approval before publishing.</p>
+          <select name="require_manager_approval" class="${selectCls}">
+            <option value="0"${sel(!row.require_manager_approval)}>Disabled</option>
+            <option value="1"${sel(row.require_manager_approval)}>Enabled</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-mpMuted">Auto Publish</label>
+          <p class="text-[11px] text-mpMuted mb-1">Automatically publish approved posts on schedule without manual confirmation.</p>
+          <select name="auto_publish" class="${selectCls}">
+            <option value="0"${sel(!row.auto_publish)}>Disabled</option>
+            <option value="1"${sel(row.auto_publish)}>Enabled</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-mpMuted">Notify Stylist on Approval</label>
+          <select name="notify_on_approval" class="${selectCls}">
+            <option value="0"${sel(!row.notify_on_approval)}>Disabled</option>
+            <option value="1"${sel(row.notify_on_approval)}>Enabled</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-mpMuted">Notify Stylist on Denial</label>
+          <select name="notify_on_denial" class="${selectCls}">
+            <option value="0"${sel(!row.notify_on_denial)}>Disabled</option>
+            <option value="1"${sel(row.notify_on_denial)}>Enabled</option>
+          </select>
+        </div>
+        <div class="flex gap-3 pt-2">
+          <button type="submit" class="flex-1 bg-mpCharcoal hover:bg-mpCharcoalDark text-white font-semibold rounded-full py-2.5 transition-colors">Save</button>
+          <a href="/manager/admin" class="flex-1 text-center border border-mpBorder rounded-full py-2.5 text-sm text-mpMuted hover:text-mpCharcoal transition-colors">Cancel</a>
+        </div>
+      </form>
+    </div>`;
+
+  res.send(pageShell({ title: "Manager Rules", body, salon_id, manager_phone, current: "admin" }));
+});
+
+// -------------------------------------------------------
 // POST: Update Salon Info
 // -------------------------------------------------------
 router.post("/update-salon-info", requireAuth, (req, res) => {
@@ -762,7 +951,8 @@ router.post("/update-salon-info", requireAuth, (req, res) => {
     website,
     booking_url,
     industry,
-    tone_profile
+    tone_profile,
+    timezone
   } = req.body;
 
   if (!salon_id) {
@@ -782,6 +972,7 @@ router.post("/update-salon-info", requireAuth, (req, res) => {
           booking_url = COALESCE(?, booking_url),
           industry    = COALESCE(?, industry),
           tone        = COALESCE(?, tone),
+          timezone    = COALESCE(?, timezone),
           updated_at  = datetime('now')
         WHERE slug = ?
     `).run(
@@ -794,6 +985,7 @@ router.post("/update-salon-info", requireAuth, (req, res) => {
       booking_url || null,
       industry || null,
       tone_profile || null,
+      timezone || null,
       salon_id
     );
 
@@ -924,30 +1116,13 @@ router.post("/update-manager-rules", requireAuth, (req, res) => {
 
 // -------------------------------------------------------
 // POST: Update Hashtags
-//   - Receives salon_id and hashtags_json (custom tags only)
-//   - Preserves the first "salon tag" from existing default_hashtags
+//   - Receives hashtags_json — the full merged array (salon tag + custom tags)
 // -------------------------------------------------------
 router.post("/update-hashtags", requireAuth, (req, res) => {
-  const salon_id = req.manager.salon_id; // Always use session — never trust req.body.salon_id
+  const salon_id = req.manager.salon_id;
   const { hashtags_json } = req.body;
 
   try {
-    const salon = db
-      .prepare("SELECT default_hashtags FROM salons WHERE slug = ?")
-      .get(salon_id);
-
-    let existing = [];
-    if (salon && salon.default_hashtags) {
-      try {
-        existing = JSON.parse(salon.default_hashtags);
-        if (!Array.isArray(existing)) existing = [];
-      } catch {
-        existing = [];
-      }
-    }
-
-    const salonTag = existing[0] || null;
-
     let custom = [];
     try {
       const parsed = JSON.parse(hashtags_json || "[]");
@@ -955,6 +1130,9 @@ router.post("/update-hashtags", requireAuth, (req, res) => {
     } catch {
       custom = [];
     }
+
+    // Keep salonTag logic as fallback for any callers that don't include it
+    const salonTag = null;
 
     // 🔒 Moderation: block bad words in hashtags
     const badHashtag = custom.find(tag => !isContentSafe("", [tag], ""));
