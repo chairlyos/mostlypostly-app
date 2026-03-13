@@ -41,6 +41,10 @@ const MessagingResponse = twilio.twiml.MessagingResponse;
 // Skipped in local dev (APP_ENV=local) so curl testing still works.
 // ======================================================
 function validateTwilioSignature(req, res, next) {
+  const numMedia = req.body?.NumMedia || "0";
+  const contentType = req.body?.MediaContentType0 || "none";
+  console.log(`[Twilio] 🔍 Validating signature — NumMedia=${numMedia} ContentType=${contentType}`);
+
   if (process.env.APP_ENV === "local") return next();
 
   const authToken = process.env.TWILIO_AUTH_TOKEN;
@@ -49,17 +53,22 @@ function validateTwilioSignature(req, res, next) {
     return next();
   }
 
-  // Reconstruct the full URL Twilio signed (protocol comes from trusted proxy header)
-  const fullUrl = `${req.protocol}://${req.get("host")}${req.originalUrl}`;
-  const signature = req.headers["x-twilio-signature"] || "";
+  try {
+    // Reconstruct the full URL Twilio signed (protocol comes from trusted proxy header)
+    const fullUrl = `${req.protocol}://${req.get("host")}${req.originalUrl}`;
+    const signature = req.headers["x-twilio-signature"] || "";
 
-  const valid = twilio.validateRequest(authToken, signature, fullUrl, req.body || {});
-  if (!valid) {
-    console.warn(`[Twilio] ❌ Invalid signature from ${req.ip} on ${fullUrl}`);
+    const valid = twilio.validateRequest(authToken, signature, fullUrl, req.body || {});
+    if (!valid) {
+      console.warn(`[Twilio] ❌ Invalid signature from ${req.ip} on ${fullUrl} — NumMedia=${numMedia}`);
+      return res.status(403).type("text/xml").send("<Response></Response>");
+    }
+
+    next();
+  } catch (err) {
+    console.error("[Twilio] ❌ Signature validation threw:", err.message);
     return res.status(403).type("text/xml").send("<Response></Response>");
   }
-
-  next();
 }
 
 export default function twilioRoute(drafts, _lookupStylist, generateCaption) {
