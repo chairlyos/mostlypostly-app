@@ -25,10 +25,14 @@ export default function pageShell({
 
   // Role-based nav visibility
   let isOwner = true; // default to showing everything when role unknown
+  let isStaff = false;
   if (manager_id) {
     try {
       const mgr = db.prepare("SELECT role FROM managers WHERE id = ?").get(manager_id);
-      if (mgr) isOwner = mgr.role === "owner";
+      if (mgr) {
+        isOwner = mgr.role === "owner";
+        isStaff = mgr.role === "staff";
+      }
     } catch (_) {}
   }
   const locationInitials = activeSalonName
@@ -144,15 +148,15 @@ export default function pageShell({
       ${navItem("/manager",            ICONS.home,      "Dashboard",    "manager")}
       ${navItem("/manager/queue",      ICONS.queue,     "Post Queue",   "queue")}
       ${navItem("/analytics",          ICONS.chart,     "Analytics",    "analytics")}
-      ${navItem("/manager/stylists",   ICONS.team,      "Team",         "team")}
+      ${!isStaff ? navItem("/manager/stylists",   ICONS.team,      "Team",         "team") : ""}
       ${navItem("/manager/performance", ICONS.trophy,   "Performance",  "performance")}
-      ${navItem("/manager/scheduler",  ICONS.clock,     "Scheduler",    "scheduler")}
-      ${navItem("/dashboard",          ICONS.database,  "Database",     "database")}
-      ${navItem("/manager/vendors",       ICONS.tag,          "Vendors",       "vendors")}
-      ${isPro ? navItem("/manager/integrations", ICONS.integration,  "Integrations",  "integrations") : ""}
-      ${navItem("/manager/locations",    ICONS.building,     "Locations",     "locations")}
+      ${!isStaff ? navItem("/manager/scheduler",  ICONS.clock,     "Scheduler",    "scheduler") : ""}
+      ${!isStaff ? navItem("/dashboard",          ICONS.database,  "Database",     "database") : ""}
+      ${!isStaff ? navItem("/manager/vendors",       ICONS.tag,          "Vendors",       "vendors") : ""}
+      ${(!isStaff && isPro) ? navItem("/manager/integrations", ICONS.integration,  "Integrations",  "integrations") : ""}
+      ${!isStaff ? navItem("/manager/locations",    ICONS.building,     "Locations",     "locations") : ""}
       ${isOwner ? navItem("/manager/billing", ICONS.card, "Billing", "billing") : ""}
-      ${navItem("/manager/admin",        ICONS.cog,          "Admin",         "admin")}
+      ${!isStaff ? navItem("/manager/admin",        ICONS.cog,          "Admin",         "admin") : ""}
     </nav>
 
     <!-- Profile + Logout at bottom -->
@@ -185,15 +189,15 @@ export default function pageShell({
       ${mobileNavLink("/manager",            "Dashboard",  "manager")}
       ${mobileNavLink("/manager/queue",      "Post Queue", "queue")}
       ${mobileNavLink("/analytics",          "Analytics",  "analytics")}
-      ${mobileNavLink("/manager/stylists",   "Team",        "team")}
+      ${!isStaff ? mobileNavLink("/manager/stylists",   "Team",        "team") : ""}
       ${mobileNavLink("/manager/performance", "Performance", "performance")}
-      ${mobileNavLink("/manager/scheduler",  "Scheduler",   "scheduler")}
-      ${mobileNavLink("/dashboard",          "Database",   "database")}
-      ${mobileNavLink("/manager/vendors",       "Vendors",       "vendors")}
-      ${isPro ? mobileNavLink("/manager/integrations", "Integrations",  "integrations") : ""}
-      ${mobileNavLink("/manager/locations",    "Locations",     "locations")}
+      ${!isStaff ? mobileNavLink("/manager/scheduler",  "Scheduler",   "scheduler") : ""}
+      ${!isStaff ? mobileNavLink("/dashboard",          "Database",   "database") : ""}
+      ${!isStaff ? mobileNavLink("/manager/vendors",       "Vendors",       "vendors") : ""}
+      ${(!isStaff && isPro) ? mobileNavLink("/manager/integrations", "Integrations",  "integrations") : ""}
+      ${!isStaff ? mobileNavLink("/manager/locations",    "Locations",     "locations") : ""}
       ${isOwner ? mobileNavLink("/manager/billing", "Billing", "billing") : ""}
-      ${mobileNavLink("/manager/admin",        "Admin",         "admin")}
+      ${!isStaff ? mobileNavLink("/manager/admin",        "Admin",         "admin") : ""}
       ${mobileNavLink("/manager/profile", "My Profile", "profile")}
       <a href="/manager/logout"
          class="block py-2.5 text-sm font-medium text-mpMuted hover:text-mpCharcoal transition-colors">

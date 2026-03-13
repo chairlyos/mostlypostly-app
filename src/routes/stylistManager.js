@@ -6,6 +6,7 @@ import fs from "fs";
 import path from "path";
 import multer from "multer";
 import crypto from "crypto";
+import bcrypt from "bcryptjs";
 import db from "../../db.js";
 import pageShell from "../ui/pageShell.js";
 import { TONE_GROUPS, TONE_VARIANT_MAP } from "../core/toneVariants.js";
@@ -143,16 +144,53 @@ router.get("/", requireAuth, (req, res) => {
     FROM stylists WHERE salon_id = ? ORDER BY COALESCE(first_name, name) ASC
   `).all(salon_id);
 
+  const portalMembers = db.prepare(`
+    SELECT m.id, m.name, m.email, m.role, m.stylist_id, m.phone
+    FROM managers m
+    WHERE m.salon_id = ? AND m.role NOT IN ('owner')
+    ORDER BY m.name ASC
+  `).all(salon_id);
+
+  // Set of stylist IDs that already have portal access (don't show grant button)
+  const stylistsWithPortal = new Set(portalMembers.filter(m => m.stylist_id).map(m => m.stylist_id));
+
+  // Plan limits
+  const planLimits = PLAN_LIMITS[salon.plan] || PLAN_LIMITS.trial;
+  const stylistLimit = planLimits.stylists; // null = unlimited (Pro)
+  const managerSeatLimit = planLimits.managers; // null = unlimited
+  const usedManagerSeats = portalMembers.length;
+  const managerSeatsAvailable = managerSeatLimit === null || usedManagerSeats < managerSeatLimit;
+  const atLimit = stylistLimit !== null && stylists.length >= stylistLimit;
+  const nearLimit = stylistLimit !== null && !atLimit && stylists.length >= stylistLimit - 1;
+
+  const usageLabel = stylistLimit !== null
+    ? `${stylists.length} / ${stylistLimit} stylists`
+    : `${stylists.length} stylists`;
+
+  const managerSeatLabel = managerSeatLimit === null
+    ? `${usedManagerSeats} portal seats (unlimited)`
+    : `${usedManagerSeats} / ${managerSeatLimit} portal seat${managerSeatLimit !== 1 ? "s" : ""}`;
+
   const cards = stylists.map(s => {
     const displayName = [s.first_name, s.last_name].filter(Boolean).join(" ") || s.name;
     const specialties = parseSpecialties(s.specialties);
+    const hasPortal = stylistsWithPortal.has(s.id);
+    const portalMember = portalMembers.find(m => m.stylist_id === s.id);
+    const roleBadge = hasPortal
+      ? `<span class="inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold bg-mpAccentLight text-mpAccent">${portalMember?.role === 'staff' ? 'Staff' : 'Manager'}</span>`
+      : "";
+
     return `
       <div class="rounded-2xl border border-mpBorder bg-white p-4 flex gap-3 items-start">
         ${avatarHtml(s)}
         <div class="flex-1 min-w-0">
           <div class="flex items-start justify-between gap-2">
             <div>
-              <p class="text-sm font-semibold text-mpCharcoal">${safe(displayName)}</p>
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <p class="text-sm font-semibold text-mpCharcoal">${safe(displayName)}</p>
+                <span class="inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold bg-mpBg text-mpMuted">Stylist</span>
+                ${roleBadge}
+              </div>
               <p class="text-xs text-mpMuted">${safe(s.phone)}</p>
             </div>
             <div class="flex items-center gap-2 shrink-0">
@@ -172,25 +210,72 @@ router.get("/", requireAuth, (req, res) => {
               `<span class="inline-flex px-2 py-0.5 rounded-full bg-mpBg text-[10px] text-mpMuted">${safe(sp)}</span>`
             ).join("")}
           </div>
+          ${!hasPortal ? `
+          <details class="mt-2">
+            <summary class="text-[11px] text-mpAccent cursor-pointer hover:text-mpCharcoal font-medium select-none">+ Grant Portal Access</summary>
+            <form method="POST" action="/manager/stylists/grant-access/${safe(s.id)}${qs}" class="mt-2 space-y-2 bg-mpBg rounded-xl p-3">
+              <div class="grid grid-cols-2 gap-2">
+                <div>
+                  <label class="block text-[10px] font-semibold text-mpMuted mb-0.5">Role</label>
+                  <select name="portal_role" class="w-full rounded-lg border border-mpBorder px-2 py-1.5 text-xs text-mpCharcoal bg-white focus:outline-none focus:ring-1 focus:ring-mpAccent">
+                    ${managerSeatsAvailable ? `<option value="manager">Manager</option>` : `<option value="manager" disabled>Manager (no seats)</option>`}
+                    ${managerSeatsAvailable ? `<option value="staff">Staff</option>` : `<option value="staff" disabled>Staff (no seats)</option>`}
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-[10px] font-semibold text-mpMuted mb-0.5">Email</label>
+                  <input type="email" name="email" required class="w-full rounded-lg border border-mpBorder px-2 py-1.5 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-mpAccent" />
+                </div>
+              </div>
+              <div>
+                <label class="block text-[10px] font-semibold text-mpMuted mb-0.5">Temp Password</label>
+                <input type="text" name="temp_password" required class="w-full rounded-lg border border-mpBorder px-2 py-1.5 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-mpAccent" placeholder="They can change after first login" />
+              </div>
+              <button type="submit" ${!managerSeatsAvailable ? "disabled" : ""} class="rounded-full bg-mpCharcoal px-4 py-1.5 text-[11px] font-semibold text-white hover:bg-mpCharcoalDark transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                Grant Access
+              </button>
+            </form>
+          </details>` : ""}
         </div>
       </div>`;
   }).join("");
 
-  const empty = stylists.length === 0
+  const managerOnlyCards = portalMembers
+    .filter(m => !m.stylist_id)
+    .map(m => {
+      const initials = (m.name || "?").split(/\s+/).slice(0, 2).map(w => w[0]).join("").toUpperCase();
+      const roleLabel = m.role === "staff" ? "Staff" : "Manager";
+      const roleBg = m.role === "staff" ? "bg-purple-100 text-purple-700" : "bg-mpAccentLight text-mpAccent";
+      return `
+        <div class="rounded-2xl border border-mpBorder bg-white p-4 flex gap-3 items-start">
+          <div class="h-12 w-12 rounded-full bg-mpAccentLight flex items-center justify-center text-mpAccent font-bold text-sm border-2 border-mpBorder flex-shrink-0">${safe(initials)}</div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-start justify-between gap-2">
+              <div>
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  <p class="text-sm font-semibold text-mpCharcoal">${safe(m.name || m.email)}</p>
+                  <span class="inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold ${roleBg}">${roleLabel}</span>
+                </div>
+                <p class="text-xs text-mpMuted">${safe(m.email || "")}</p>
+              </div>
+              <div class="flex items-center gap-2 shrink-0">
+                <a href="/manager/stylists/managers/edit/${safe(m.id)}${qs}"
+                   class="text-xs text-mpAccent hover:text-mpCharcoal font-medium underline whitespace-nowrap">Edit</a>
+                <form method="POST" action="/manager/stylists/managers/delete/${safe(m.id)}${qs}"
+                      onsubmit="return confirm('Remove ${safe(m.name || m.email)}?')" class="inline">
+                  <button type="submit" class="text-xs text-red-400 hover:text-red-600 font-medium">Remove</button>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>`;
+    }).join("");
+
+  const empty = stylists.length === 0 && portalMembers.filter(m => !m.stylist_id).length === 0
     ? `<div class="col-span-full text-center py-12 text-mpMuted text-sm">
-         No stylists yet. Add your first team member above.
+         No team members yet. Add your first team member above.
        </div>`
     : "";
-
-  // Plan limits
-  const planLimits = PLAN_LIMITS[salon.plan] || PLAN_LIMITS.trial;
-  const stylistLimit = planLimits.stylists; // null = unlimited (Pro)
-  const atLimit = stylistLimit !== null && stylists.length >= stylistLimit;
-  const nearLimit = stylistLimit !== null && !atLimit && stylists.length >= stylistLimit - 1;
-
-  const usageLabel = stylistLimit !== null
-    ? `${stylists.length} / ${stylistLimit} stylists`
-    : `${stylists.length} stylists`;
 
   const upgradeNudge = (atLimit || nearLimit) && stylistLimit !== null ? `
     <div class="mt-3 flex items-center gap-2 rounded-xl bg-mpAccentLight border border-mpAccent/20 px-3 py-2">
@@ -203,20 +288,16 @@ router.get("/", requireAuth, (req, res) => {
       </p>
     </div>` : "";
 
-  const addBtn = atLimit
-    ? `<span class="inline-flex items-center gap-1.5 rounded-full bg-gray-200 px-4 py-2 text-xs font-semibold text-gray-400 cursor-not-allowed" title="Stylist limit reached — upgrade to add more">
-         + Add Stylist
-       </span>`
-    : `<a href="/manager/stylists/add${qs}"
-          class="inline-flex items-center gap-1.5 rounded-full bg-mpCharcoal px-4 py-2 text-xs font-semibold text-white hover:bg-mpCharcoalDark transition-colors">
-         + Add Stylist
-       </a>`;
+  const addBtn = `<a href="/manager/stylists/add${qs}"
+      class="inline-flex items-center gap-1.5 rounded-full bg-mpCharcoal px-4 py-2 text-xs font-semibold text-white hover:bg-mpCharcoalDark transition-colors">
+     + Add Team Member
+   </a>`;
 
   const body = `
     <section class="mb-6 flex flex-col sm:flex-row sm:items-start justify-between gap-3">
       <div>
         <h1 class="text-2xl font-bold">Team</h1>
-        <p class="text-sm text-mpMuted mt-0.5">${usageLabel} registered</p>
+        <p class="text-sm text-mpMuted mt-0.5">${usageLabel} · ${managerSeatLabel}</p>
         ${upgradeNudge}
       </div>
       <div class="flex flex-wrap gap-2 shrink-0">
@@ -266,7 +347,7 @@ router.get("/", requireAuth, (req, res) => {
     })()}
 
     <section class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      ${cards}${empty}
+      ${cards}${managerOnlyCards}${empty}
     </section>
 
     <script>
@@ -291,22 +372,51 @@ router.get("/", requireAuth, (req, res) => {
 // ── GET /add ──────────────────────────────────────────────────────────────────
 router.get("/add", requireAuth, (req, res) => {
   const salon_id = req.manager.salon_id;
-  const salon = db.prepare("SELECT tone FROM salons WHERE slug = ?").get(salon_id);
+  const salon = db.prepare("SELECT tone, plan FROM salons WHERE slug = ?").get(salon_id);
+  const planLimits = PLAN_LIMITS[salon?.plan] || PLAN_LIMITS.trial;
+  const managerSeatLimit = planLimits.managers;
+  const usedSeats = db.prepare("SELECT COUNT(*) as c FROM managers WHERE salon_id = ? AND role NOT IN ('owner')").get(salon_id)?.c || 0;
+  const managerSeatsAvailable = managerSeatLimit === null || usedSeats < managerSeatLimit;
+
   res.send(pageShell({
-    title: "Add Stylist",
-    body: buildStylistForm({ salon_id, salonTone: salon?.tone, stylist: null, isEdit: false }),
+    title: "Add Team Member",
+    body: buildTeamMemberForm({ salon_id, salonTone: salon?.tone, managerSeatsAvailable }),
     salon_id,
     current: "team",
   }));
 });
 
 // ── POST /add ─────────────────────────────────────────────────────────────────
-router.post("/add", requireAuth, photoUpload.single("photo"), (req, res) => {
+router.post("/add", requireAuth, photoUpload.single("photo"), async (req, res) => {
   const salon_id = req.manager.salon_id;
   const salon = db.prepare("SELECT tone FROM salons WHERE slug = ?").get(salon_id);
-  const { first_name, last_name, phone, instagram_handle, tone_variant,
-          birthday_mmdd, hire_date, bio, profile_url, celebrations_enabled } = req.body;
+  const { role = "stylist", first_name, last_name, phone, instagram_handle, tone_variant,
+          birthday_mmdd, hire_date, bio, profile_url, celebrations_enabled,
+          email, temp_password } = req.body;
 
+  const qs = `?salon=${encodeURIComponent(salon_id)}`;
+
+  if (role === "manager" || role === "staff") {
+    // Create portal account
+    if (!email || !temp_password) {
+      return res.redirect(`/manager/stylists/add${qs}&error=Email+and+password+required+for+Manager+and+Staff`);
+    }
+    try {
+      const password_hash = await bcrypt.hash(temp_password, 10);
+      const id = crypto.randomUUID();
+      const name = [first_name, last_name].filter(Boolean).join(" ") || email;
+      db.prepare(`
+        INSERT INTO managers (id, salon_id, name, phone, email, password_hash, role)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `).run(id, salon_id, name, normalizePhone(phone) || null, email.toLowerCase().trim(), password_hash, role);
+      return res.redirect(`/manager/stylists${qs}`);
+    } catch (err) {
+      console.error("[stylistManager] add manager error:", err);
+      return res.redirect(`/manager/stylists/add${qs}&error=${encodeURIComponent(err.message)}`);
+    }
+  }
+
+  // Stylist path (existing logic)
   const specialtiesRaw = req.body.specialties || "";
   const specialties = JSON.stringify(
     specialtiesRaw.split(",").map(x => x.trim()).filter(Boolean)
@@ -356,13 +466,17 @@ router.post("/add", requireAuth, photoUpload.single("photo"), (req, res) => {
       );
     }
 
-    res.redirect(`/manager/stylists?salon=${encodeURIComponent(salon_id)}`);
+    res.redirect(`/manager/stylists${qs}`);
   } catch (err) {
     console.error("[stylistManager] add error:", err);
+    const planLimits = PLAN_LIMITS[salon?.plan] || PLAN_LIMITS.trial;
+    const managerSeatLimit = planLimits.managers;
+    const usedSeats = db.prepare("SELECT COUNT(*) as c FROM managers WHERE salon_id = ? AND role NOT IN ('owner')").get(salon_id)?.c || 0;
+    const managerSeatsAvailable = managerSeatLimit === null || usedSeats < managerSeatLimit;
     res.send(pageShell({
-      title: "Add Stylist",
+      title: "Add Team Member",
       body: `<p class="text-red-500 text-sm mb-4">${safe(err.message)}</p>` +
-            buildStylistForm({ salon_id, salonTone: salon?.tone, stylist: req.body, isEdit: false }),
+            buildTeamMemberForm({ salon_id, salonTone: salon?.tone, managerSeatsAvailable }),
       salon_id,
       current: "team",
     }));
@@ -947,6 +1061,286 @@ function parseCSVLine(line) {
   }
   fields.push(field);
   return fields;
+}
+
+// ── POST /grant-access/:stylistId — Grant portal access to existing stylist ───
+router.post("/grant-access/:stylistId", requireAuth, async (req, res) => {
+  const salon_id = req.manager.salon_id;
+  const qs = `?salon=${encodeURIComponent(salon_id)}`;
+  const stylist = db.prepare("SELECT * FROM stylists WHERE id = ? AND salon_id = ?").get(req.params.stylistId, salon_id);
+  if (!stylist) return res.redirect(`/manager/stylists${qs}`);
+
+  const { portal_role = "staff", email, temp_password } = req.body;
+  if (!email || !temp_password) return res.redirect(`/manager/stylists${qs}`);
+
+  try {
+    const password_hash = await bcrypt.hash(temp_password, 10);
+    const id = crypto.randomUUID();
+    const name = [stylist.first_name, stylist.last_name].filter(Boolean).join(" ") || stylist.name;
+    db.prepare(`
+      INSERT INTO managers (id, salon_id, name, phone, email, password_hash, role, stylist_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(id, salon_id, name, stylist.phone || null, email.toLowerCase().trim(), password_hash, portal_role, stylist.id);
+    res.redirect(`/manager/stylists${qs}`);
+  } catch (err) {
+    console.error("[stylistManager] grant-access error:", err);
+    res.redirect(`/manager/stylists${qs}`);
+  }
+});
+
+// ── GET /managers/edit/:id ────────────────────────────────────────────────────
+router.get("/managers/edit/:id", requireAuth, (req, res) => {
+  const salon_id = req.manager.salon_id;
+  const qs = `?salon=${encodeURIComponent(salon_id)}`;
+  const mgr = db.prepare("SELECT * FROM managers WHERE id = ? AND salon_id = ? AND role != 'owner'").get(req.params.id, salon_id);
+  if (!mgr) return res.redirect(`/manager/stylists${qs}`);
+
+  const inputCls = "w-full rounded-xl border border-mpBorder px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-mpAccent";
+  const body = `
+    <div class="mb-6">
+      <h1 class="text-2xl font-bold">Edit Team Member</h1>
+      <p class="text-sm text-mpMuted mt-0.5"><a href="/manager/stylists${qs}" class="text-mpAccent underline">← Back to Team</a></p>
+    </div>
+    <form method="POST" action="/manager/stylists/managers/edit/${safe(mgr.id)}${qs}" class="space-y-4 max-w-lg">
+      <div class="rounded-2xl border border-mpBorder bg-white p-6 space-y-4">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-mpMuted mb-1">First Name</label>
+            <input type="text" name="first_name" value="${safe((mgr.name || "").split(" ")[0])}" class="${inputCls}" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-mpMuted mb-1">Last Name</label>
+            <input type="text" name="last_name" value="${safe((mgr.name || "").split(" ").slice(1).join(" "))}" class="${inputCls}" />
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-mpMuted mb-1">Email</label>
+          <input type="email" name="email" value="${safe(mgr.email || "")}" class="${inputCls}" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-mpMuted mb-1">Role</label>
+          <select name="role" class="${inputCls}">
+            <option value="manager" ${mgr.role === "manager" ? "selected" : ""}>Manager</option>
+            <option value="staff" ${mgr.role === "staff" ? "selected" : ""}>Staff</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-mpMuted mb-1">New Password (leave blank to keep current)</label>
+          <input type="text" name="new_password" class="${inputCls}" placeholder="Optional" />
+        </div>
+      </div>
+      <div class="flex gap-3">
+        <button type="submit" class="rounded-full bg-mpCharcoal px-6 py-2.5 text-sm font-bold text-white hover:bg-mpCharcoalDark transition-colors">Save Changes</button>
+        <a href="/manager/stylists${qs}" class="inline-flex items-center rounded-full border border-mpBorder px-6 py-2.5 text-sm font-medium text-mpMuted hover:bg-mpBg transition-colors">Cancel</a>
+      </div>
+    </form>
+  `;
+  res.send(pageShell({ title: "Edit Team Member", body, salon_id, current: "team" }));
+});
+
+// ── POST /managers/edit/:id ───────────────────────────────────────────────────
+router.post("/managers/edit/:id", requireAuth, async (req, res) => {
+  const salon_id = req.manager.salon_id;
+  const qs = `?salon=${encodeURIComponent(salon_id)}`;
+  const mgr = db.prepare("SELECT id FROM managers WHERE id = ? AND salon_id = ? AND role != 'owner'").get(req.params.id, salon_id);
+  if (!mgr) return res.redirect(`/manager/stylists${qs}`);
+
+  const { first_name, last_name, email, role, new_password } = req.body;
+  const name = [first_name, last_name].filter(Boolean).join(" ") || email;
+
+  try {
+    if (new_password && new_password.trim()) {
+      const password_hash = await bcrypt.hash(new_password.trim(), 10);
+      db.prepare("UPDATE managers SET name=?, email=?, role=?, password_hash=?, updated_at=datetime('now') WHERE id=? AND salon_id=?")
+        .run(name, (email || "").toLowerCase().trim(), role, password_hash, mgr.id, salon_id);
+    } else {
+      db.prepare("UPDATE managers SET name=?, email=?, role=?, updated_at=datetime('now') WHERE id=? AND salon_id=?")
+        .run(name, (email || "").toLowerCase().trim(), role, mgr.id, salon_id);
+    }
+    res.redirect(`/manager/stylists${qs}`);
+  } catch (err) {
+    console.error("[stylistManager] manager edit error:", err);
+    res.redirect(`/manager/stylists${qs}`);
+  }
+});
+
+// ── POST /managers/delete/:id ─────────────────────────────────────────────────
+router.post("/managers/delete/:id", requireAuth, (req, res) => {
+  const salon_id = req.manager.salon_id;
+  const qs = `?salon=${encodeURIComponent(salon_id)}`;
+  db.prepare("DELETE FROM managers WHERE id = ? AND salon_id = ? AND role != 'owner'").run(req.params.id, salon_id);
+  res.redirect(`/manager/stylists${qs}`);
+});
+
+// ── Unified Add Team Member form ──────────────────────────────────────────────
+function buildTeamMemberForm({ salon_id, salonTone, managerSeatsAvailable }) {
+  const qs = `?salon=${encodeURIComponent(salon_id)}`;
+  const inputCls = "w-full rounded-xl border border-mpBorder px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-mpAccent";
+
+  return `
+    <div class="mb-6 flex items-start justify-between gap-4">
+      <div>
+        <h1 class="text-2xl font-bold">Add Team Member</h1>
+        <p class="text-sm text-mpMuted mt-0.5">
+          <a href="/manager/stylists${qs}" class="text-mpAccent underline">← Back to Team</a>
+        </p>
+      </div>
+    </div>
+
+    <form method="POST" action="/manager/stylists/add${qs}" enctype="multipart/form-data">
+      <div class="rounded-2xl border border-mpBorder bg-white p-6 space-y-5 max-w-2xl">
+
+        <!-- Role Selector -->
+        <div>
+          <label class="block text-xs font-semibold text-mpMuted mb-2">Role</label>
+          <div class="flex gap-2 flex-wrap" id="roleButtons">
+            <button type="button" data-role="stylist"
+              class="role-btn rounded-full px-4 py-2 text-xs font-semibold border-2 border-mpCharcoal bg-mpCharcoal text-white transition-colors">
+              Stylist
+            </button>
+            <button type="button" data-role="manager"
+              class="role-btn rounded-full px-4 py-2 text-xs font-semibold border-2 transition-colors
+              ${managerSeatsAvailable ? "border-mpBorder bg-white text-mpMuted hover:border-mpCharcoal hover:text-mpCharcoal" : "border-mpBorder bg-mpBg text-gray-300 cursor-not-allowed"}"
+              ${!managerSeatsAvailable ? 'disabled title="No manager seats available on your plan"' : ""}>
+              Manager ${!managerSeatsAvailable ? "(No seats)" : ""}
+            </button>
+            <button type="button" data-role="staff"
+              class="role-btn rounded-full px-4 py-2 text-xs font-semibold border-2 transition-colors
+              ${managerSeatsAvailable ? "border-mpBorder bg-white text-mpMuted hover:border-mpCharcoal hover:text-mpCharcoal" : "border-mpBorder bg-mpBg text-gray-300 cursor-not-allowed"}"
+              ${!managerSeatsAvailable ? 'disabled title="No manager seats available on your plan"' : ""}>
+              Staff ${!managerSeatsAvailable ? "(No seats)" : ""}
+            </button>
+          </div>
+          <p class="text-[11px] text-mpMuted mt-1.5">
+            <strong>Stylist</strong> — posts via SMS/text. <strong>Manager</strong> — approves posts via the web portal. <strong>Staff</strong> — portal access with limited views.
+          </p>
+          <input type="hidden" name="role" id="selectedRole" value="stylist" />
+        </div>
+
+        <!-- Common Fields -->
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-mpMuted mb-1">First Name</label>
+            <input type="text" name="first_name" class="${inputCls}" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-mpMuted mb-1">Last Name</label>
+            <input type="text" name="last_name" class="${inputCls}" />
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-mpMuted mb-1">Phone Number</label>
+          <input type="tel" name="phone" class="${inputCls}" placeholder="+13175550100" />
+          <p class="text-[11px] text-mpMuted mt-0.5">Required for Stylists (they text photos to this number). Optional for Manager/Staff.</p>
+        </div>
+
+        <!-- Stylist-specific fields -->
+        <div id="stylist-fields">
+          <div class="space-y-5">
+            <div>
+              <label class="block text-xs font-semibold text-mpMuted mb-1">Profile Photo</label>
+              <input type="file" name="photo" accept="image/*"
+                     class="text-sm text-mpMuted file:mr-3 file:rounded-full file:border-0
+                            file:bg-mpAccentLight file:px-3 file:py-1.5 file:text-xs file:font-semibold
+                            file:text-mpAccent hover:file:bg-mpAccent hover:file:text-white" />
+              <p class="text-[11px] text-mpMuted mt-0.5">Used in celebration posts.</p>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-mpMuted mb-1">Instagram Handle</label>
+              <input type="text" name="instagram_handle" class="${inputCls}" placeholder="Without @" />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-mpMuted mb-1">Caption Tone</label>
+              <select name="tone_variant" class="${inputCls}">
+                ${toneSelectOptions("", salonTone)}
+              </select>
+              <p class="text-[11px] text-mpMuted mt-0.5">Personalizes AI caption voice. Defaults to salon tone if not set.</p>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-semibold text-mpMuted mb-1">Birthday (MM-DD)</label>
+                <input type="text" name="birthday_mmdd" class="${inputCls}" placeholder="03-15" />
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-mpMuted mb-1">Hire Date</label>
+                <input type="date" name="hire_date" class="${inputCls}" />
+              </div>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-mpMuted mb-1">Specialties</label>
+              <input type="text" name="specialties" class="${inputCls}" placeholder="Balayage, Color Correction" />
+              <p class="text-[11px] text-mpMuted mt-0.5">Comma-separated.</p>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-mpMuted mb-1">Bio</label>
+              <input type="text" name="bio" class="${inputCls}" />
+            </div>
+            <div class="flex items-center gap-2">
+              <input type="checkbox" name="celebrations_enabled" value="1" id="celeb_check" checked
+                     class="h-4 w-4 rounded border-mpBorder text-mpAccent" />
+              <label for="celeb_check" class="text-xs text-mpMuted">Enable birthday &amp; anniversary celebration posts</label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Portal (Manager/Staff) fields -->
+        <div id="portal-fields" class="hidden space-y-4">
+          <div>
+            <label class="block text-xs font-semibold text-mpMuted mb-1">Email Address</label>
+            <input type="email" name="email" class="${inputCls}" placeholder="they'll use this to log in" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-mpMuted mb-1">Temporary Password</label>
+            <input type="text" name="temp_password" class="${inputCls}" placeholder="They can change it after first login" />
+            <p class="text-[11px] text-mpMuted mt-0.5">Share this with them directly. Not sent automatically.</p>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="mt-4 flex gap-3">
+        <button type="submit"
+          class="inline-flex items-center gap-1.5 rounded-full bg-mpCharcoal px-6 py-2.5 text-sm font-bold text-white hover:bg-mpCharcoalDark transition-colors">
+          Add Team Member
+        </button>
+        <a href="/manager/stylists${qs}"
+           class="inline-flex items-center rounded-full border border-mpBorder px-6 py-2.5 text-sm font-medium text-mpMuted hover:bg-mpBg transition-colors">
+          Cancel
+        </a>
+      </div>
+    </form>
+
+    <script>
+      (function() {
+        const roleBtns = document.querySelectorAll(".role-btn");
+        const roleInput = document.getElementById("selectedRole");
+        const stylistFields = document.getElementById("stylist-fields");
+        const portalFields = document.getElementById("portal-fields");
+
+        roleBtns.forEach(btn => {
+          if (btn.disabled) return;
+          btn.addEventListener("click", () => {
+            const role = btn.dataset.role;
+            roleInput.value = role;
+            roleBtns.forEach(b => {
+              if (b.disabled) return;
+              b.classList.remove("border-mpCharcoal", "bg-mpCharcoal", "text-white");
+              b.classList.add("border-mpBorder", "bg-white", "text-mpMuted");
+            });
+            btn.classList.add("border-mpCharcoal", "bg-mpCharcoal", "text-white");
+            btn.classList.remove("border-mpBorder", "bg-white", "text-mpMuted");
+            if (role === "stylist") {
+              stylistFields.classList.remove("hidden");
+              portalFields.classList.add("hidden");
+            } else {
+              stylistFields.classList.add("hidden");
+              portalFields.classList.remove("hidden");
+            }
+          });
+        });
+      })();
+    </script>
+  `;
 }
 
 export default router;

@@ -29,10 +29,10 @@ const PLAN_PRICES = {
 };
 
 export const PLAN_LIMITS = {
-  starter: { posts: 60,  stylists: 4,    locations: 1 },
-  growth:  { posts: 150, stylists: 12,   locations: 2 },
-  pro:     { posts: 400, stylists: null,  locations: 5 },
-  trial:   { posts: 20,  stylists: 4,    locations: 1 },
+  starter: { posts: 60,  stylists: 4,    locations: 1, managers: 0    },
+  growth:  { posts: 150, stylists: 12,   locations: 2, managers: 1    },
+  pro:     { posts: 400, stylists: null,  locations: 5, managers: null },
+  trial:   { posts: 20,  stylists: 4,    locations: 1, managers: 0    },
 };
 
 function requireAuth(req, res, next) {

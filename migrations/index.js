@@ -28,6 +28,7 @@ import { run as run024 } from "./024_vendor_post_log.js";
 import { run as run025 } from "./025_gamification.js";
 import { run as run026 } from "./026_stylist_welcome.js";
 import { run as run027 } from "./027_owner_role.js";
+import { run as run028 } from "./028_team_roles.js";
 
 export const migrations = [
   { name: "001_baseline_patches",        run: run001 },
@@ -57,4 +58,5 @@ export const migrations = [
   { name: "025_gamification",           run: run025 },
   { name: "026_stylist_welcome",        run: run026 },
   { name: "027_owner_role",             run: run027 },
+  { name: "028_team_roles",             run: run028 },
 ];
