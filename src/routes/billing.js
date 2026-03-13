@@ -60,13 +60,15 @@ router.get("/checkout", requireAuth, async (req, res) => {
   const PUBLIC_BASE_URL = process.env.PUBLIC_BASE_URL || process.env.BASE_URL || "http://localhost:3000";
 
   // Only offer trial if this salon has never activated one before
+  // Founders get 30 days — revert TRIAL_DAYS to 7 after the founders window closes
+  const TRIAL_DAYS = 30;
   const offerTrial = !salon.trial_used;
 
   const sessionParams = {
     mode: "subscription",
     line_items: [{ price: priceId, quantity: 1 }],
     subscription_data: {
-      ...(offerTrial ? { trial_period_days: 7 } : {}),
+      ...(offerTrial ? { trial_period_days: TRIAL_DAYS } : {}),
       metadata: { salon_id, plan, cycle },
     },
     success_url: `${PUBLIC_BASE_URL}/billing/success?session_id={CHECKOUT_SESSION_ID}${offerTrial ? "&trial=1" : ""}${salon.status === "setup_incomplete" ? "&new=1" : ""}`,
@@ -107,7 +109,7 @@ router.get("/success", requireAuth, (req, res) => {
   }
 
   const trialMsg = hasTrial
-    ? `Your 7-day free trial is active. No charge until your trial ends.<br/>We'll send a reminder before your first billing date.`
+    ? `Your 30-day free trial is active. No charge until your trial ends.<br/>We'll send a reminder before your first billing date.`
     : `Your subscription is now active. Thank you for choosing MostlyPostly!`;
 
   res.send(pageShell({
@@ -200,13 +202,13 @@ router.get("/manager/billing", requireAuth, async (req, res) => {
 
   const PLAN_CONFIG = {
     starter: {
-      monthly: 49, annual: 44,
-      annualTotal: 529, annualSave: 59,
-      badge: "Founder Rate — Limited Spots",
+      monthly: 99, annual: 89,
+      annualTotal: 1068, annualSave: 120,
+      badge: "Single Location",
       badgeDark: false,
       tagline: "Perfect for a single-location salon getting started.",
-      strikethrough: "$99",
-      founderNote: "Locked for life as long as you stay subscribed.",
+      strikethrough: null,
+      founderNote: null,
       features: [
         "<strong>60 posts</strong> per month",
         "Up to <strong>4 stylists</strong>",
@@ -351,7 +353,7 @@ router.get("/manager/billing", requireAuth, async (req, res) => {
           </div>
           <div>
             <p class="text-sm font-bold text-mpCharcoal">Account created! Choose your plan to continue.</p>
-            <p class="text-xs text-mpMuted mt-0.5">Select a plan below and enter your card details. Your 7-day free trial starts immediately — no charge until it ends.</p>
+            <p class="text-xs text-mpMuted mt-0.5">Select a plan below and enter your card details. Your 30-day free trial starts immediately — no charge until it ends.</p>
           </div>
         </div>` : ""}
 
@@ -421,7 +423,7 @@ router.get("/manager/billing", requireAuth, async (req, res) => {
           <div class="grid gap-4 sm:grid-cols-3">
             ${planCards}
           </div>
-          <p class="mt-4 text-xs text-mpMuted">${salon.trial_used ? "Cancel anytime." : "New accounts include a 7-day free trial. Cancel anytime."}</p>
+          <p class="mt-4 text-xs text-mpMuted">${salon.trial_used ? "Cancel anytime." : "New accounts include a 30-day free trial. Cancel anytime."}</p>
         </div>
 
         ${planHint ? `<script>
@@ -488,14 +490,18 @@ export async function stripeWebhookHandler(req, res) {
 
         // Determine if Stripe actually granted a trial on this subscription
         let hasTrialFromStripe = false;
+        let trialEndIso = null;
         try {
           const stripe = getStripe();
           const sub = await stripe.subscriptions.retrieve(obj.subscription);
           hasTrialFromStripe = !!sub.trial_end && sub.trial_end > Math.floor(Date.now() / 1000);
+          if (hasTrialFromStripe) {
+            trialEndIso = new Date(sub.trial_end * 1000).toISOString();
+          }
         } catch {}
 
         const newStatus   = hasTrialFromStripe ? "trialing" : "active";
-        const trialEndSql = hasTrialFromStripe ? `datetime('now', '+7 days')` : "NULL";
+        const trialEndSql = hasTrialFromStripe ? `'${trialEndIso}'` : "NULL";
 
         db.prepare(`
           UPDATE salons SET
