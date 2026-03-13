@@ -38,40 +38,28 @@ window.admin = {
   // -----------------------------------------
   // Load all HTML templates once on page load
   // -----------------------------------------
-  async loadTemplates() {
+  loadTemplates() {
     if (this.loaded) return;
 
-    const root = document.querySelector("#admin-templates-root");
-    if (!root) {
-      console.error("Admin template root not found.");
+    const all = document.querySelectorAll("#admin-modal-templates template");
+    if (!all.length) {
+      console.error("[Admin] No templates found in #admin-modal-templates.");
       return;
     }
 
-    const url = root.dataset.url;
-    try {
-      const html = await fetch(url).then((r) => r.text());
+    all.forEach((tpl) => {
+      this.templates[tpl.id] = tpl.innerHTML;
+    });
 
-      // Create a hidden container and parse templates
-      const div = document.createElement("div");
-      div.innerHTML = html;
-
-      const all = div.querySelectorAll("template");
-      all.forEach((tpl) => {
-        this.templates[tpl.id] = tpl.innerHTML;
-      });
-
-      this.loaded = true;
-      console.log("[Admin] Templates loaded:", Object.keys(this.templates));
-    } catch (err) {
-      console.error("Failed to load admin templates:", err);
-    }
+    this.loaded = true;
+    console.log("[Admin] Templates loaded:", Object.keys(this.templates));
   },
 
   // -----------------------------------------
   // Open a modal by template ID
   // -----------------------------------------
   async openModal(templateId) {
-    await this.loadTemplates();
+    this.loadTemplates();
     const html = this.templates[templateId];
     if (!html) {
       console.error("Template not found:", templateId);

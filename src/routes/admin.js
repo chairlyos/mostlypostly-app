@@ -639,6 +639,10 @@ router.get("/", requireAuth, (req, res) => {
           data-custom-hashtags='${JSON.stringify(info.default_hashtags.slice(1))}'
         ></div>
 
+        <!-- Admin modal templates inlined — loaded from DOM, no async fetch -->
+        <div id="admin-modal-templates" class="hidden">
+          ${fs.readFileSync(path.join(process.cwd(), "public", "admin-templates.html"), "utf8")}
+        </div>
 
   <!-- ═══════════════════════════════════════════════════════ -->
   <!-- STOCK PHOTOS                                           -->
