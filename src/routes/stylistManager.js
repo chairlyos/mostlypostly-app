@@ -456,19 +456,19 @@ router.get("/edit/:id/photos", requireAuth, (req, res) => {
           <a href="/manager/stylists/edit/${safe(stylist.id)}${qs}" class="text-mpAccent hover:underline">← Back to stylist</a>
         </p>
       </div>
-      <button onclick="document.getElementById('photo-file-input').click()"
-        class="shrink-0 inline-flex items-center gap-2 rounded-full bg-mpCharcoal px-5 py-2.5 text-sm font-semibold text-white hover:bg-mpCharcoalDark transition-colors">
+      <label for="photo-file-input"
+        class="shrink-0 inline-flex items-center gap-2 rounded-full bg-mpCharcoal px-5 py-2.5 text-sm font-semibold text-white hover:bg-mpCharcoalDark transition-colors cursor-pointer">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
         Select Photos
-      </button>
+      </label>
     </div>
 
     <!-- Upload form — hidden file input, preview grid shown after selection -->
     <form id="photo-upload-form" method="POST" action="/manager/stylists/${safe(stylist.id)}/photos/upload${qs}" enctype="multipart/form-data">
-      <input id="photo-file-input" type="file" name="photos" accept="image/*" multiple class="hidden" />
+      <input id="photo-file-input" type="file" name="photos" accept="image/*" multiple style="display:none" />
 
       <!-- Preview area — shown after files selected -->
-      <div id="upload-preview-area" class="hidden mb-6">
+      <div id="upload-preview-area" style="display:none" class="mb-6">
         <div class="rounded-2xl border border-mpBorder bg-white p-5 shadow-sm">
           <div class="flex items-center justify-between mb-4">
             <h2 class="text-sm font-bold text-mpCharcoal">Tag your photos before uploading</h2>
@@ -486,14 +486,15 @@ router.get("/edit/:id/photos", requireAuth, (req, res) => {
         </div>
       </div>
 
-      <!-- Empty state prompt — shown before any selection -->
-      <div id="upload-empty-state" class="rounded-2xl border-2 border-dashed border-mpBorder bg-mpBg p-10 text-center mb-6 cursor-pointer hover:border-mpAccent transition-colors" onclick="document.getElementById('photo-file-input').click()">
+      <!-- Empty state prompt — label wraps the drop zone so clicking anywhere opens the picker -->
+      <label for="photo-file-input" id="upload-empty-state"
+        class="block rounded-2xl border-2 border-dashed border-mpBorder bg-mpBg p-10 text-center mb-6 cursor-pointer hover:border-mpAccent transition-colors">
         <div class="mx-auto w-12 h-12 rounded-2xl bg-mpAccentLight flex items-center justify-center mb-3">
           <svg class="w-6 h-6 text-mpAccent" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3 20.25h18M20.25 7.5l-.625.025M12 12.75a3 3 0 110-6 3 3 0 010 6z"/></svg>
         </div>
         <p class="text-sm font-semibold text-mpCharcoal">Click to select photos</p>
         <p class="text-xs text-mpMuted mt-1">JPEG, PNG, WebP · Up to 10 MB each · Select multiple at once</p>
-      </div>
+      </label>
     </form>
 
     <!-- Uploaded photos grid -->
@@ -545,15 +546,15 @@ router.get("/edit/:id/photos", requireAuth, (req, res) => {
         });
 
         countLabel.textContent = files.length === 1 ? '1 photo selected' : files.length + ' photos selected';
-        previewArea.classList.remove('hidden');
-        emptyState.classList.add('hidden');
+        previewArea.style.display = '';
+        emptyState.style.display = 'none';
       });
 
       function clearSelection() {
         fileInput.value = '';
         previewGrid.innerHTML = '';
-        previewArea.classList.add('hidden');
-        emptyState.classList.remove('hidden');
+        previewArea.style.display = 'none';
+        emptyState.style.display = '';
       }
 
       // Show spinner on submit
