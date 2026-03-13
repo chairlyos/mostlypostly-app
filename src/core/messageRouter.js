@@ -35,6 +35,7 @@ import { buildAvailabilityImage } from "./buildAvailabilityImage.js";
 // 🧠 Import moderation utility directly
 import moderateAIOutput from "../utils/moderation.js";
 import { rehostTwilioMedia } from "../utils/rehostTwilioMedia.js";
+import { sendQuickStart } from "./stylistWelcome.js";
 console.log("[Router Debug] moderateAIOutput type:", typeof moderateAIOutput);
 
 
@@ -753,7 +754,7 @@ export async function handleIncomingMessage({
       return;
     }
 
-    await sendMessage.sendText(chatId, "📸 Please send a photo with a short note to generate your caption.");
+    await sendQuickStart(chatId, stylist?.name || stylist?.stylist_name || null);
     endTimer(start);
     return;
   }

@@ -529,6 +529,23 @@ window.admin = {
       }
       renderSpecs();
 
+      // ---- Resend Welcome button ----
+      const resendBtn = panel.querySelector("#resend-welcome-btn");
+      if (resendBtn) {
+        resendBtn.addEventListener("click", async () => {
+          resendBtn.disabled = true;
+          resendBtn.textContent = "Sending…";
+          try {
+            const r = await fetch(`/manager/admin/resend-welcome/${payload.id}`, { method: "POST" });
+            const json = await r.json();
+            resendBtn.textContent = json.ok ? "Sent ✓" : "Failed";
+          } catch {
+            resendBtn.textContent = "Failed";
+          }
+          setTimeout(() => { resendBtn.disabled = false; resendBtn.textContent = "Resend Welcome"; }, 3000);
+        });
+      }
+
       // ---- Fetch full profile (photo + stock photos) ----
       try {
         const resp = await fetch(`/manager/admin/stylist/${payload.id}`);

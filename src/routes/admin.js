@@ -14,6 +14,7 @@ import { isContentSafe, sanitizeText } from "../../src/utils/moderation.js";
 
 import { UPLOADS_DIR } from "../core/uploadPath.js";
 import { PLAN_LIMITS } from "./billing.js";
+import { sendWelcomeSms } from "../core/stylistWelcome.js";
 
 const managerPhotoUpload = multer({
   storage: multer.diskStorage({
@@ -1035,6 +1036,14 @@ router.post("/add-stylist", (req, res) => {
       JSON.stringify([])
     );
 
+    // Send welcome SMS to the new stylist (non-blocking)
+    if (phone) {
+      const salonRow = db.prepare(`SELECT name FROM salons WHERE slug = ?`).get(salon_id);
+      const salonName = salonRow?.name || "your salon";
+      sendWelcomeSms({ id, name, phone, compliance_opt_in: 0 }, salonName)
+        .catch(err => console.error("[Admin] welcome SMS failed:", err.message));
+    }
+
     return res.redirect(`/manager/admin?salon=${encodeURIComponent(salon_id)}`);
   } catch (err) {
     console.error("[Admin] add-member failed:", err);
@@ -1275,6 +1284,32 @@ router.post("/update-stylist-full", requireAuth, stylistPhotoUpload.single("styl
   }
 
   return res.redirect(`/manager/admin?salon=${encodeURIComponent(salon_id)}`);
+});
+
+// ───────────────────────────────────────────────────────────
+// POST: Resend Welcome SMS to a stylist
+// ───────────────────────────────────────────────────────────
+router.post("/resend-welcome/:stylistId", requireAuth, async (req, res) => {
+  const { stylistId } = req.params;
+  const salon_id = req.manager.salon_id;
+
+  const stylist = db.prepare(
+    `SELECT id, name, phone, compliance_opt_in FROM stylists WHERE id = ? AND salon_id = ?`
+  ).get(stylistId, salon_id);
+
+  if (!stylist) return res.status(404).json({ ok: false, error: "Stylist not found" });
+  if (!stylist.phone) return res.status(400).json({ ok: false, error: "Stylist has no phone number" });
+
+  const salonRow = db.prepare(`SELECT name FROM salons WHERE slug = ?`).get(salon_id);
+  const salonName = salonRow?.name || "your salon";
+
+  try {
+    await sendWelcomeSms(stylist, salonName);
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("[Admin] resend-welcome failed:", err.message);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
 });
 
 // ───────────────────────────────────────────────────────────
