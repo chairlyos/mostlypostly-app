@@ -685,7 +685,8 @@ export async function handleIncomingMessage({
     !!(stylist?.consent?.sms_opt_in);
 
   // If salon requires consent but stylist hasn't agreed yet → block
-  if (salonRequiresConsent && !stylistOptedIn) {
+  // Managers bypass consent — they accepted ToS at signup
+  if (salonRequiresConsent && !stylistOptedIn && role !== "manager") {
     console.warn(`⚠️ Consent required for ${stylist.name || stylist.stylist_name} @ ${salon.salon_info?.name}`);
     await queueConsentAndPrompt(chatId, imageUrl, text, sendMessage, stylist);
     endTimer(start);
@@ -893,7 +894,8 @@ export async function handleIncomingMessage({
         asHtml: false,
       });
 
-      if (requiresManager) {
+      // Managers can self-approve — skip the manager-approval gate
+      if (requiresManager && role !== "manager") {
         console.log(`🕓 [Router] Manager approval required for ${stylistName}`);
         console.log("👔 Manager loaded for approval:", manager?.name, manager?.phone, manager?.chat_id);
 
@@ -1152,10 +1154,9 @@ Log in to review: ${managerLink}
   // Availability posts don't require an image — route them directly
   if (!primaryImageUrl && classifyPostType(text || "") === "availability") {
     const alreadyOptedIn =
+      role === "manager" ||
       stylist?.compliance_opt_in ||
-      stylist?.consent?.sms_opt_in ||
-      (stylist?.role === "manager" &&
-        (stylist?.compliance_opt_in || stylist?.consent?.sms_opt_in));
+      stylist?.consent?.sms_opt_in;
 
     if (!alreadyOptedIn && consentSessions.get(chatId)?.status !== "granted") {
       await queueConsentAndPrompt(chatId, [], text, sendMessage, stylist);
@@ -1182,10 +1183,9 @@ Log in to review: ${managerLink}
   // NEW PHOTO — Consented?
   if (primaryImageUrl) {
   const alreadyOptedIn =
+    role === "manager" ||
     stylist?.compliance_opt_in ||
-    stylist?.consent?.sms_opt_in ||
-    (stylist?.role === "manager" &&
-      (stylist?.compliance_opt_in || stylist?.consent?.sms_opt_in));
+    stylist?.consent?.sms_opt_in;
 
   if (!alreadyOptedIn && consentSessions.get(chatId)?.status !== "granted") {
     await queueConsentAndPrompt(chatId, allImageUrls, text, sendMessage, stylist);
@@ -1212,10 +1212,9 @@ Log in to review: ${managerLink}
   // Default
   if (
     !(
+      role === "manager" ||
       stylist?.compliance_opt_in ||
-      stylist?.consent?.sms_opt_in ||
-      (stylist?.role === "manager" &&
-        (stylist?.compliance_opt_in || stylist?.consent?.sms_opt_in))
+      stylist?.consent?.sms_opt_in
     ) &&
     consentSessions.get(chatId)?.status !== "granted"
     ) {
