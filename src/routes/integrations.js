@@ -50,11 +50,16 @@ router.get("/", requireAuth, (req, res) => {
   const testedFail = req.query.tested === 'fail';
   const testError  = req.query.error ? decodeURIComponent(req.query.error) : '';
   const centersCount = req.query.centers ? parseInt(req.query.centers, 10) : 0;
-  const synced     = req.query.synced === '1';
-  const syncFound  = req.query.found  ? parseInt(req.query.found, 10) : 0;
+  const synced      = req.query.synced === '1';
+  const syncFound   = req.query.found  ? parseInt(req.query.found, 10) : 0;
+  const savedMap    = req.query.saved === 'mappings';
 
   let alertHtml = '';
-  if (testedOk) {
+  if (savedMap) {
+    alertHtml = `<div class="mb-6 rounded-xl bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-700 font-medium">
+      Stylist mappings saved successfully.
+    </div>`;
+  } else if (testedOk) {
     alertHtml = `<div class="mb-6 rounded-xl bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-700 font-medium">
       Connection successful — found ${centersCount} center${centersCount !== 1 ? 's' : ''}.
     </div>`;
@@ -462,7 +467,9 @@ router.post("/zenoti/sync", requireAuth, async (req, res) => {
     // Resolve center ID
     let centerId = row.center_id;
     if (!centerId) {
+      console.log('[Integrations] Zenoti sync: no center_id stored, fetching centers list');
       const centers = await client.getCenters();
+      console.log('[Integrations] Zenoti centers:', JSON.stringify(centers));
       centerId = centers[0]?.id || null;
     }
 
@@ -470,6 +477,8 @@ router.post("/zenoti/sync", requireAuth, async (req, res) => {
       console.warn('[Integrations] Zenoti sync: no center ID configured or found');
       return res.redirect('/manager/integrations?synced=1&found=0');
     }
+
+    console.log(`[Integrations] Zenoti sync: using center_id=${centerId}`);
 
     // Update last_event_at
     db.prepare(
