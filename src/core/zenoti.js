@@ -54,10 +54,17 @@ export function createZenotiClient(appId, apiKey) {
      */
     async getEmployees(centerId) {
       const data = await apiFetch(`/catalog/employees?center_id=${encodeURIComponent(centerId)}`);
-      const raw = Array.isArray(data.employees) ? data.employees : (Array.isArray(data) ? data : []);
+      console.log('[Zenoti] getEmployees raw response keys:', Object.keys(data || {}));
+      // Zenoti may return employees under different keys depending on version
+      const raw = Array.isArray(data.employees)  ? data.employees
+               : Array.isArray(data.therapists)  ? data.therapists
+               : Array.isArray(data.staff)        ? data.staff
+               : Array.isArray(data)              ? data
+               : [];
+      console.log(`[Zenoti] getEmployees found ${raw.length} employees`);
       return raw.map(e => ({
-        id:    e.id    || e.employee_id || '',
-        name:  e.name  || [e.first_name, e.last_name].filter(Boolean).join(' ') || '',
+        id:    e.id    || e.employee_id || e.therapist_id || '',
+        name:  e.name  || [e.first_name, e.last_name].filter(Boolean).join(' ') || e.display_name || '',
         email: e.email || '',
       }));
     },
