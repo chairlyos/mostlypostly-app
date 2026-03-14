@@ -619,8 +619,9 @@ router.post("/zenoti/disconnect", requireAuth, (req, res) => {
 // ─────────────────────────────────────────────────────────────────
 router.post("/zenoti/map-employees", requireAuth, (req, res) => {
   const salon_id = req.manager?.salon_id;
-  const stylistIds = [].concat(req.body["stylist_id[]"] || []);
-  const employeeIds = [].concat(req.body["employee_id[]"] || []);
+  // qs (extended:true) strips [] from field names; querystring keeps them — handle both
+  const stylistIds  = [].concat(req.body.stylist_id  || req.body["stylist_id[]"]  || []);
+  const employeeIds = [].concat(req.body.employee_id || req.body["employee_id[]"] || []);
 
   const stmt = db.prepare(
     `UPDATE stylists SET integration_employee_id = ? WHERE id = ? AND salon_id = ?`
