@@ -9,7 +9,7 @@ import pageShell from "../ui/pageShell.js";
 import { encrypt, decrypt } from "../core/encryption.js";
 import { createZenotiClient } from "../core/zenoti.js";
 import { handleZenotiEvent, handleVagaroEvent } from "../core/integrationHandlers.js";
-import { calculateOpenBlocks, formatBlocksAsSlots, categoriesForBlock } from "../core/zenotiAvailability.js";
+import { calculateOpenBlocks, formatBlocksAsSlots, categoriesForBlock, formatBlockWithCategory } from "../core/zenotiAvailability.js";
 import { buildAvailabilityImage } from "../core/buildAvailabilityImage.js";
 
 const router = express.Router();
@@ -600,13 +600,12 @@ router.post("/zenoti/sync", requireAuth, async (req, res) => {
 
         if (blocks.length) {
           for (const block of blocks) {
-            const [slot] = formatBlocksAsSlots([block], dateStr);
-            // Annotate with which service categories fit in this block
             const cats = serviceCatalog.length
               ? categoriesForBlock(block, serviceCatalog, stylistCats)
               : [];
-            const hint = cats.length ? ` · ${cats.slice(0, 2).join(' or ')}` : '';
-            allSlots.push(slot + hint);
+            // Pick the most fitting category (shortest threshold that fits = most specific match)
+            const category = cats[0] || null;
+            allSlots.push(formatBlockWithCategory(block, dateStr, category));
           }
           console.log(`[Integrations] ${stylist.name} on ${dateStr}: ${blocks.length} block(s) — ${allSlots.slice(-blocks.length).join(' | ')}`);
         }

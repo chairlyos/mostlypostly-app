@@ -92,6 +92,17 @@ export function formatBlocksAsSlots(blocks, dateStr) {
   });
 }
 
+/**
+ * Format a single block as "Saturday: 9:00am · Category".
+ * Used by Zenoti sync where category context replaces the duration/end time.
+ * If no category provided, falls back to just "Saturday: 9:00am".
+ */
+export function formatBlockWithCategory(block, dateStr, category) {
+  const dayName = new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long' });
+  const start = fmt12h(block.start);
+  return category ? `${dayName}: ${start} · ${category}` : `${dayName}: ${start}`;
+}
+
 function fmt12h(date) {
   return date
     .toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
