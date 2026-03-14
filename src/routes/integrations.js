@@ -558,14 +558,27 @@ router.post("/zenoti/sync", requireAuth, async (req, res) => {
         apptsByDate[apptDate].push(appt);
       }
 
+      // Salon posting hours used as fallback shift window when Zenoti working hours unavailable
+      const fallbackStart = salon?.posting_start_time || '09:00';
+      const fallbackEnd   = salon?.posting_end_time   || '18:00';
+      const hasWorkingHours = Object.keys(hoursByDate).length > 0;
+      if (!hasWorkingHours) {
+        console.log(`[Integrations] ${stylist.name}: no working hours from Zenoti — using salon hours ${fallbackStart}–${fallbackEnd} as shift window`);
+      }
+
       // Calculate open blocks per day and collect meaningful slots
       const allSlots = [];
-      const dates = Object.keys(hoursByDate).sort();
+      // Use working-hours dates if available; otherwise derive dates from appointments
+      const dates = hasWorkingHours
+        ? Object.keys(hoursByDate).sort()
+        : [...new Set(Object.keys(apptsByDate))].sort();
 
       for (const dateStr of dates) {
         const wh = hoursByDate[dateStr];
+        const shiftStart = wh?.start || fallbackStart;
+        const shiftEnd   = wh?.end   || fallbackEnd;
         const dayAppts = apptsByDate[dateStr] || [];
-        const blocks = calculateOpenBlocks(wh.start, wh.end, dayAppts, dateStr);
+        const blocks = calculateOpenBlocks(shiftStart, shiftEnd, dayAppts, dateStr);
 
         if (blocks.length) {
           const slots = formatBlocksAsSlots(blocks, dateStr);
