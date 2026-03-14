@@ -49,18 +49,27 @@ router.get("/", requireAuth, (req, res) => {
   const zenotiWebhookUrl = `${BASE_URL}/integrations/webhook/zenoti/${salon_id}`;
 
   // Alert banners for test/sync results
-  const testedOk   = req.query.tested === 'ok';
-  const testedFail = req.query.tested === 'fail';
-  const testError  = req.query.error ? decodeURIComponent(req.query.error) : '';
+  const testedOk    = req.query.tested === 'ok';
+  const testedFail  = req.query.tested === 'fail';
+  const testError   = req.query.error ? decodeURIComponent(req.query.error) : '';
   const centersCount = req.query.centers ? parseInt(req.query.centers, 10) : 0;
   const synced      = req.query.synced === '1';
   const syncFound   = req.query.found  ? parseInt(req.query.found, 10) : 0;
   const savedMap    = req.query.saved === 'mappings';
+  const staffSynced = req.query.staff_synced === '1';
+  const staffMatched = req.query.staff_matched ? parseInt(req.query.staff_matched, 10) : 0;
+  const staffTotal   = req.query.staff_total   ? parseInt(req.query.staff_total,   10) : 0;
+  const staffNew     = req.query.staff_new     ? parseInt(req.query.staff_new,     10) : 0;
 
   let alertHtml = '';
   if (savedMap) {
     alertHtml = `<div class="mb-6 rounded-xl bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-700 font-medium">
       Stylist mappings saved successfully.
+    </div>`;
+  } else if (staffSynced) {
+    const unmatchedCount = staffTotal - staffMatched;
+    alertHtml = `<div class="mb-6 rounded-xl bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-700 font-medium">
+      Staff sync complete — ${staffMatched} of ${staffTotal} Zenoti employee${staffTotal !== 1 ? 's' : ''} matched to stylists${staffNew > 0 ? ` (${staffNew} newly linked)` : ''}.${unmatchedCount > 0 ? ` <span class="font-normal text-green-600">${unmatchedCount} unmatched — enter their IDs manually below.</span>` : ''}
     </div>`;
   } else if (testedOk) {
     alertHtml = `<div class="mb-6 rounded-xl bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-700 font-medium">
@@ -72,7 +81,7 @@ router.get("/", requireAuth, (req, res) => {
     </div>`;
   } else if (synced) {
     alertHtml = `<div class="mb-6 rounded-xl bg-mpAccentLight border border-mpBorder px-4 py-3 text-sm text-mpAccent font-medium">
-      Sync complete — ${syncFound} availability post${syncFound !== 1 ? 's' : ''} created and sent to Post Queue for approval.
+      Availability sync complete — ${syncFound} post${syncFound !== 1 ? 's' : ''} created and sent to Post Queue for approval.
     </div>`;
   }
 
@@ -189,10 +198,16 @@ router.get("/", requireAuth, (req, res) => {
               Test Connection
             </button>
           </form>
+          <form method="POST" action="/manager/integrations/zenoti/sync-staff">
+            <button type="submit"
+              class="px-4 py-2 rounded-lg border border-mpBorder text-xs font-semibold text-mpCharcoal hover:bg-mpBg transition-colors">
+              Sync Staff
+            </button>
+          </form>
           <form method="POST" action="/manager/integrations/zenoti/sync">
             <button type="submit"
               class="px-4 py-2 rounded-lg bg-mpAccent text-white text-xs font-semibold hover:opacity-90 transition-opacity">
-              Sync Now
+              Sync Availability
             </button>
           </form>
           <a href="/manager/integrations/zenoti"
@@ -466,6 +481,79 @@ router.post("/zenoti/test", requireAuth, async (req, res) => {
   } catch (e) {
     console.error('[Integrations] Zenoti test failed:', e.message);
     res.redirect(`/manager/integrations?tested=fail&error=${encodeURIComponent(e.message || 'Connection failed')}`);
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────
+// POST /manager/integrations/zenoti/sync-staff
+// Fetches Zenoti employees, auto-matches to stylists by name.
+// Updates integration_employee_id — NO availability posts created.
+// ─────────────────────────────────────────────────────────────────
+router.post("/zenoti/sync-staff", requireAuth, async (req, res) => {
+  const salon_id = req.manager?.salon_id;
+
+  try {
+    const zenotiInfo = await getZenotiClientForSalon(salon_id);
+    if (!zenotiInfo) {
+      return res.redirect('/manager/integrations?tested=fail&error=' + encodeURIComponent('No Zenoti credentials or center ID configured'));
+    }
+
+    const { client, centerId } = zenotiInfo;
+    const employees = await client.getEmployees(centerId);
+    console.log(`[Integrations] Staff sync: ${employees.length} Zenoti employees found`);
+
+    const stylists = db.prepare(
+      `SELECT id, name, integration_employee_id FROM stylists WHERE salon_id = ? ORDER BY name ASC`
+    ).all(salon_id);
+
+    // Build normalized name → stylist lookup
+    const normalize = str => (str || '').toLowerCase().replace(/\s+/g, ' ').trim();
+    const stylistByName = new Map();
+    for (const s of stylists) {
+      stylistByName.set(normalize(s.name), s);
+    }
+
+    const updateStmt = db.prepare(
+      `UPDATE stylists SET integration_employee_id = ? WHERE id = ? AND salon_id = ?`
+    );
+
+    let matched = 0;
+    let newlyLinked = 0;
+
+    for (const emp of employees) {
+      const empNameNorm = normalize(emp.name);
+      const stylist = stylistByName.get(empNameNorm);
+      if (!stylist) {
+        // Try first-name-only match as fallback
+        const firstName = empNameNorm.split(' ')[0];
+        for (const [sName, s] of stylistByName) {
+          if (sName.startsWith(firstName + ' ') || sName === firstName) {
+            // Only auto-match on first name if it's unique — skip if ambiguous
+            const firstNameMatches = [...stylistByName.keys()].filter(k => k.startsWith(firstName));
+            if (firstNameMatches.length === 1) {
+              const wasEmpty = !s.integration_employee_id;
+              updateStmt.run(emp.id, s.id, salon_id);
+              matched++;
+              if (wasEmpty) newlyLinked++;
+              console.log(`[Integrations] Staff sync: matched "${emp.name}" → "${s.name}" (first-name) employee_id=${emp.id}`);
+            }
+            break;
+          }
+        }
+        continue;
+      }
+      const wasEmpty = !stylist.integration_employee_id;
+      updateStmt.run(emp.id, stylist.id, salon_id);
+      matched++;
+      if (wasEmpty) newlyLinked++;
+      console.log(`[Integrations] Staff sync: matched "${emp.name}" employee_id=${emp.id}`);
+    }
+
+    console.log(`[Integrations] Staff sync complete: ${matched}/${employees.length} matched, ${newlyLinked} newly linked`);
+    res.redirect(`/manager/integrations?staff_synced=1&staff_matched=${matched}&staff_total=${employees.length}&staff_new=${newlyLinked}`);
+  } catch (e) {
+    console.error('[Integrations] Staff sync error:', e.message);
+    res.redirect('/manager/integrations?tested=fail&error=' + encodeURIComponent(e.message || 'Staff sync failed'));
   }
 });
 
