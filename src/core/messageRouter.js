@@ -33,7 +33,12 @@ import { classifyPostType } from "./classifyPostType.js";
 import { buildBeforeAfterCollage } from "./buildBeforeAfterCollage.js";
 import { buildAvailabilityImage } from "./buildAvailabilityImage.js";
 import { isAvailabilityRequest, parseDateRange } from "./availabilityRequest.js";
-import { getZenotiClientForSalon, fetchStylistSlots, generateAndSaveAvailabilityPost } from "./zenotiSync.js";
+import {
+  getZenotiClientForSalon,
+  syncAvailabilityPool,
+  getPooledStylistSlots,
+  generateAndSaveAvailabilityPost,
+} from "./zenotiSync.js";
 // 🧠 Import moderation utility directly
 import moderateAIOutput from "../utils/moderation.js";
 import { sendQuickStart } from "./stylistWelcome.js";
@@ -1151,10 +1156,11 @@ Log in to review: ${managerLink}
   }
 
 
-  // SMS availability request → pull from Zenoti (or other integrated booking software) if connected
-  // "Push my availability for this Saturday" → Zenoti lookup; falls through to GPT path if not connected
+  // SMS availability request → pull from integrated booking software if connected.
+  // Uses a 30-minute in-memory pool: the first request syncs ALL mapped stylists for the
+  // salon; subsequent requests within 30 minutes read from the cache without hitting Zenoti.
   if (!primaryImageUrl && isAvailabilityRequest(cleanText)) {
-    const salonId = salon?.salon_id || salon?.id || salon?.salon_info?.slug;
+    const salonId   = salon?.salon_id || salon?.id || salon?.salon_info?.slug;
     const stylistId = stylist?.id || stylist?.stylist_id;
 
     // Check for an active booking software integration (currently: Zenoti)
@@ -1163,7 +1169,7 @@ Log in to review: ${managerLink}
       : null;
 
     if (integration) {
-      // Fetch this stylist's mapped employee ID from the DB
+      // Fetch this stylist's full DB row (need integration_employee_id)
       const stylistRow = stylistId
         ? db.prepare(`SELECT id, name, instagram_handle, integration_employee_id FROM stylists WHERE id = ?`).get(stylistId)
         : null;
@@ -1171,47 +1177,52 @@ Log in to review: ${managerLink}
       if (stylistRow?.integration_employee_id) {
         await sendMessage.sendText(chatId, "Got it! Building your availability post... one moment!");
         try {
-          const salonRow = db.prepare(`SELECT * FROM salons WHERE slug = ?`).get(salonId);
-          const dateRange = parseDateRange(cleanText);
+          const salonRow   = db.prepare(`SELECT * FROM salons WHERE slug = ?`).get(salonId);
+          const dateRange  = parseDateRange(cleanText);
 
-          const zenotiInfo = await getZenotiClientForSalon(salonId);
-          if (zenotiInfo) {
-            const slots = await fetchStylistSlots({
-              client: zenotiInfo.client,
-              centerId: zenotiInfo.centerId,
-              stylist: stylistRow,
-              salon: salonRow,
-              dateRange,
-            });
+          // Use pool if fresh, otherwise trigger a full salon sync (all stylists)
+          let slots = getPooledStylistSlots(salonId, stylistRow.id, dateRange);
+          if (!slots) {
+            console.log(`[Router] Availability pool miss for salon=${salonId} — syncing all stylists`);
+            const pool = await syncAvailabilityPool(salonId);
+            // Read from the freshly synced pool
+            slots = pool
+              ? (pool.get(stylistRow.id) || [])
+                  .filter(b => b.dateStr >= dateRange.startDate && b.dateStr <= dateRange.endDate)
+                  .slice(0, 5)
+                  .map(b => b.label)
+              : [];
+          } else {
+            console.log(`[Router] Availability pool hit for salon=${salonId}, stylist=${stylistRow.name}`);
+          }
 
-            if (slots.length) {
-              const result = await generateAndSaveAvailabilityPost({ salon: salonRow, stylist: stylistRow, slots });
-              if (result?.postId) {
-                const portalToken = crypto.randomBytes(32).toString("hex");
-                const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-                db.prepare(`INSERT INTO stylist_portal_tokens (id, post_id, token, expires_at) VALUES (?, ?, ?, ?)`)
-                  .run(crypto.randomUUID(), result.postId, portalToken, expiresAt);
-                const portalUrl = `${process.env.PUBLIC_BASE_URL || ""}/stylist/${result.postId}?token=${portalToken}`;
-                await sendMessage.sendText(chatId,
-                  `Your availability post is ready! Review it here:\n${portalUrl}\n\nOr reply APPROVE to submit now, or CANCEL to discard. (Link expires in 24 hours.)`
-                );
-              }
-            } else {
+          if (slots.length) {
+            const result = await generateAndSaveAvailabilityPost({ salon: salonRow, stylist: stylistRow, slots });
+            if (result?.postId) {
+              const portalToken = crypto.randomBytes(32).toString("hex");
+              const expiresAt   = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+              db.prepare(`INSERT INTO stylist_portal_tokens (id, post_id, token, expires_at) VALUES (?, ?, ?, ?)`)
+                .run(crypto.randomUUID(), result.postId, portalToken, expiresAt);
+              const portalUrl = `${process.env.PUBLIC_BASE_URL || ""}/stylist/${result.postId}?token=${portalToken}`;
               await sendMessage.sendText(chatId,
-                "No open availability found for those dates. If your schedule changes, try again!"
+                `Your availability post is ready! Review it here:\n${portalUrl}\n\nOr reply APPROVE to submit now, or CANCEL to discard. (Link expires in 24 hours.)`
               );
             }
+          } else {
+            await sendMessage.sendText(chatId,
+              "No open availability found for those dates. If your schedule changes, try again!"
+            );
           }
         } catch (err) {
-          console.error("[Router] SMS availability Zenoti error:", err.message);
+          console.error("[Router] SMS availability sync error:", err.message);
           await sendMessage.sendText(chatId, "Sorry, we couldn't pull your availability right now. Please try again.");
         }
         endTimer(start);
         return;
       }
-      // Stylist not mapped to integration → fall through to GPT-based text path
+      // Stylist not mapped to the integration → fall through to GPT text-parse path
     }
-    // No integration → fall through to GPT-based text path (stylist texts their own times)
+    // No integration → fall through to GPT text-parse path (stylist texts their own times)
   }
 
   // Availability posts don't require an image — route them directly (GPT-based text parse)
