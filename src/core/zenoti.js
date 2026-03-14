@@ -90,23 +90,29 @@ export function createZenotiClient(appId, apiKey) {
                   : Array.isArray(data)                    ? data
                   : [];
 
-        // Filter to this employee only
-        const empSchedules = raw.filter(r =>
+        // Find this employee's record (contains nested schedules array)
+        const empRecord = raw.find(r =>
           (r.employee_id || r.therapist_id || r.id || '').toLowerCase() === employeeId.toLowerCase()
         );
-        console.log(`[Zenoti] employee_schedules: ${raw.length} total, ${empSchedules.length} for employee ${employeeId}`);
+        console.log(`[Zenoti] employee_schedules: ${raw.length} total, ${empRecord ? 'found' : 'not found'} for employee ${employeeId}`);
 
-        if (empSchedules.length) {
-          return empSchedules.map(d => {
-            const shift = Array.isArray(d.shifts) && d.shifts[0] ? d.shifts[0] : d;
-            const dateStr = (d.date || d.work_date || d.schedule_date || '').slice(0, 10);
-            // Times may be full ISO datetimes or HH:MM strings
-            const rawStart = shift.start_time || shift.start || shift.from || '';
-            const rawEnd   = shift.end_time   || shift.end   || shift.to   || '';
-            const start = rawStart.length > 5 ? rawStart.slice(11, 16) : rawStart.slice(0, 5);
-            const end   = rawEnd.length   > 5 ? rawEnd.slice(11, 16)   : rawEnd.slice(0, 5);
-            return { date: dateStr, start, end };
-          }).filter(d => d.date && d.start && d.end);
+        if (empRecord && Array.isArray(empRecord.schedules)) {
+          const results = [];
+          for (const daySchedule of empRecord.schedules) {
+            if (!Array.isArray(daySchedule.shifts) || !daySchedule.shifts.length) continue;
+            const shift = daySchedule.shifts[0];
+            // status -1 = day off / not scheduled
+            if (shift.status === -1) continue;
+            const dateStr = (daySchedule.date || '').slice(0, 10);
+            // start_time/end_time are ISO datetimes: "2026-03-14T10:00:00"
+            const start = (shift.start_time || '').slice(11, 16);
+            const end   = (shift.end_time   || '').slice(11, 16);
+            if (dateStr && start && end) {
+              results.push({ date: dateStr, start, end });
+              console.log(`[Zenoti] ${dateStr} shift: ${start}–${end}`);
+            }
+          }
+          return results;
         }
       } catch (e) {
         console.warn('[Zenoti] employee_schedules failed:', e.message.slice(0, 120));
