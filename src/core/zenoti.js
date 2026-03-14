@@ -145,18 +145,34 @@ export function createZenotiClient(appId, apiKey) {
           console.log('[Zenoti] service[0] sample:', JSON.stringify(raw[0]).slice(0, 400));
         }
 
-        // Build category map: categoryName → min duration across all services in that category
-        // Try every plausible Zenoti category field name
+        // Infer category from service name via keyword matching.
+        // Zenoti doesn't expose category_name in this endpoint so we derive it.
+        // Returns the broadest useful category label for the available block.
+        function inferCategory(name) {
+          const n = (name || '').toLowerCase();
+          if (n.includes('highlight') || n.includes('balayage') || n.includes('ombre')
+              || n.includes('foil') || n.includes('blonding') || n.includes('bleach')
+              || n.includes('lightener')) return 'Highlights';
+          if (n.includes('color') || n.includes('colour') || n.includes('tint')
+              || n.includes('gloss') || n.includes('toner')) return 'Color';
+          if (n.includes('haircut') || n.includes('cut') || n.includes('trim')
+              || n.includes('shampoo & style')) return 'Haircut';
+          if (n.includes('blowout') || n.includes('blow dry') || n.includes('blow-dry')
+              || n.includes('style') || n.includes('press')) return 'Blowout';
+          if (n.includes('treatment') || n.includes('mask') || n.includes('bond')
+              || n.includes('keratin') || n.includes('perm') || n.includes('relaxer')) return 'Treatment';
+          if (n.includes('extension')) return 'Extensions';
+          return null;
+        }
+
+        // Category thresholds — minimum block needed to reasonably offer that service.
+        // Uses the minimum duration of any matching service in the catalog.
         const categoryMap = {};
         for (const svc of raw) {
-          const cat = svc.category_name
-                   || svc.category?.name
-                   || svc.service_category
-                   || svc.category_info?.name
-                   || svc.type
-                   || null;
-          if (!cat) continue; // skip uncategorized
-          const dur = svc.duration ?? svc.time ?? svc.duration_mins ?? 0;
+          const cat = inferCategory(svc.name);
+          if (!cat) continue;
+          const dur = svc.duration ?? 0;
+          if (dur <= 0) continue;
           if (!categoryMap[cat] || dur < categoryMap[cat].minDurationMin) {
             categoryMap[cat] = { categoryName: cat, minDurationMin: dur };
           }
@@ -165,17 +181,12 @@ export function createZenotiClient(appId, apiKey) {
         const categories = Object.values(categoryMap).filter(c => c.minDurationMin > 0);
         console.log('[Zenoti] service categories:', categories.length
           ? categories.map(c => `${c.categoryName}(${c.minDurationMin}min)`).join(', ')
-          : '(none found — check service[0] keys above)');
+          : '(none inferred — check service names)');
 
-        // Also return a name→category lookup for mapping appointment service names
+        // Name→category lookup for mapping appointment service names to categories
         const serviceNameToCategory = {};
         for (const svc of raw) {
-          const cat = svc.category_name
-                   || svc.category?.name
-                   || svc.service_category
-                   || svc.category_info?.name
-                   || svc.type
-                   || null;
+          const cat = inferCategory(svc.name);
           if (svc.name && cat) serviceNameToCategory[svc.name.toLowerCase()] = cat;
         }
 

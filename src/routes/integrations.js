@@ -618,12 +618,12 @@ router.post("/zenoti/sync", requireAuth, async (req, res) => {
 
       // Build the availability image and create a manager_pending post
       try {
-        const availText = allSlots.slice(0, 6).join('\n');
-        const palette = salon?.brand_palette ? JSON.parse(salon.brand_palette) : null;
+        const availSlots = allSlots.slice(0, 6);
         const bookingCta = salon?.booking_url ? 'Book via link in bio' : 'DM to book';
 
         const imageUrl = await buildAvailabilityImage({
-          text: availText,
+          slots: availSlots,           // pre-structured — bypasses GPT parsing
+          text: availSlots.join('\n'), // kept for caption storage
           stylistName: stylist.name,
           salonName: salon?.name || salon_id,
           salonId: salon_id,
