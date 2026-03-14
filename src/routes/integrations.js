@@ -133,23 +133,48 @@ router.get("/", requireAuth, (req, res) => {
 
         <!-- Stylist ID Mapping -->
         <div class="mb-4">
-          <p class="text-xs font-semibold text-mpCharcoal mb-2">Stylist → Zenoti Employee ID Mapping</p>
-          <p class="text-xs text-mpMuted mb-2">Enter each stylist's Zenoti employee ID so MostlyPostly can match webhook events to the right stylist.</p>
+          <div class="flex items-center justify-between mb-2">
+            <p class="text-xs font-semibold text-mpCharcoal">Stylist → Zenoti Employee ID Mapping</p>
+            ${(() => {
+              const counts = db.prepare(
+                `SELECT COUNT(*) AS total,
+                        SUM(CASE WHEN integration_employee_id IS NOT NULL THEN 1 ELSE 0 END) AS mapped
+                 FROM stylists WHERE salon_id = ?`
+              ).get(salon_id);
+              const { total, mapped } = counts || { total: 0, mapped: 0 };
+              return mapped > 0
+                ? `<span class="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-semibold text-green-700">
+                    <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                    ${mapped} of ${total} matched
+                   </span>`
+                : `<span class="text-[11px] text-mpMuted">${total} stylist${total !== 1 ? 's' : ''}, none matched yet</span>`;
+            })()}
+          </div>
+          <p class="text-xs text-mpMuted mb-3">Enter each stylist's Zenoti employee ID. Matched stylists will have availability posts generated on sync.</p>
           ${(() => {
             const stylists = db.prepare(
               `SELECT id, name, integration_employee_id FROM stylists WHERE salon_id = ? ORDER BY name ASC`
             ).all(salon_id);
             if (!stylists.length) return `<p class="text-xs text-mpMuted italic">No stylists added yet. <a href="/manager/stylists" class="underline text-mpAccent">Add stylists →</a></p>`;
             return `<form method="POST" action="/manager/integrations/zenoti/map-employees" class="space-y-2">
-              ${stylists.map(s => `
-                <div class="flex items-center gap-3">
-                  <span class="text-xs text-mpCharcoal w-36 font-medium truncate">${s.name}</span>
+              ${stylists.map(s => {
+                const matched = !!s.integration_employee_id;
+                return `
+                <div class="flex items-center gap-2">
+                  <!-- Match indicator -->
+                  <div class="w-5 flex-shrink-0 flex items-center justify-center">
+                    ${matched
+                      ? `<svg class="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>`
+                      : `<div class="w-3 h-3 rounded-full border border-gray-300"></div>`}
+                  </div>
+                  <span class="text-xs text-mpCharcoal w-32 font-medium truncate">${s.name}</span>
                   <input type="hidden" name="stylist_id[]" value="${s.id}" />
                   <input type="text" name="employee_id[]"
                     value="${s.integration_employee_id || ""}"
                     placeholder="Zenoti employee UUID"
-                    class="flex-1 text-xs font-mono rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-mpCharcoal placeholder:text-gray-400 focus:outline-none focus:border-mpAccent" />
-                </div>`).join("")}
+                    class="flex-1 text-xs font-mono rounded-lg border ${matched ? 'border-green-200 bg-green-50' : 'border-gray-200 bg-gray-50'} px-3 py-1.5 text-mpCharcoal placeholder:text-gray-400 focus:outline-none focus:border-mpAccent" />
+                </div>`;
+              }).join("")}
               <button type="submit" class="mt-2 rounded-full bg-mpCharcoal px-4 py-2 text-xs font-semibold text-white hover:bg-mpCharcoalDark transition-colors">Save Mappings</button>
             </form>`;
           })()}
