@@ -735,11 +735,13 @@ function escSvg(str) {
  * @param {string}   opts.bookingCta
  * @returns {Promise<string>}  Public URL of the saved story image
  */
-export async function buildAvailabilityImage({ text, stylistName, salonName, salonId, stylistId, instagramHandle, bookingCta, submittedImageUrl }) {
+export async function buildAvailabilityImage({ text, slots: prebuiltSlots, stylistName, salonName, salonId, stylistId, instagramHandle, bookingCta, submittedImageUrl }) {
   console.log("[Availability] Building story image…");
 
-  // 1. Parse slots
-  const slots = await parseAvailabilitySlots(text);
+  // 1. Parse slots — skip GPT if pre-structured slots are provided (e.g. from Zenoti sync)
+  const slots = prebuiltSlots && prebuiltSlots.length
+    ? prebuiltSlots
+    : await parseAvailabilitySlots(text);
   console.log("[Availability] Slots parsed:", slots);
 
   // 2. Pick background — submitted photo wins, then stock/DALL-E
