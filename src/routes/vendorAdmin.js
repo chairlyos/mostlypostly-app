@@ -199,6 +199,17 @@ router.get("/", requireSecret, requirePin, (req, res) => {
   `).all();
   const pendingCount = approvals.filter(a => a.status === "pending").length;
 
+  // Platform issues flagged by stylists
+  const issues = db.prepare(`
+    SELECT i.*, s.name AS salon_name
+    FROM platform_issues i
+    LEFT JOIN salons s ON s.slug = i.salon_id
+    ORDER BY CASE i.status WHEN 'open' THEN 0 WHEN 'acknowledged' THEN 1 ELSE 2 END,
+             i.created_at DESC
+    LIMIT 100
+  `).all();
+  const openIssueCount = issues.filter(i => i.status === 'open').length;
+
   // All unique vendor names for the approval assignment dropdown
   const vendorNames = [...new Set(campaigns.map(c => c.vendor_name))].sort();
 
@@ -305,6 +316,51 @@ router.get("/", requireSecret, requirePin, (req, res) => {
       <div class="stat-card"><div class="stat-val text-red-500">${canceled}</div><div class="stat-lbl">Canceled</div></div>
       <div class="stat-card"><div class="stat-val text-purple-600">${totalCampaigns}</div><div class="stat-lbl">Vendor Campaigns</div></div>
       <div class="stat-card"><div class="stat-val ${pendingCount > 0 ? "text-yellow-500" : "text-gray-400"}">${pendingCount}</div><div class="stat-lbl">Pending Approvals</div></div>
+      <div class="stat-card"><div class="stat-val ${openIssueCount > 0 ? "text-red-500" : "text-gray-400"}">${openIssueCount}</div><div class="stat-lbl">Open Issues</div></div>
+    </div>
+
+    <!-- Platform Issues -->
+    <div class="border rounded-2xl bg-white overflow-hidden">
+      <div class="px-6 py-4 border-b">
+        <h2 class="font-bold">Stylist Issues
+          ${openIssueCount > 0 ? `<span class="ml-2 inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">${openIssueCount} open</span>` : ""}
+        </h2>
+        <p class="text-xs text-gray-500 mt-0.5">Flagged by stylists via SMS (e.g. "WRONG" reply to no-availability). Investigate and inform the salon manager.</p>
+      </div>
+      ${issues.length === 0 ? `<div class="px-6 py-8 text-center text-sm text-gray-400">No issues reported</div>` : `
+      <table class="w-full text-sm">
+        <thead class="bg-gray-50 text-xs text-gray-500 uppercase tracking-wide">
+          <tr>
+            <th class="px-6 py-2 text-left">Salon</th>
+            <th class="px-6 py-2 text-left">Stylist</th>
+            <th class="px-6 py-2 text-left">Type</th>
+            <th class="px-6 py-2 text-left">Description</th>
+            <th class="px-6 py-2 text-left">Reported</th>
+            <th class="px-6 py-2 text-left">Status</th>
+            <th class="px-6 py-2 text-left">Action</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y">
+          ${issues.map(issue => `
+            <tr class="hover:bg-gray-50">
+              <td class="px-6 py-3 font-medium">${safe(issue.salon_name || issue.salon_id)}</td>
+              <td class="px-6 py-3">${safe(issue.stylist_name || "—")}<br><span class="text-xs text-gray-400">${safe(issue.stylist_phone || "")}</span></td>
+              <td class="px-6 py-3"><span class="text-xs px-2 py-0.5 rounded-full bg-orange-100 text-orange-700">${safe(issue.issue_type.replace(/_/g, " "))}</span></td>
+              <td class="px-6 py-3 text-gray-600 max-w-xs text-xs">${safe(issue.description || "—")}</td>
+              <td class="px-6 py-3 text-xs text-gray-400">${new Date(issue.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</td>
+              <td class="px-6 py-3">
+                <span class="text-xs px-2 py-0.5 rounded-full ${issue.status === "open" ? "bg-red-100 text-red-700" : issue.status === "acknowledged" ? "bg-yellow-100 text-yellow-700" : "bg-green-100 text-green-700"}">${safe(issue.status)}</span>
+              </td>
+              <td class="px-6 py-3">
+                <div class="flex gap-2">
+                  ${issue.status === "open" ? `<form method="POST" action="/internal/vendors/issues/${safe(issue.id)}/acknowledge${qs(req)}"><button class="text-xs text-blue-500 hover:text-blue-700">Acknowledge</button></form>` : ""}
+                  ${issue.status !== "resolved" ? `<form method="POST" action="/internal/vendors/issues/${safe(issue.id)}/resolve${qs(req)}"><button class="text-xs text-green-500 hover:text-green-700">Resolve</button></form>` : ""}
+                </div>
+              </td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>`}
     </div>
 
     <!-- Vendor Approvals -->
@@ -501,6 +557,19 @@ router.get("/", requireSecret, requirePin, (req, res) => {
 </body></html>`;
 
   res.send(html);
+});
+
+// ── POST /issues/:id/acknowledge — Mark issue as acknowledged ─────────────────
+router.post("/issues/:id/acknowledge", requireSecret, requirePin, (req, res) => {
+  db.prepare(`UPDATE platform_issues SET status = 'acknowledged' WHERE id = ?`).run(req.params.id);
+  res.redirect(`/internal/vendors${qs(req)}`);
+});
+
+// ── POST /issues/:id/resolve — Mark issue as resolved ─────────────────────────
+router.post("/issues/:id/resolve", requireSecret, requirePin, (req, res) => {
+  db.prepare(`UPDATE platform_issues SET status = 'resolved', resolved_at = ? WHERE id = ?`)
+    .run(new Date().toISOString(), req.params.id);
+  res.redirect(`/internal/vendors${qs(req)}`);
 });
 
 // ── POST /delete-salon ─────────────────────────────────────────────────────────

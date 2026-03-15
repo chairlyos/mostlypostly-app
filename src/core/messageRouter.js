@@ -272,6 +272,11 @@ function buildInstagramCaption(baseCaption, stylistName, igHandle) {
 // Consent session (in-memory)
 const consentSessions = new Map(); // chatId -> { status: 'pending' | 'granted', queued?: { imageUrl, text } }
 
+// Track stylists who recently received a "no availability" response so WRONG replies can be attributed
+// Shape: Map<chatId, { salonId, stylistId, stylistName, stylistPhone, at: timestamp }>
+const noAvailabilityRecent = new Map();
+const NO_AVAIL_TTL_MS = 60 * 60 * 1000; // 1 hour
+
 function hasConsent(stylist) {
   return !!(stylist?.compliance_opt_in) || !!(stylist?.consent?.sms_opt_in);
 }
@@ -765,6 +770,37 @@ export async function handleIncomingMessage({
     return;
   }
 
+  // WRONG — stylist disputes a "no availability" result
+  if (command === "WRONG") {
+    const recent = noAvailabilityRecent.get(chatId);
+    if (recent && Date.now() - recent.at < NO_AVAIL_TTL_MS) {
+      try {
+        db.prepare(`
+          INSERT INTO platform_issues (id, salon_id, stylist_id, stylist_name, stylist_phone, issue_type, description, status, created_at)
+          VALUES (?, ?, ?, ?, ?, 'availability_incorrect',
+            'Stylist replied WRONG to a no-availability response. Zenoti data may be missing appointments.',
+            'open', ?)
+        `).run(
+          crypto.randomUUID(), recent.salonId, recent.stylistId,
+          recent.stylistName, recent.stylistPhone, new Date().toISOString()
+        );
+        noAvailabilityRecent.delete(chatId);
+        console.log(`[Issues] Flagged availability issue for ${recent.stylistName} @ ${recent.salonId}`);
+      } catch (err) {
+        console.error("[Issues] Failed to create platform issue:", err.message);
+      }
+      await sendMessage.sendText(chatId,
+        "Got it — we've flagged this for review. Your salon manager will be notified if there's an issue with your availability data."
+      );
+    } else {
+      await sendMessage.sendText(chatId,
+        "Not sure what that's in response to. Try texting \"Post availability\" to pull your schedule."
+      );
+    }
+    endTimer(start);
+    return;
+  }
+
   // JOIN (managers)
   if (/^JOIN\b/i.test(cleanText)) {
     if (role !== "manager") {
@@ -1214,8 +1250,16 @@ Log in to review: ${managerLink}
               );
             }
           } else {
+            // Record so a "WRONG" reply within 1 hour creates a platform issue
+            noAvailabilityRecent.set(chatId, {
+              salonId:      salonId,
+              stylistId:    stylistRow.id,
+              stylistName:  stylistRow.name,
+              stylistPhone: chatId,
+              at:           Date.now(),
+            });
             await sendMessage.sendText(chatId,
-              "No open availability found for those dates. If your schedule changes, try again!"
+              "No open availability was found in your schedule for the next 14 days. Please confirm your appointments are up to date in your salon software.\n\nIf you believe this is incorrect, reply WRONG and we'll flag it for review."
             );
           }
         } catch (err) {

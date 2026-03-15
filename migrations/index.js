@@ -31,6 +31,7 @@ import { run as run027 } from "./027_owner_role.js";
 import { run as run028 } from "./028_team_roles.js";
 import { run as run029 } from "./029_rename_staff_to_coordinator.js";
 import { run as run030 } from "./030_integrations_app_id.js";
+import { run as run031 } from "./031_platform_issues.js";
 
 export const migrations = [
   { name: "001_baseline_patches",        run: run001 },
@@ -63,4 +64,5 @@ export const migrations = [
   { name: "028_team_roles",             run: run028 },
   { name: "029_rename_staff_to_coordinator", run: run029 },
   { name: "030_integrations_app_id",         run: run030 },
+  { name: "031_platform_issues",             run: run031 },
 ];
