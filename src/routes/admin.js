@@ -155,6 +155,15 @@ router.get("/", requireAuth, (req, res) => {
      WHERE manager_id = ? ORDER BY created_at DESC LIMIT 10`
   ).all(req.manager.id);
 
+  // Open issues for this salon flagged by stylists
+  const openIssues = (() => {
+    try {
+      return db.prepare(
+        `SELECT * FROM platform_issues WHERE salon_id = ? AND status != 'resolved' ORDER BY created_at DESC`
+      ).all(salon_id);
+    } catch { return []; }
+  })();
+
   // Brand palette
   let brandPalette = null;
   try {
@@ -591,6 +600,40 @@ router.get("/", requireAuth, (req, res) => {
       </div>
     </section>`;
     })()}
+
+    ${openIssues.length > 0 ? `
+    <!-- Stylist Issues Alert -->
+    <section class="mb-6">
+      <div class="rounded-2xl border border-orange-200 bg-orange-50 px-5 py-4">
+        <div class="flex items-start gap-3">
+          <div class="text-orange-500 text-xl mt-0.5">⚠️</div>
+          <div class="flex-1">
+            <h2 class="text-sm font-semibold text-orange-800 mb-1">
+              Availability Data Issue${openIssues.length > 1 ? "s" : ""}
+              <span class="ml-2 inline-flex items-center rounded-full bg-orange-200 px-2 py-0.5 text-xs font-semibold text-orange-800">${openIssues.length} open</span>
+            </h2>
+            <p class="text-xs text-orange-700 mb-3">
+              One or more stylists reported their availability looked incorrect. This usually means appointments in your salon software don't match what the system found. Please verify appointments are entered correctly.
+            </p>
+            <div class="space-y-2">
+              ${openIssues.map(issue => `
+                <div class="text-xs bg-white rounded-lg border border-orange-100 px-3 py-2 flex items-center justify-between">
+                  <div>
+                    <span class="font-medium text-orange-800">${issue.stylist_name || "Unknown stylist"}</span>
+                    <span class="text-orange-500 ml-2">${new Date(issue.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+                    <span class="ml-2 text-orange-400">${(issue.issue_type || "").replace(/_/g, " ")}</span>
+                  </div>
+                  <span class="text-orange-400 capitalize">${issue.status}</span>
+                </div>
+              `).join("")}
+            </div>
+            <p class="text-xs text-orange-600 mt-3">Issues are reviewed by MostlyPostly support. If you need immediate help, contact <a href="mailto:support@mostlypostly.com" class="underline font-medium">support@mostlypostly.com</a>.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+    ` : ""}
+
                 <!-- Modal Backdrop -->
         <div
           id="admin-modal-backdrop"
