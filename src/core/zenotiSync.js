@@ -80,7 +80,7 @@ async function fetchRawBlocks({ client, centerId, stylist, salon, dateRange }) {
   const [workingHours, appointments, blockouts] = await Promise.all([
     client.getWorkingHours(centerId, empId, startDate, endDate),
     client.getAppointments(centerId, empId, startDate, endDate),
-    client.getEmployeeBlockouts(empId, startDate, endDate),
+    client.getEmployeeBlockouts(empId, startDate, endDate, centerId),
   ]);
 
   // Merge blockouts into appointments so calculateOpenBlocks treats them as booked time
@@ -116,7 +116,8 @@ async function fetchRawBlocks({ client, centerId, stylist, salon, dateRange }) {
   for (const appt of allBookedTime) {
     const d = (
       appt.start_time || appt.start_date_time || appt.StartDateTime ||
-      appt.scheduled_start_time || appt.actual_start_time || ''
+      appt.scheduled_start_time || appt.actual_start_time ||
+      appt.start_time_utc || ''
     ).slice(0, 10);
     if (!d) continue;
     (apptsByDate[d] = apptsByDate[d] || []).push(appt);
@@ -133,7 +134,7 @@ async function fetchRawBlocks({ client, centerId, stylist, salon, dateRange }) {
     const shiftStart = wh?.start || fallbackStart;
     const shiftEnd   = wh?.end   || fallbackEnd;
     const dayAppts   = apptsByDate[dateStr] || [];
-    const blocks     = calculateOpenBlocks(shiftStart, shiftEnd, dayAppts, dateStr);
+    const blocks     = calculateOpenBlocks(shiftStart, shiftEnd, dayAppts, dateStr, salon?.timezone);
 
     for (const block of blocks) {
       const cats     = serviceCatalog.length ? categoriesForBlock(block, serviceCatalog, effectiveCats) : [];

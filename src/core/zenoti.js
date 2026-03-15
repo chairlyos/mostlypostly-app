@@ -258,8 +258,9 @@ export function createZenotiClient(appId, apiKey) {
      * Returns normalized array of { start_time, end_time } ISO strings
      * so they merge cleanly with appointments in calculateOpenBlocks.
      */
-    async getEmployeeBlockouts(employeeId, startDate, endDate) {
-      const qs = `?start_date=${startDate}&end_date=${endDate}`;
+    async getEmployeeBlockouts(employeeId, startDate, endDate, centerId) {
+      let qs = `?start_date=${startDate}&end_date=${endDate}`;
+      if (centerId) qs += `&center_id=${encodeURIComponent(centerId)}`;
       try {
         const data = await apiFetch(`/employees/${encodeURIComponent(employeeId)}/blockouttimes${qs}`);
         const raw = Array.isArray(data.blockout_times) ? data.blockout_times
