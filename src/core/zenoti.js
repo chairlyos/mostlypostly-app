@@ -213,7 +213,9 @@ export function createZenotiClient(appId, apiKey) {
     async getAppointments(centerId, employeeId, startDate, endDate) {
       const MAX_DAYS = 10;
 
-      // Split date range into ≤10-day chunks
+      // Split date range into ≤10-day chunks.
+      // Zenoti treats end_date as exclusive — pass end+1 so the last day of each
+      // chunk is actually included. The diff stays ≤10 days (within the API limit).
       const chunks = [];
       let cursor = new Date(startDate);
       const end  = new Date(endDate);
@@ -221,9 +223,13 @@ export function createZenotiClient(appId, apiKey) {
         const chunkEnd = new Date(cursor);
         chunkEnd.setDate(chunkEnd.getDate() + MAX_DAYS - 1);
         if (chunkEnd > end) chunkEnd.setTime(end.getTime());
+        // apiEnd is chunkEnd + 1 day (exclusive endpoint for Zenoti)
+        const apiEnd = new Date(chunkEnd);
+        apiEnd.setDate(apiEnd.getDate() + 1);
         chunks.push({
-          start: cursor.toISOString().slice(0, 10),
-          end:   chunkEnd.toISOString().slice(0, 10),
+          start:  cursor.toISOString().slice(0, 10),
+          end:    chunkEnd.toISOString().slice(0, 10), // internal range end
+          apiEnd: apiEnd.toISOString().slice(0, 10),   // what we send to Zenoti
         });
         cursor = new Date(chunkEnd);
         cursor.setDate(cursor.getDate() + 1);
@@ -234,7 +240,7 @@ export function createZenotiClient(appId, apiKey) {
         const path = `/appointments`
           + `?center_id=${encodeURIComponent(centerId)}`
           + `&therapist_id=${encodeURIComponent(employeeId)}`
-          + `&start_date=${chunk.start}&end_date=${chunk.end}`;
+          + `&start_date=${chunk.start}&end_date=${chunk.apiEnd}`;
         try {
           const data = await apiFetch(path);
           const raw = Array.isArray(data.appointments) ? data.appointments
@@ -259,7 +265,8 @@ export function createZenotiClient(appId, apiKey) {
      * so they merge cleanly with appointments in calculateOpenBlocks.
      */
     async getEmployeeBlockouts(employeeId, startDate, endDate, centerId) {
-      // Blockout endpoint has the same 10-day limit as appointments — chunk identically
+      // Blockout endpoint has the same 10-day limit as appointments — chunk identically.
+      // Zenoti end_date is exclusive, so pass end+1 to capture the boundary day.
       const MAX_DAYS = 10;
       const chunks = [];
       let cursor = new Date(startDate);
@@ -268,14 +275,16 @@ export function createZenotiClient(appId, apiKey) {
         const chunkEnd = new Date(cursor);
         chunkEnd.setDate(chunkEnd.getDate() + MAX_DAYS - 1);
         if (chunkEnd > end) chunkEnd.setTime(end.getTime());
-        chunks.push({ start: cursor.toISOString().slice(0, 10), end: chunkEnd.toISOString().slice(0, 10) });
+        const apiEnd = new Date(chunkEnd);
+        apiEnd.setDate(apiEnd.getDate() + 1);
+        chunks.push({ start: cursor.toISOString().slice(0, 10), apiEnd: apiEnd.toISOString().slice(0, 10) });
         cursor = new Date(chunkEnd);
         cursor.setDate(cursor.getDate() + 1);
       }
 
       const all = [];
       for (const chunk of chunks) {
-        let qs = `?start_date=${chunk.start}&end_date=${chunk.end}`;
+        let qs = `?start_date=${chunk.start}&end_date=${chunk.apiEnd}`;
         if (centerId) qs += `&center_id=${encodeURIComponent(centerId)}`;
         try {
           const data = await apiFetch(`/employees/${encodeURIComponent(employeeId)}/blockouttimes${qs}`);
