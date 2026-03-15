@@ -206,6 +206,11 @@ router.get("/", requireAuth, (req, res) => {
     if (salonRow.brand_palette) brandPalette = JSON.parse(salonRow.brand_palette);
   } catch {}
 
+  const celebStyles = (() => {
+    try { return JSON.parse(salonRow.celebration_font_styles || '["script"]'); }
+    catch { return ["script"]; }
+  })();
+
   // Normalize hashtags
   let defaultHashtags = [];
   if (
@@ -610,6 +615,36 @@ router.get("/", requireAuth, (req, res) => {
           </div>
         </div>
         `}
+      </div>
+    </section>
+
+    <!-- CELEBRATION POST STYLE -->
+    <section class="mb-6">
+      <div class="rounded-2xl border border-mpBorder bg-white px-5 py-5">
+        <h2 class="text-sm font-semibold text-mpCharcoal mb-1">Celebration Post Style</h2>
+        <p class="text-xs text-mpMuted mb-4">Font styles used for birthday and anniversary posts. If multiple are selected, MostlyPostly cycles through them.</p>
+        <form method="POST" action="/manager/admin/celebration-styles" class="space-y-3">
+          ${[
+            { key: "script",    label: "Script + Elegant",  desc: "Flowing, luxury feel" },
+            { key: "editorial", label: "Modern Editorial",  desc: "Bold, high-fashion" },
+            { key: "playful",   label: "Warm & Playful",    desc: "Friendly, approachable" },
+          ].map(({ key, label, desc }) => `
+          <label class="flex items-start gap-3 cursor-pointer">
+            <input type="checkbox" name="styles" value="${key}"
+              ${celebStyles.includes(key) ? "checked" : ""}
+              class="mt-0.5 h-4 w-4 rounded border-gray-300" />
+            <span>
+              <span class="text-sm font-medium text-mpCharcoal">${label}</span>
+              <span class="ml-1 text-xs text-mpMuted">— ${desc}</span>
+            </span>
+          </label>`).join("")}
+          <div class="pt-2">
+            <button type="submit"
+              class="inline-flex items-center px-4 py-2 rounded-lg bg-mpCharcoal text-white text-xs font-semibold hover:bg-mpCharcoalDark transition-colors">
+              Save Style Preferences
+            </button>
+          </div>
+        </form>
       </div>
     </section>
 
@@ -1412,6 +1447,26 @@ router.post("/update-hashtags", requireAuth, (req, res) => {
     console.error("[Admin] update-hashtags failed:", err);
     return res.status(500).send("Failed to update hashtags");
   }
+});
+
+// -------------------------------------------------------
+// POST: Save celebration font styles
+// -------------------------------------------------------
+router.post("/celebration-styles", requireAuth, (req, res) => {
+  const salon_id = req.manager.salon_id;
+  const isOwner  = req.manager.role === "owner";
+  if (!isOwner) return res.redirect("/manager/admin?notice=Not+authorized");
+
+  let styles = req.body.styles || [];
+  if (!Array.isArray(styles)) styles = [styles];
+  const valid = ["script", "editorial", "playful"];
+  styles = styles.filter(s => valid.includes(s));
+  if (styles.length === 0) styles = ["script"];
+
+  db.prepare(`UPDATE salons SET celebration_font_styles = ? WHERE slug = ?`)
+    .run(JSON.stringify(styles), salon_id);
+
+  res.redirect("/manager/admin#branding");
 });
 
 // -------------------------------------------------------
