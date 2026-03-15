@@ -8,6 +8,26 @@
 const MIN_BLOCK_MINUTES = 30; // gaps shorter than this aren't worth showing
 
 /**
+ * Convert a UTC ISO string to a naive salon-local datetime string
+ * ("YYYY-MM-DDTHH:MM:SS") so it can be parsed consistently alongside
+ * Zenoti's non-UTC datetime fields.
+ */
+function utcToSalonNaive(utcIsoString, timezone) {
+  if (!timezone || !utcIsoString) return null;
+  try {
+    const d = new Date(utcIsoString);
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: timezone,
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+      hour12: false,
+    }).formatToParts(d);
+    const p = Object.fromEntries(parts.map(x => [x.type, x.value]));
+    return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}:${p.second}`;
+  } catch { return null; }
+}
+
+/**
  * Calculate consecutive open blocks for one stylist on one day.
  *
  * @param {string} workingStart  - "09:00" shift start
@@ -16,7 +36,7 @@ const MIN_BLOCK_MINUTES = 30; // gaps shorter than this aren't worth showing
  * @param {string} dateStr       - "YYYY-MM-DD"
  * @returns {Array} blocks — [{ start: Date, end: Date, durationMin: number }]
  */
-export function calculateOpenBlocks(workingStart, workingEnd, appointments, dateStr) {
+export function calculateOpenBlocks(workingStart, workingEnd, appointments, dateStr, timezone) {
   if (!workingStart || !workingEnd) return [];
 
   const dayStart = parseLocalTime(dateStr, workingStart);
@@ -25,12 +45,17 @@ export function calculateOpenBlocks(workingStart, workingEnd, appointments, date
 
   // Normalize appointments — handle multiple Zenoti date field patterns
   const rawMapped = (appointments || []).map(a => {
+    // Prefer naive local datetimes (no Z) — on a UTC server these parse as UTC
+    // matching the parseLocalTime() behaviour. Fall back to UTC fields last,
+    // converting them to salon-local naive strings so the comparison stays consistent.
     const s = a.start_time || a.start_date_time || a.StartDateTime
            || a.scheduled_start_time || a.actual_start_time
-           || a.start || a.from;
+           || a.start || a.from
+           || (a.start_time_utc ? utcToSalonNaive(a.start_time_utc, timezone) : null);
     let e = a.end_time   || a.end_date_time   || a.EndDateTime
          || a.scheduled_end_time || a.actual_completed_time
-         || a.end   || a.to;
+         || a.end   || a.to
+         || (a.end_time_utc ? utcToSalonNaive(a.end_time_utc, timezone) : null);
     // Derive end from service_length (minutes) when end_time is missing
     if (!e && s && a.service_length) {
       const startMs = new Date(s).getTime();
