@@ -7,6 +7,7 @@ import { rehostTwilioMedia } from "./utils/rehostTwilioMedia.js";
 import { publishToFacebook, publishToFacebookMulti } from "./publishers/facebook.js";
 import { publishToInstagram, publishToInstagramCarousel, publishStoryToInstagram } from "./publishers/instagram.js";
 import { logEvent } from "./core/analyticsDb.js";
+import { runCelebrationCheck } from "./core/celebrationScheduler.js";
 
 const log = createLogger("scheduler");
 
@@ -25,6 +26,7 @@ export const DEFAULT_PRIORITY = [
   "availability",
   "before_after",
   "celebration",
+  "celebration_story",
   "standard_post",
   "promotions",
   "product_education",
@@ -42,7 +44,7 @@ const FEED_TYPES = new Set([
 ]);
 
 function isStoryOnly(postType) {
-  return postType === "availability" || postType === "promotions";
+  return postType === "availability" || postType === "promotions" || postType === "celebration_story";
 }
 
 function getPriorityIndex(postType, priorityOrder) {
@@ -284,6 +286,11 @@ async function recoverMissedPosts() {
 // ===================== Core Run =====================
 
 export async function runSchedulerOnce() {
+  // Fire celebration check (runs only at 6am salon-local, once per day)
+  runCelebrationCheck().catch(err =>
+    console.error("[Scheduler] CelebrationCheck error:", err.message)
+  );
+
   expireStalePosts();
 
   try {
