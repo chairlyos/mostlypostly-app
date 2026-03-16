@@ -35,6 +35,7 @@ import { run as run031 } from "./031_platform_issues.js";
 import { run as run032 } from "./032_feature_requests.js";
 import { run as run033 } from "./033_celebration_styles.js";
 import { run as run034 } from "./034_stylist_auto_approve.js";
+import { run as run035 } from "./035_posts_service_type.js";
 
 export const migrations = [
   { name: "001_baseline_patches",        run: run001 },
@@ -71,4 +72,5 @@ export const migrations = [
   { name: "032_feature_requests",            run: run032 },
   { name: "033_celebration_styles",          run: run033 },
   { name: "034_stylist_auto_approve",        run: run034 },
+  { name: "035_posts_service_type",          run: run035 },
 ];

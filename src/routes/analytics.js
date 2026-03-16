@@ -350,7 +350,8 @@ router.get("/", (req, res) => {
       showToast('Backfilling FB post IDs…', 30000);
       try {
         const res = await fetch('/analytics/backfill-fb-ids${qs}', { method: 'POST', headers: { 'X-CSRF-Token': csrfToken() } });
-        const data = await res.json();
+        let data = {};
+        try { data = await res.json(); } catch { data = { error: 'Unexpected response from server' }; }
         const msg = res.ok ? 'Matched ' + data.matched + ' of ' + data.scanned + ' posts.' : 'Error: ' + (data.error || 'unknown');
         showToast(msg, 5000, () => { if (res.ok && data.matched > 0) location.reload(); });
       } catch(e) {
@@ -360,13 +361,30 @@ router.get("/", (req, res) => {
       }
     }
 
+    let _resetConfirmPending = false;
+    let _resetConfirmTimer = null;
     async function runResetBackfill() {
-      if (!confirm('This will clear all stored FB post IDs and re-match from the live Facebook page. Continue?')) return;
+      const btn = document.getElementById('reset-relink-btn');
+      if (!_resetConfirmPending) {
+        // First click: ask for confirmation inline
+        _resetConfirmPending = true;
+        if (btn) { btn.textContent = 'Tap again to confirm'; btn.classList.add('border-red-400', 'text-red-600'); }
+        _resetConfirmTimer = setTimeout(() => {
+          _resetConfirmPending = false;
+          if (btn) { btn.textContent = 'Reset & Relink FB'; btn.classList.remove('border-red-400', 'text-red-600'); }
+        }, 4000);
+        return;
+      }
+      // Second click: confirmed — proceed
+      clearTimeout(_resetConfirmTimer);
+      _resetConfirmPending = false;
+      if (btn) { btn.textContent = 'Working…'; btn.disabled = true; btn.classList.remove('border-red-400', 'text-red-600'); }
       setSyncBtns('Working…', true);
       showToast('Resetting & relinking FB post IDs…', 30000);
       try {
         const res = await fetch('/analytics/reset-and-backfill-fb-ids${qs}', { method: 'POST', headers: { 'X-CSRF-Token': csrfToken() } });
-        const data = await res.json();
+        let data = {};
+        try { data = await res.json(); } catch { data = { error: 'Unexpected response from server' }; }
         const msg = res.ok
           ? 'Cleared ' + data.cleared + ' IDs, matched ' + data.matched + ' of ' + data.fb_posts_fetched + ' FB posts.'
           : 'Error: ' + (data.error || 'unknown');
@@ -374,6 +392,7 @@ router.get("/", (req, res) => {
       } catch(e) {
         showToast('Reset failed: ' + e.message, 6000);
       } finally {
+        if (btn) { btn.textContent = 'Reset & Relink FB'; btn.disabled = false; }
         setSyncBtns('Sync Insights', false);
       }
     }
@@ -383,7 +402,8 @@ router.get("/", (req, res) => {
       showToast('Syncing insights from Facebook & Instagram…', 30000);
       try {
         const res = await fetch('/analytics/sync${qs}', { method: 'POST', headers: { 'X-CSRF-Token': csrfToken() } });
-        const data = await res.json();
+        let data = {};
+        try { data = await res.json(); } catch { data = { error: 'Unexpected response from server' }; }
         let msg;
         if (!res.ok) {
           msg = 'Error: ' + (data.error || 'unknown');
@@ -408,7 +428,7 @@ router.get("/", (req, res) => {
         <p class="mt-1 text-sm text-mpMuted">Social performance across Facebook and Instagram.</p>
       </div>
       <div class="flex gap-2">
-        <button onclick="runResetBackfill()" class="shrink-0 rounded-full border border-mpBorder bg-white px-4 py-2.5 text-sm font-semibold text-mpCharcoal hover:border-mpAccent transition-colors">
+        <button id="reset-relink-btn" onclick="runResetBackfill()" class="shrink-0 rounded-full border border-mpBorder bg-white px-4 py-2.5 text-sm font-semibold text-mpCharcoal hover:border-mpAccent transition-colors">
           Reset &amp; Relink FB
         </button>
         <button onclick="runSync()" data-sync-btn class="shrink-0 rounded-full bg-mpCharcoal px-5 py-2.5 text-sm font-semibold text-white hover:bg-mpCharcoalDark transition-colors">
