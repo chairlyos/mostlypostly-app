@@ -865,7 +865,12 @@ export async function handleIncomingMessage({
         LIMIT 1
       `).get(salonSlug);
 
-      const requiresManager = Number(salonRow?.require_manager_approval) === 1;
+      // Per-stylist auto-approve overrides salon-level manager approval requirement
+      const stylistRow = db.prepare(`SELECT auto_approve FROM stylists WHERE phone = ? AND salon_id = ? LIMIT 1`)
+        .get(from, salonSlug);
+      const stylistAutoApprove = Number(stylistRow?.auto_approve) === 1;
+
+      const requiresManager = Number(salonRow?.require_manager_approval) === 1 && !stylistAutoApprove;
 
       console.log("🔐 Manager approval resolved from DB:", {
         salonSlug,
