@@ -223,6 +223,22 @@ router.get("/:id", validateToken, async (req, res) => {
 
     <!-- Submit -->
     <form method="POST" action="/stylist/${esc(post.id)}/submit?token=${esc(token)}">
+
+      <!-- Service type chips -->
+      <div class="mb-4">
+        <label class="block text-sm font-semibold text-mpCharcoal mb-2">
+          Service type <span class="text-mpMuted font-normal">(optional, select all that apply)</span>
+        </label>
+        <div class="flex flex-wrap gap-2" id="service-chips">
+          ${["Haircut","Color","Highlights","Balayage","Extensions","Treatment","Blowout/Style","Other"].map(s => `
+          <label class="inline-flex items-center cursor-pointer">
+            <input type="checkbox" name="service_type[]" value="${s}" class="sr-only peer" />
+            <span class="px-3 py-1.5 rounded-full border border-mpBorder bg-mpBg text-sm text-mpMuted peer-checked:bg-mpAccent peer-checked:border-mpAccent peer-checked:text-white transition-colors select-none">${s}</span>
+          </label>`).join("")}
+        </div>
+        <input type="hidden" name="service_type_combined" id="service_type_combined" />
+      </div>
+
       <div class="mb-4">
         <label class="block text-sm font-semibold text-mpCharcoal mb-1">
           Add hashtags <span class="text-mpMuted font-normal">(optional, up to 2)</span>
@@ -237,6 +253,13 @@ router.get("/:id", validateToken, async (req, res) => {
         Submit for Manager Review →
       </button>
     </form>
+    <script>
+      // Combine checked service types into a single hidden field on submit
+      document.querySelector('form[action*="/submit"]').addEventListener('submit', function() {
+        const checked = [...document.querySelectorAll('input[name="service_type[]"]:checked')].map(c => c.value);
+        document.getElementById('service_type_combined').value = checked.join(',');
+      });
+    </script>
   `));
 });
 
@@ -488,14 +511,19 @@ router.post("/:id/submit", validateToken, async (req, res) => {
       asHtml: false,
     });
 
+    // Parse submitted service types
+    const serviceTypeCombined = (req.body.service_type_combined || "").trim();
+    const serviceType = serviceTypeCombined || null;
+
     db.prepare(`
       UPDATE posts
       SET final_caption = ?,
           hashtags      = ?,
+          service_type  = ?,
           status        = 'manager_pending',
           updated_at    = datetime('now')
       WHERE id = ?
-    `).run(finalCaption, JSON.stringify(hashtags), post.id);
+    `).run(finalCaption, JSON.stringify(hashtags), serviceType, post.id);
 
     db.prepare(`UPDATE stylist_portal_tokens SET used_at = datetime('now') WHERE post_id = ? AND token = ?`)
       .run(post.id, token);
