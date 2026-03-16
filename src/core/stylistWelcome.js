@@ -25,7 +25,7 @@ export async function sendWelcomeSms(stylist, salonName) {
       phone,
       `Hi ${name}! ${salonName} has added you to MostlyPostly — your AI social media assistant.\n\n` +
       `Text a photo and we'll create a professional Instagram & Facebook caption automatically.\n\n` +
-      `Tap Agree below to get started. Reply STOP to opt out. Msg & data rates may apply.`,
+      `Tap Agree below or reply AGREE to get started. Reply STOP to opt out. Msg & data rates may apply.`,
       ["reply:AGREE"]
     );
   } else {
