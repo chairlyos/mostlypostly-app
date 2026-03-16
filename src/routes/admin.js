@@ -1883,7 +1883,9 @@ router.get("/test-celebration", requireAuth, async (req, res) => {
 
     const logoUrl = salon.logo_url;
     let logoPath = null;
-    if (logoUrl?.startsWith("/uploads/")) {
+    if (logoUrl?.startsWith("http")) {
+      logoPath = logoUrl; // toBase64DataUri handles HTTP URLs
+    } else if (logoUrl?.startsWith("/uploads/")) {
       const abs = path.resolve("public" + logoUrl);
       if (fs.existsSync(abs)) logoPath = abs;
     }
