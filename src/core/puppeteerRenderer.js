@@ -56,8 +56,13 @@ export async function renderHtmlToJpeg(html, width, height) {
   const page = await b.newPage();
   try {
     await page.setViewport({ width, height, deviceScaleFactor: 1 });
-    await page.setContent(html, { waitUntil: "networkidle0", timeout: 25000 });
-    await page.evaluate(() => Promise.all([document.fonts.ready, new Promise(r => window.addEventListener('load', r, { once: true }))]));
+    // Use domcontentloaded — networkidle0 blocks on Google Fonts CDN and times out on Render
+    await page.setContent(html, { waitUntil: "domcontentloaded", timeout: 15000 });
+    // Give fonts up to 6s to load; proceed with screenshot even if CDN is slow
+    await Promise.race([
+      page.evaluate(() => document.fonts.ready),
+      new Promise(r => setTimeout(r, 6000)),
+    ]);
     const buf = await page.screenshot({ type: "jpeg", quality: 92, clip: { x: 0, y: 0, width, height } });
     return buf;
   } finally {
