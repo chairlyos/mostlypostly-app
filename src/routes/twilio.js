@@ -127,7 +127,7 @@ export default function twilioRoute(drafts, _lookupStylist, generateCaption) {
       const twiml = new MessagingResponse();
 
       if (
-          /^(JOIN|CANCEL|SETUP|AGREE|APPROVE|DENY|EDIT|RESET)\b/i.test(text) ||
+          /^(JOIN|CANCEL|SETUP|AGREE|APPROVE|DENY|EDIT|RESET|REDO|REGENERATE)\b/i.test(text) ||
           joinSessions.has(from)
         ) {
           // 🧠 These are command flows — respond silently (no "Got it" message)

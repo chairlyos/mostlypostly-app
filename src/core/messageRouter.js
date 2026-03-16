@@ -1162,7 +1162,7 @@ Log in to review: ${managerLink}
   }
 
   // REGENERATE — redirect to portal (editing now happens on the web)
-  if (command === "REGENERATE") {
+  if (command === "REGENERATE" || command === "REDO") {
     const draft = drafts.get(chatId) || (() => {
       const row = findLatestDraft(chatId);
       return row ? restoreDraftFromDb(row) : null;
