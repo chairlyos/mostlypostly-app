@@ -19,6 +19,7 @@ import { generateCelebrationImage } from "../core/celebrationImageGen.js";
 import { generateCelebrationCaption } from "../core/celebrationCaption.js";
 import { TEMPLATE_META } from "../core/postTemplates.js";
 import { buildAvailabilityImage } from "../core/buildAvailabilityImage.js";
+import { resolveDisplayName } from "../core/salonLookup.js";
 
 const managerPhotoUpload = multer({
   storage: multer.diskStorage({
@@ -2114,7 +2115,7 @@ router.get("/availability-preview", requireAuth, async (req, res) => {
   try {
     const imageUrl = await buildAvailabilityImage({
       slots:           MOCK_SLOTS,
-      stylistName:     stylist.name,
+      stylistName:     resolveDisplayName(stylist, salon_id),
       salonName:       salon?.name || "",
       salonId:         salon_id,
       stylistId:       stylist.id,

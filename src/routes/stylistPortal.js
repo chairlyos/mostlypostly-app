@@ -3,6 +3,7 @@ import express from "express";
 import { db } from "../../db.js";
 import { generateCaption } from "../openai.js";
 import { getSalonPolicy } from "../scheduler.js";
+import { resolveDisplayName } from "../core/salonLookup.js";
 import { composeFinalCaption } from "../core/composeFinalCaption.js";
 import moderateAIOutput from "../utils/moderation.js";
 import { rehostTwilioMedia } from "../utils/rehostTwilioMedia.js";
@@ -329,9 +330,16 @@ router.post("/:id/update-availability", validateToken, async (req, res) => {
     const { buildAvailabilityImage } = await import("../core/buildAvailabilityImage.js");
     const fullSalon = getSalonPolicy(post.salon_id);
 
+    const stylistRow = post.stylist_id
+      ? db.prepare(`SELECT * FROM stylists WHERE id = ?`).get(post.stylist_id)
+      : null;
+    const stylistDisplayName = stylistRow
+      ? resolveDisplayName(stylistRow, post.salon_id)
+      : (post.stylist_name || "").split(" ")[0] || post.stylist_name || "";
+
     const newImageUrl = await buildAvailabilityImage({
       text: availabilityText,
-      stylistName: post.stylist_name || "",
+      stylistName: stylistDisplayName,
       salonName: fullSalon?.name || "",
       salonId: post.salon_id,
       stylistId: post.stylist_id || null,
