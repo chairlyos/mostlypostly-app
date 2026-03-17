@@ -35,8 +35,33 @@ const RANK_COLORS = {
   3: { ring: "#CD7C4E", glow: "rgba(205,124,78,0.25)",  label: "#D4A27A", bg: "rgba(205,124,78,0.10)" },
 };
 
-const CROWN  = ["👑", "🥈", "🥉"];
+const CROWN  = ["🥇", "🥈", "🥉"];
 const RANK_LABEL = ["1st", "2nd", "3rd"];
+
+// ── Hourly rank snapshot for up/down arrows ───────────────────────────────
+const rankSnapshots = new Map(); // salonId -> { hour, ranks: Map<name, rank> }
+
+function getPrevRanks(salonId, currentBoard) {
+  const currentHour = Math.floor(Date.now() / (60 * 60 * 1000));
+  const snap = rankSnapshots.get(salonId);
+  const prevRanks = snap ? snap.ranks : null;
+  if (!snap || snap.hour !== currentHour) {
+    rankSnapshots.set(salonId, {
+      hour: currentHour,
+      ranks: new Map(currentBoard.map(s => [s.stylist_name, s.rank])),
+    });
+  }
+  return prevRanks;
+}
+
+function rankArrow(name, currentRank, prevRanks) {
+  if (!prevRanks) return "";
+  const prev = prevRanks.get(name);
+  if (prev == null || prev === currentRank) return "";
+  return prev > currentRank
+    ? `<span style="color:#22C55E;font-weight:800;font-size:.75rem;">▲</span>`
+    : `<span style="color:#EF4444;font-weight:800;font-size:.75rem;">▼</span>`;
+}
 
 router.get("/:token", (req, res) => {
   const salon = getSalonByLeaderboardToken(req.params.token);
@@ -53,9 +78,10 @@ router.get("/:token", (req, res) => {
   const leaderboard = getLeaderboard(salon.slug, period);
   const bonusActive = isBonusActive(salon.slug);
   const multiplier  = getBonusMultiplier(salon.slug);
+  const prevRanks   = getPrevRanks(salon.slug, leaderboard);
 
   const top3 = leaderboard.slice(0, 3);
-  const rest  = leaderboard.slice(3, 12);
+  const rest  = leaderboard.slice(3);          // all remaining, not capped at 12
   const maxPts = top3[0]?.points || 1; // for progress bar scaling
 
   // ── Logo ─────────────────────────────────────────────────────────────────
@@ -127,10 +153,11 @@ router.get("/:token", (req, res) => {
           <span style="font-size:.75rem;font-weight:600;color:rgba(255,255,255,0.4);">pts</span>
         </div>
 
-        <!-- Post count + streak -->
+        <!-- Post count + streak + arrow -->
         <div style="display:flex;align-items:center;gap:.5rem;font-size:.72rem;color:rgba(255,255,255,0.5);">
           <span>${s.post_count} post${s.post_count !== 1 ? "s" : ""}</span>
           ${s.streak > 1 ? `<span style="color:#F59E0B;font-weight:700;">🔥 ${s.streak}wk streak</span>` : ""}
+          ${rankArrow(s.stylist_name, s.rank, prevRanks)}
         </div>
 
         <!-- Post type breakdown -->
@@ -146,22 +173,33 @@ router.get("/:token", (req, res) => {
     const pct = Math.round((s.points / maxPts) * 100);
     const ini = initials(s.stylist_name);
     const isEven = idx % 2 === 0;
+    const arrow = rankArrow(s.stylist_name, s.rank, prevRanks);
+    const typePills = Object.entries(s.by_type || {})
+      .sort((a, b) => b[1] - a[1])
+      .map(([type, cnt]) => {
+        const label = type.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+        return `<span style="font-size:.6rem;background:#EBF3FF;color:#3B72B9;padding:.15rem .45rem;border-radius:9999px;white-space:nowrap;">${label} ×${cnt}</span>`;
+      }).join("");
     return `
       <div class="lb-row" style="display:flex;align-items:center;gap:1rem;padding:.75rem 1.25rem;background:${isEven ? "#fff" : "#F8FAFC"};border-bottom:1px solid #E2E8F0;">
-        <!-- Rank circle -->
-        <div class="lb-row-rank" style="width:32px;height:32px;border-radius:50%;background:#F1F5F9;border:1.5px solid #E2E8F0;display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:800;color:#475569;flex-shrink:0;">
-          ${s.rank}
+        <!-- Rank + arrow -->
+        <div style="display:flex;flex-direction:column;align-items:center;gap:.15rem;flex-shrink:0;width:32px;">
+          <div class="lb-row-rank" style="width:32px;height:32px;border-radius:50%;background:#F1F5F9;border:1.5px solid #E2E8F0;display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:800;color:#475569;">
+            ${s.rank}
+          </div>
+          ${arrow}
         </div>
         <!-- Avatar -->
         <div style="width:40px;height:40px;border-radius:50%;background:#1e293b;display:flex;align-items:center;justify-content:center;font-size:.85rem;font-weight:800;color:#94A3B8;flex-shrink:0;">
           ${ini}
         </div>
-        <!-- Name + progress -->
+        <!-- Name + progress + categories -->
         <div style="flex:1;min-width:0;">
           <div class="lb-row-name" style="font-size:.95rem;font-weight:700;color:#0F172A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(s.stylist_name)}</div>
           <div class="lb-row-bar-track" style="margin-top:.3rem;height:5px;background:#E2E8F0;border-radius:9999px;overflow:hidden;">
             <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#3B72B9,#60A5FA);border-radius:9999px;transition:width .6s ease;"></div>
           </div>
+          ${typePills ? `<div style="display:flex;flex-wrap:wrap;gap:.25rem;margin-top:.35rem;">${typePills}</div>` : ""}
         </div>
         <!-- Streak -->
         <div style="width:80px;text-align:center;flex-shrink:0;">
