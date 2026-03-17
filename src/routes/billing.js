@@ -443,6 +443,10 @@ router.get("/manager/billing", requireAuth, requireOwner, async (req, res) => {
               </span>
             </div>
           </div>
+          ${salon.plan_status === "trialing" ? `
+          <div class="mb-4 rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-xs text-yellow-800">
+            <strong>Heads up:</strong> Upgrading or changing your plan during your free trial will end your trial immediately and start billing on the new plan.
+          </div>` : ""}
           <div class="grid gap-4 sm:grid-cols-3">
             ${planCards}
           </div>
