@@ -779,7 +779,11 @@ router.get("/verify-poll", (req, res) => {
   if (!id) return res.json({ verified: false });
   const manager = db.prepare("SELECT email_verified, salon_id FROM managers WHERE id = ?").get(id);
   if (!manager || !manager.email_verified) return res.json({ verified: false });
-  res.json({ verified: true, redirect: `/manager/billing?new=1&salon=${encodeURIComponent(manager.salon_id)}` });
+  const pollPlanHint = req.session.pending_plan_hint || "";
+  const pollRedirect = pollPlanHint
+    ? `/billing/checkout?plan=${pollPlanHint}&cycle=monthly`
+    : `/manager/billing?new=1&salon=${encodeURIComponent(manager.salon_id)}`;
+  res.json({ verified: true, redirect: pollRedirect });
 });
 
 /* ─── GET /manager/verify-email?token= ────────────────────────────────────────*/
@@ -840,8 +844,12 @@ router.get("/verify-email", async (req, res) => {
   if (offerHint) req.session.offer = offerHint;
 
   req.session.save(() => {
-    const billingUrl = `/manager/billing?new=1&salon=${encodeURIComponent(manager.salon_id)}${planHint ? `&plan=${planHint}` : ""}`;
-    res.redirect(billingUrl);
+    // If they already picked a plan (e.g. from founders/pricing page), skip the billing UI
+    // and send them straight to Stripe checkout. Session already carries offer hint.
+    if (planHint) {
+      return res.redirect(`/billing/checkout?plan=${planHint}&cycle=monthly`);
+    }
+    res.redirect(`/manager/billing?new=1&salon=${encodeURIComponent(manager.salon_id)}`);
   });
 });
 
