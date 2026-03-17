@@ -3,6 +3,28 @@
 const ZENOTI_BASE = 'https://api.zenoti.com/v1';
 
 /**
+ * Infer a service category from a service name via keyword matching.
+ * Exported so callers (zenotiSync.js) can apply the same logic to
+ * appointment service names without requiring an exact catalog name match.
+ */
+export function inferCategory(name) {
+  const n = (name || '').toLowerCase();
+  if (n.includes('highlight') || n.includes('balayage') || n.includes('ombre')
+      || n.includes('foil') || n.includes('blonding') || n.includes('bleach')
+      || n.includes('lightener')) return 'Highlights';
+  if (n.includes('color') || n.includes('colour') || n.includes('tint')
+      || n.includes('gloss') || n.includes('toner')) return 'Color';
+  if (n.includes('haircut') || n.includes('cut') || n.includes('trim')
+      || n.includes('shampoo & style')) return 'Haircut';
+  if (n.includes('blowout') || n.includes('blow dry') || n.includes('blow-dry')
+      || n.includes('style') || n.includes('press')) return 'Blowout';
+  if (n.includes('treatment') || n.includes('mask') || n.includes('bond')
+      || n.includes('keratin') || n.includes('perm') || n.includes('relaxer')) return 'Treatment';
+  if (n.includes('extension')) return 'Extensions';
+  return null;
+}
+
+/**
  * Create a Zenoti API client bound to a specific app_id and api secret.
  * Auth header: Authorization: apikey {apiSecret}
  */
@@ -143,25 +165,6 @@ export function createZenotiClient(appId, apiKey) {
           // Log all keys of first service so we can see the exact field names
           console.log('[Zenoti] service[0] keys:', Object.keys(raw[0]));
           console.log('[Zenoti] service[0] sample:', JSON.stringify(raw[0]).slice(0, 400));
-        }
-
-        // Infer category from service name via keyword matching.
-        // Zenoti doesn't expose category_name in this endpoint so we derive it.
-        function inferCategory(name) {
-          const n = (name || '').toLowerCase();
-          if (n.includes('highlight') || n.includes('balayage') || n.includes('ombre')
-              || n.includes('foil') || n.includes('blonding') || n.includes('bleach')
-              || n.includes('lightener')) return 'Highlights';
-          if (n.includes('color') || n.includes('colour') || n.includes('tint')
-              || n.includes('gloss') || n.includes('toner')) return 'Color';
-          if (n.includes('haircut') || n.includes('cut') || n.includes('trim')
-              || n.includes('shampoo & style')) return 'Haircut';
-          if (n.includes('blowout') || n.includes('blow dry') || n.includes('blow-dry')
-              || n.includes('style') || n.includes('press')) return 'Blowout';
-          if (n.includes('treatment') || n.includes('mask') || n.includes('bond')
-              || n.includes('keratin') || n.includes('perm') || n.includes('relaxer')) return 'Treatment';
-          if (n.includes('extension')) return 'Extensions';
-          return null;
         }
 
         // Practical minimum block sizes per category — what a client actually needs

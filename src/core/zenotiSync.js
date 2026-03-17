@@ -10,7 +10,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import db from '../../db.js';
 import { decrypt } from './encryption.js';
-import { createZenotiClient } from './zenoti.js';
+import { createZenotiClient, inferCategory } from './zenoti.js';
 import {
   calculateOpenBlocks,
   categoriesForBlock,
@@ -90,14 +90,16 @@ async function fetchRawBlocks({ client, centerId, stylist, salon, dateRange }) {
   const { categories: serviceCatalog, serviceNameToCategory } =
     await client.getServiceCatalog(centerId);
 
-  // Build stylist category profile from appointments only (not blockouts)
+  // Build stylist category profile from appointments only (not blockouts).
+  // Use inferCategory() directly on appointment service names so partial/variant
+  // name matches (e.g. "Partial Highlights" ≠ catalog "Full Highlights") still register.
   const stylistCats = new Set();
   for (const appt of appointments) {
     const names = [appt.service?.name, appt.parent_service_name, appt.service_name]
-      .filter(Boolean)
-      .map(n => n.toLowerCase());
+      .filter(Boolean);
     for (const n of names) {
-      if (serviceNameToCategory[n]) stylistCats.add(serviceNameToCategory[n]);
+      const cat = serviceNameToCategory[n.toLowerCase()] || inferCategory(n);
+      if (cat) stylistCats.add(cat);
     }
   }
   // Fallback: if no categories inferred (null service fields), assume all catalog categories
