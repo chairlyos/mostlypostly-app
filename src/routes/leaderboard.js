@@ -147,9 +147,9 @@ router.get("/:token", (req, res) => {
     const ini = initials(s.stylist_name);
     const isEven = idx % 2 === 0;
     return `
-      <div style="display:flex;align-items:center;gap:1rem;padding:.75rem 1.25rem;background:${isEven ? "#fff" : "#F8FAFC"};border-bottom:1px solid #E2E8F0;">
+      <div class="lb-row" style="display:flex;align-items:center;gap:1rem;padding:.75rem 1.25rem;background:${isEven ? "#fff" : "#F8FAFC"};border-bottom:1px solid #E2E8F0;">
         <!-- Rank circle -->
-        <div style="width:32px;height:32px;border-radius:50%;background:#F1F5F9;border:1.5px solid #E2E8F0;display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:800;color:#475569;flex-shrink:0;">
+        <div class="lb-row-rank" style="width:32px;height:32px;border-radius:50%;background:#F1F5F9;border:1.5px solid #E2E8F0;display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:800;color:#475569;flex-shrink:0;">
           ${s.rank}
         </div>
         <!-- Avatar -->
@@ -158,8 +158,8 @@ router.get("/:token", (req, res) => {
         </div>
         <!-- Name + progress -->
         <div style="flex:1;min-width:0;">
-          <div style="font-size:.95rem;font-weight:700;color:#0F172A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(s.stylist_name)}</div>
-          <div style="margin-top:.3rem;height:5px;background:#E2E8F0;border-radius:9999px;overflow:hidden;">
+          <div class="lb-row-name" style="font-size:.95rem;font-weight:700;color:#0F172A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(s.stylist_name)}</div>
+          <div class="lb-row-bar-track" style="margin-top:.3rem;height:5px;background:#E2E8F0;border-radius:9999px;overflow:hidden;">
             <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#3B72B9,#60A5FA);border-radius:9999px;transition:width .6s ease;"></div>
           </div>
         </div>
@@ -167,10 +167,10 @@ router.get("/:token", (req, res) => {
         <div style="width:80px;text-align:center;flex-shrink:0;">
           ${s.streak > 1
             ? `<span style="font-size:.75rem;font-weight:700;color:#F59E0B;">🔥 ${s.streak}wk</span>`
-            : `<span style="font-size:.75rem;color:#CBD5E1;">—</span>`}
+            : `<span class="lb-row-sub" style="font-size:.75rem;color:#CBD5E1;">—</span>`}
         </div>
         <!-- Posts -->
-        <div style="width:60px;text-align:right;font-size:.8rem;color:#64748B;flex-shrink:0;">${s.post_count} post${s.post_count !== 1 ? "s" : ""}</div>
+        <div class="lb-row-posts" style="width:60px;text-align:right;font-size:.8rem;color:#64748B;flex-shrink:0;">${s.post_count} post${s.post_count !== 1 ? "s" : ""}</div>
         <!-- Points -->
         <div style="width:80px;text-align:right;flex-shrink:0;">
           <span style="font-size:1.1rem;font-weight:900;color:#3B72B9;">${s.points}</span>
@@ -217,12 +217,46 @@ router.get("/:token", (req, res) => {
       background-size: 400px 100%;
       animation: shimmer 3s infinite;
     }
+    /* Mobile: single-column stacked layout */
+    @media (max-width: 768px) {
+      body { overflow: auto; height: auto; }
+      .lb-main { flex-direction: column !important; overflow: visible !important; }
+      .lb-hero {
+        width: 100% !important;
+        min-height: 0 !important;
+        overflow: visible !important;
+        flex-shrink: 0 !important;
+        padding: 1rem 1rem 0 !important;
+      }
+      .lb-list {
+        flex: none !important;
+        overflow: visible !important;
+        border-left: none !important;
+        border-top: 1px solid rgba(255,255,255,0.08) !important;
+        background: #0F172A !important;
+      }
+      .lb-list .lb-row {
+        background: rgba(255,255,255,0.04) !important;
+        border-bottom-color: rgba(255,255,255,0.08) !important;
+      }
+      .lb-list .lb-row:nth-child(even) {
+        background: rgba(255,255,255,0.07) !important;
+      }
+      .lb-list .lb-row-rank { background: rgba(255,255,255,0.1) !important; border-color: rgba(255,255,255,0.15) !important; color: #CBD5E1 !important; }
+      .lb-list .lb-row-name { color: #fff !important; }
+      .lb-list .lb-row-sub { color: #94A3B8 !important; }
+      .lb-list .lb-row-bar-track { background: rgba(255,255,255,0.1) !important; }
+      .lb-list .lb-row-posts { color: #64748B !important; }
+      .lb-list-header { display: none !important; }
+      .lb-footer { display: none !important; }
+      .lb-header { padding: 0.75rem 1rem !important; }
+    }
   </style>
 </head>
 <body>
 
   <!-- ── Header ─────────────────────────────────────────────────────────── -->
-  <header style="
+  <header class="lb-header" style="
     background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
     border-bottom: 1px solid rgba(255,255,255,0.08);
     display: flex;
@@ -249,10 +283,10 @@ router.get("/:token", (req, res) => {
   </header>
 
   <!-- ── Main ───────────────────────────────────────────────────────────── -->
-  <main style="flex:1;display:flex;overflow:hidden;">
+  <main class="lb-main" style="flex:1;display:flex;overflow:hidden;">
 
     <!-- Left: dark hero with podium -->
-    <div style="
+    <div class="lb-hero" style="
       width: ${rest.length ? "52%" : "100%"};
       background: linear-gradient(175deg, #0F172A 0%, #1a2744 60%, #0d1f3c 100%);
       display: flex;
@@ -281,9 +315,9 @@ router.get("/:token", (req, res) => {
 
     <!-- Right: ranked list -->
     ${rest.length ? `
-    <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;border-left:1px solid #E2E8F0;">
+    <div class="lb-list" style="flex:1;display:flex;flex-direction:column;overflow:hidden;border-left:1px solid #E2E8F0;">
       <!-- List header -->
-      <div style="display:flex;align-items:center;gap:1rem;padding:.625rem 1.25rem;background:#F1F5F9;border-bottom:2px solid #E2E8F0;flex-shrink:0;">
+      <div class="lb-list-header" style="display:flex;align-items:center;gap:1rem;padding:.625rem 1.25rem;background:#F1F5F9;border-bottom:2px solid #E2E8F0;flex-shrink:0;">
         <div style="width:32px;"></div>
         <div style="width:40px;"></div>
         <div style="flex:1;font-size:.65rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#94A3B8;">Stylist</div>
@@ -300,7 +334,7 @@ router.get("/:token", (req, res) => {
   </main>
 
   <!-- ── Footer ─────────────────────────────────────────────────────────── -->
-  <footer style="
+  <footer class="lb-footer" style="
     background: #fff;
     border-top: 1px solid #E2E8F0;
     padding: .625rem 2rem;

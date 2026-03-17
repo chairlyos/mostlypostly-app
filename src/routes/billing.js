@@ -353,6 +353,7 @@ router.get("/manager/billing", requireAuth, requireOwner, async (req, res) => {
     current: "billing",
     salon_id,
     manager_id: req.session.manager_id,
+    navLocked: isNewAccount,
     body: `
       <div class="space-y-6 max-w-3xl">
 

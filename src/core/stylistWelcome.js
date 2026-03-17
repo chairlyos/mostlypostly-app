@@ -4,7 +4,7 @@
 import db from "../../db.js";
 import { sendViaTwilio, sendViaRcs } from "../routes/twilio.js";
 
-const KB_URL = "https://mostlypostly.com/kb/stylist-texting.html";
+const WATCH_URL = "https://mostlypostly.com/watch";
 
 /**
  * Send a welcome SMS to a stylist.
@@ -25,14 +25,16 @@ export async function sendWelcomeSms(stylist, salonName) {
       phone,
       `Hi ${name}! ${salonName} has added you to MostlyPostly — your AI social media assistant.\n\n` +
       `Text a photo and we'll create a professional Instagram & Facebook caption automatically.\n\n` +
+      `🎬 See how it works: ${WATCH_URL}\n\n` +
       `Tap Agree below or reply AGREE to get started. Reply STOP to opt out. Msg & data rates may apply.`,
       ["reply:AGREE"]
     );
   } else {
     await sendViaTwilio(
       phone,
-      `👋 Hi ${name}! Here's your MostlyPostly quick-start guide for ${salonName}:\n\n` +
-      `📖 ${KB_URL}\n\n` +
+      `👋 Hi ${name}! You're set up on MostlyPostly for ${salonName}.\n\n` +
+      `🎬 Get started: ${WATCH_URL}\n\n` +
+      `Text MENU anytime to see everything you can do.\n\n` +
       `📸 Tip: Always send camera photos, not screenshots — they process fastest!`
     );
   }
@@ -48,7 +50,8 @@ export async function sendQuickStart(phone, name) {
   await sendViaTwilio(
     phone,
     `✅ You're all set${name ? `, ${name}` : ""}! Welcome to MostlyPostly.\n\n` +
-    `📖 Quick-start guide: ${KB_URL}\n\n` +
+    `🎬 Get started: ${WATCH_URL}\n\n` +
+    `Text MENU anytime to see everything you can do.\n\n` +
     `📸 Tip: Always send camera photos, not screenshots — they process fastest!`
   );
 }

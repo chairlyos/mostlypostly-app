@@ -9,6 +9,7 @@ export default function pageShell({
   salon_id = "",
   manager_phone = "",
   manager_id = "",
+  navLocked = false,
 }) {
   const qs = salon_id ? `?salon=${encodeURIComponent(salon_id)}` : "";
 
@@ -129,7 +130,7 @@ export default function pageShell({
     </a>
 
     <!-- Active location indicator -->
-    ${locationInitials ? `
+    ${!navLocked && locationInitials ? `
     <div class="group relative w-full flex justify-center pt-3 pb-1">
       <a href="/manager/locations"
          class="flex h-7 w-7 items-center justify-center rounded-lg bg-mpAccentLight text-mpAccent text-xs font-bold leading-none">
@@ -144,6 +145,13 @@ export default function pageShell({
     </div>` : ""}
 
     <!-- Primary nav -->
+    ${navLocked ? `
+    <div class="flex flex-1 flex-col items-center justify-center py-6 px-2">
+      <svg class="w-5 h-5 text-mpBorder mb-2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+      </svg>
+      <p class="text-[10px] text-center text-mpBorder leading-tight">Complete<br/>setup first</p>
+    </div>` : `
     <nav class="flex flex-1 flex-col items-center py-3 gap-0.5">
       ${navItem("/manager",            ICONS.home,      "Dashboard",    "manager")}
       ${navItem("/manager/queue",      ICONS.queue,     "Post Queue",   "queue")}
@@ -157,7 +165,7 @@ export default function pageShell({
       ${!isCoordinator ? navItem("/manager/locations",    ICONS.building,     "Locations",     "locations") : ""}
       ${isOwner ? navItem("/manager/billing", ICONS.card, "Billing", "billing") : ""}
       ${!isCoordinator ? navItem("/manager/admin",        ICONS.cog,          "Admin",         "admin") : ""}
-    </nav>
+    </nav>`}
 
     <!-- Profile + Logout at bottom -->
     <div class="border-t border-mpBorder py-3">
@@ -185,6 +193,14 @@ export default function pageShell({
       <img src="/public/logo/logo-mark.png" alt="MostlyPostly" class="h-10 w-auto" />
       <button id="mobileNavClose" class="text-mpMuted text-3xl leading-none">&times;</button>
     </div>
+    ${navLocked ? `
+    <div class="flex-1 flex flex-col items-center justify-center gap-3 text-center px-6">
+      <svg class="w-8 h-8 text-mpBorder" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+      </svg>
+      <p class="text-sm text-mpMuted font-medium">Complete your account setup to unlock the dashboard.</p>
+      <a href="/manager/logout" class="mt-2 text-xs text-mpMuted underline hover:text-mpCharcoal transition-colors">Log out</a>
+    </div>` : `
     <nav class="flex-1 px-5 py-4 space-y-0.5 overflow-y-auto">
       ${mobileNavLink("/manager",            "Dashboard",  "manager")}
       ${mobileNavLink("/manager/queue",      "Post Queue", "queue")}
@@ -203,7 +219,7 @@ export default function pageShell({
          class="block py-2.5 text-sm font-medium text-mpMuted hover:text-mpCharcoal transition-colors">
         Logout
       </a>
-    </nav>
+    </nav>`}
   </div>
 
   <!-- ══════════════════════════════════════════════════

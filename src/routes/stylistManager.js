@@ -474,7 +474,9 @@ router.post("/add", requireAuth, photoUpload.single("photo"), async (req, res) =
         ``,
         `To post, just text a photo to ${twilioNumber}. Add a quick note about the service if you like. AI will write a caption and send you a link to review it.`,
         ``,
-        `Quick guide: ${PUBLIC_BASE_URL}/help/stylists`,
+        `🎬 Get started: https://mostlypostly.com/watch`,
+        ``,
+        `Text MENU anytime to see all the things you can do.`,
         ``,
         `Reply STOP to opt out. Msg & data rates may apply.`,
       ].join("\n");

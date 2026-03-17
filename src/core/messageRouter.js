@@ -43,6 +43,7 @@ import {
 // 🧠 Import moderation utility directly
 import moderateAIOutput from "../utils/moderation.js";
 import { sendQuickStart } from "./stylistWelcome.js";
+import { getOrCreateLeaderboardToken } from "./gamification.js";
 console.log("[Router Debug] moderateAIOutput type:", typeof moderateAIOutput);
 
 
@@ -290,7 +291,7 @@ function queueConsentAndPrompt(chatId, imageUrls, text, sendMessage, stylist) {
 MostlyPostly: Please review our SMS Consent, Privacy, and Terms:
 https://mostlypostly.github.io/mostlypostly-legal/
 
-Reply *AGREE* to opt in. Reply STOP to opt out. HELP for help. Msg&data rates may apply.
+Reply *AGREE* to opt in. Reply STOP to opt out. MENU for commands. Msg&data rates may apply.
 
 `.trim();
   return sendMessage.sendText(chatId, prompt);
@@ -805,6 +806,40 @@ export async function handleIncomingMessage({
         "Not sure what that's in response to. Try texting \"Post availability\" to pull your schedule."
       );
     }
+    endTimer(start);
+    return;
+  }
+
+  // LEADERBOARD — send the public leaderboard URL
+  if (/^(leaderboard|who('?s| is) (leading|winning|in the lead)|rankings?)$/i.test(cleanText)) {
+    const salonId = salon?.salon_id || salon?.id || salon?.salon_info?.slug;
+    try {
+      const token = getOrCreateLeaderboardToken(salonId);
+      const baseUrl = process.env.PUBLIC_BASE_URL || process.env.BASE_URL || "";
+      await sendMessage.sendText(chatId,
+        `🏆 Here's the team leaderboard:\n${baseUrl}/leaderboard/${token}`
+      );
+    } catch (err) {
+      console.error("[Router] Leaderboard command error:", err.message);
+      await sendMessage.sendText(chatId, "Sorry, couldn't load the leaderboard right now. Try again in a moment.");
+    }
+    endTimer(start);
+    return;
+  }
+
+  // MENU — list available stylist commands
+  if (/^(menu|what can i do)$/i.test(cleanText)) {
+    await sendMessage.sendText(chatId,
+      `Here's what you can do with MostlyPostly:\n\n` +
+      `📸 *Standard post* — text 1–3 photos and we'll write a caption\n` +
+      `🔄 *Before & after* — text 2 photos with "before and after" or "transformation"\n` +
+      `📅 *Post my availability* — pulls your open slots from your booking software\n` +
+      `🏆 *Leaderboard* — see where you rank on the team\n\n` +
+      `After a caption preview:\n` +
+      `• Reply APPROVE to submit\n` +
+      `• Reply REDO to regenerate\n` +
+      `• Reply CANCEL to discard`
+    );
     endTimer(start);
     return;
   }
