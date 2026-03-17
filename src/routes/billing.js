@@ -155,11 +155,19 @@ router.get("/manager/billing", requireAuth, requireOwner, async (req, res) => {
   const planHint = ["starter","growth","pro"].includes(req.query.plan) ? req.query.plan : null;
 
   const salon = db.prepare(`
-    SELECT name, plan, plan_status, billing_cycle, trial_ends_at, stripe_customer_id, trial_used
+    SELECT name, plan, plan_status, billing_cycle, trial_ends_at, stripe_customer_id, trial_used, status
     FROM salons WHERE slug=?
   `).get(salon_id);
 
   if (!salon) return res.redirect("/manager/login");
+
+  // New accounts: if they came from a plan selection, skip billing page and go straight to Stripe.
+  // This handles the case where the original verify-email tab ends up here instead of checkout.
+  const sessionPlanHint = ["starter","growth","pro"].includes(req.session.pending_plan_hint)
+    ? req.session.pending_plan_hint : null;
+  if (salon.status === "setup_incomplete" && !planHint && sessionPlanHint) {
+    return res.redirect(`/billing/checkout?plan=${sessionPlanHint}&cycle=monthly`);
+  }
 
   const limits = PLAN_LIMITS[salon.plan] || PLAN_LIMITS.trial;
 
@@ -353,6 +361,7 @@ router.get("/manager/billing", requireAuth, requireOwner, async (req, res) => {
     current: "billing",
     salon_id,
     manager_id: req.session.manager_id,
+    navLocked: salon.status === "setup_incomplete",
     body: `
       <div class="space-y-6 max-w-3xl">
 

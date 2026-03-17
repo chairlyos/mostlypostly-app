@@ -9,6 +9,7 @@ export default function pageShell({
   salon_id = "",
   manager_phone = "",
   manager_id = "",
+  navLocked = false,
 }) {
   const qs = salon_id ? `?salon=${encodeURIComponent(salon_id)}` : "";
 
@@ -123,13 +124,17 @@ export default function pageShell({
     class="fixed inset-y-0 left-0 z-30 hidden md:flex w-16 flex-col border-r border-mpBorder bg-white">
 
     <!-- Logo mark -->
-    <a href="/manager${qs}"
-       class="flex h-16 w-16 shrink-0 items-center justify-center border-b border-mpBorder">
-      <img src="/public/logo/logo-mark.png" alt="MostlyPostly" class="h-5 w-auto" />
-    </a>
+    ${navLocked
+      ? `<div class="flex h-16 w-16 shrink-0 items-center justify-center border-b border-mpBorder">
+        <img src="/public/logo/logo-mark.png" alt="MostlyPostly" class="h-5 w-auto" />
+      </div>`
+      : `<a href="/manager${qs}"
+         class="flex h-16 w-16 shrink-0 items-center justify-center border-b border-mpBorder">
+        <img src="/public/logo/logo-mark.png" alt="MostlyPostly" class="h-5 w-auto" />
+      </a>`}
 
     <!-- Active location indicator -->
-    ${locationInitials ? `
+    ${(!navLocked && locationInitials) ? `
     <div class="group relative w-full flex justify-center pt-3 pb-1">
       <a href="/manager/locations"
          class="flex h-7 w-7 items-center justify-center rounded-lg bg-mpAccentLight text-mpAccent text-xs font-bold leading-none">
@@ -145,23 +150,23 @@ export default function pageShell({
 
     <!-- Primary nav -->
     <nav class="flex flex-1 flex-col items-center py-3 gap-0.5">
-      ${navItem("/manager",            ICONS.home,      "Dashboard",    "manager")}
-      ${navItem("/manager/queue",      ICONS.queue,     "Post Queue",   "queue")}
-      ${navItem("/analytics",          ICONS.chart,     "Analytics",    "analytics")}
-      ${!isCoordinator ? navItem("/manager/stylists",   ICONS.team,      "Team",         "team") : ""}
-      ${navItem("/manager/performance", ICONS.trophy,   "Performance",  "performance")}
-      ${!isCoordinator ? navItem("/manager/scheduler",  ICONS.clock,     "Scheduler",    "scheduler") : ""}
-      ${!isCoordinator ? navItem("/dashboard",          ICONS.database,  "Database",     "database") : ""}
-      ${!isCoordinator ? navItem("/manager/vendors",       ICONS.tag,          "Vendors",       "vendors") : ""}
-      ${(!isCoordinator && isPro) ? navItem("/manager/integrations", ICONS.integration,  "Integrations",  "integrations") : ""}
-      ${!isCoordinator ? navItem("/manager/locations",    ICONS.building,     "Locations",     "locations") : ""}
+      ${navLocked ? "" : navItem("/manager",            ICONS.home,      "Dashboard",    "manager")}
+      ${navLocked ? "" : navItem("/manager/queue",      ICONS.queue,     "Post Queue",   "queue")}
+      ${navLocked ? "" : navItem("/analytics",          ICONS.chart,     "Analytics",    "analytics")}
+      ${(!navLocked && !isCoordinator) ? navItem("/manager/stylists",   ICONS.team,      "Team",         "team") : ""}
+      ${navLocked ? "" : navItem("/manager/performance", ICONS.trophy,   "Performance",  "performance")}
+      ${(!navLocked && !isCoordinator) ? navItem("/manager/scheduler",  ICONS.clock,     "Scheduler",    "scheduler") : ""}
+      ${(!navLocked && !isCoordinator) ? navItem("/dashboard",          ICONS.database,  "Database",     "database") : ""}
+      ${(!navLocked && !isCoordinator) ? navItem("/manager/vendors",       ICONS.tag,          "Vendors",       "vendors") : ""}
+      ${(!navLocked && !isCoordinator && isPro) ? navItem("/manager/integrations", ICONS.integration,  "Integrations",  "integrations") : ""}
+      ${(!navLocked && !isCoordinator) ? navItem("/manager/locations",    ICONS.building,     "Locations",     "locations") : ""}
       ${isOwner ? navItem("/manager/billing", ICONS.card, "Billing", "billing") : ""}
-      ${!isCoordinator ? navItem("/manager/admin",        ICONS.cog,          "Admin",         "admin") : ""}
+      ${(!navLocked && !isCoordinator) ? navItem("/manager/admin",        ICONS.cog,          "Admin",         "admin") : ""}
     </nav>
 
     <!-- Profile + Logout at bottom -->
     <div class="border-t border-mpBorder py-3">
-      ${navItem("/manager/profile", ICONS.profile, "My Profile", "profile")}
+      ${navLocked ? "" : navItem("/manager/profile", ICONS.profile, "My Profile", "profile")}
       ${navItem("/manager/logout",  ICONS.logout,  "Logout",     "logout")}
     </div>
   </aside>
@@ -171,10 +176,10 @@ export default function pageShell({
   ══════════════════════════════════════════════════ -->
   <header class="md:hidden fixed top-0 inset-x-0 z-30 flex h-14 items-center justify-between
                  px-4 bg-white border-b border-mpBorder">
-    <a href="/manager${qs}">
-      <img src="/public/logo/logo-trimmed.png" alt="MostlyPostly" class="h-7 w-auto" />
-    </a>
-    <button id="mobileNavBtn" class="text-mpMuted text-2xl leading-none" aria-label="Open menu">&#9776;</button>
+    ${navLocked
+      ? `<img src="/public/logo/logo-trimmed.png" alt="MostlyPostly" class="h-7 w-auto" />`
+      : `<a href="/manager${qs}"><img src="/public/logo/logo-trimmed.png" alt="MostlyPostly" class="h-7 w-auto" /></a>`}
+    ${navLocked ? "" : `<button id="mobileNavBtn" class="text-mpMuted text-2xl leading-none" aria-label="Open menu">&#9776;</button>`}
   </header>
 
   <!-- ══════════════════════════════════════════════════
@@ -186,19 +191,19 @@ export default function pageShell({
       <button id="mobileNavClose" class="text-mpMuted text-3xl leading-none">&times;</button>
     </div>
     <nav class="flex-1 px-5 py-4 space-y-0.5 overflow-y-auto">
-      ${mobileNavLink("/manager",            "Dashboard",  "manager")}
-      ${mobileNavLink("/manager/queue",      "Post Queue", "queue")}
-      ${mobileNavLink("/analytics",          "Analytics",  "analytics")}
-      ${!isCoordinator ? mobileNavLink("/manager/stylists",   "Team",        "team") : ""}
-      ${mobileNavLink("/manager/performance", "Performance", "performance")}
-      ${!isCoordinator ? mobileNavLink("/manager/scheduler",  "Scheduler",   "scheduler") : ""}
-      ${!isCoordinator ? mobileNavLink("/dashboard",          "Database",   "database") : ""}
-      ${!isCoordinator ? mobileNavLink("/manager/vendors",       "Vendors",       "vendors") : ""}
-      ${(!isCoordinator && isPro) ? mobileNavLink("/manager/integrations", "Integrations",  "integrations") : ""}
-      ${!isCoordinator ? mobileNavLink("/manager/locations",    "Locations",     "locations") : ""}
+      ${navLocked ? "" : mobileNavLink("/manager",            "Dashboard",  "manager")}
+      ${navLocked ? "" : mobileNavLink("/manager/queue",      "Post Queue", "queue")}
+      ${navLocked ? "" : mobileNavLink("/analytics",          "Analytics",  "analytics")}
+      ${(!navLocked && !isCoordinator) ? mobileNavLink("/manager/stylists",   "Team",        "team") : ""}
+      ${navLocked ? "" : mobileNavLink("/manager/performance", "Performance", "performance")}
+      ${(!navLocked && !isCoordinator) ? mobileNavLink("/manager/scheduler",  "Scheduler",   "scheduler") : ""}
+      ${(!navLocked && !isCoordinator) ? mobileNavLink("/dashboard",          "Database",   "database") : ""}
+      ${(!navLocked && !isCoordinator) ? mobileNavLink("/manager/vendors",       "Vendors",       "vendors") : ""}
+      ${(!navLocked && !isCoordinator && isPro) ? mobileNavLink("/manager/integrations", "Integrations",  "integrations") : ""}
+      ${(!navLocked && !isCoordinator) ? mobileNavLink("/manager/locations",    "Locations",     "locations") : ""}
       ${isOwner ? mobileNavLink("/manager/billing", "Billing", "billing") : ""}
-      ${!isCoordinator ? mobileNavLink("/manager/admin",        "Admin",         "admin") : ""}
-      ${mobileNavLink("/manager/profile", "My Profile", "profile")}
+      ${(!navLocked && !isCoordinator) ? mobileNavLink("/manager/admin",        "Admin",         "admin") : ""}
+      ${navLocked ? "" : mobileNavLink("/manager/profile", "My Profile", "profile")}
       <a href="/manager/logout"
          class="block py-2.5 text-sm font-medium text-mpMuted hover:text-mpCharcoal transition-colors">
         Logout
