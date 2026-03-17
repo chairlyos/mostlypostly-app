@@ -17,7 +17,7 @@ import { PLAN_LIMITS } from "./billing.js";
 import { sendWelcomeSms } from "../core/stylistWelcome.js";
 import { generateCelebrationImage } from "../core/celebrationImageGen.js";
 import { generateCelebrationCaption } from "../core/celebrationCaption.js";
-import { TEMPLATE_META, TEMPLATES } from "../core/postTemplates.js";
+import { TEMPLATE_META } from "../core/postTemplates.js";
 
 const managerPhotoUpload = multer({
   storage: multer.diskStorage({
@@ -1977,7 +1977,10 @@ router.get("/test-celebration", requireAuth, async (req, res) => {
 // GET: Celebration template preview (opens image in new tab, no post created)
 router.get("/celebration-preview", requireAuth, async (req, res) => {
   const salon_id = req.manager.salon_id;
-  const { template = "script", stylist: stylistId, type = "birthday" } = req.query;
+  const validTemplates = Object.keys(TEMPLATE_META.celebration);
+  const rawTemplate = req.query.template;
+  const template = validTemplates.includes(rawTemplate) ? rawTemplate : "script";
+  const { stylist: stylistId, type = "birthday" } = req.query;
 
   if (!stylistId) return res.redirect("/manager/admin?tab=branding&err=No+stylist+selected");
 
