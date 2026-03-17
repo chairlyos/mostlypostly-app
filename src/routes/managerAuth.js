@@ -840,8 +840,9 @@ router.get("/verify-email", async (req, res) => {
   delete req.session.pending_plan_hint;
   delete req.session.pending_offer;
 
-  // Carry offer into the active session so billing checkout can read it
-  if (offerHint) req.session.offer = offerHint;
+  // Carry offer into the active session so billing checkout can read it.
+  // Always overwrite (including clearing) so a previous founder session doesn't bleed through.
+  req.session.offer = offerHint || "";
 
   req.session.save(() => {
     // If they already picked a plan (e.g. from founders/pricing page), skip the billing UI
