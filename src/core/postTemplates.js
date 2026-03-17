@@ -286,6 +286,243 @@ body{width:${width}px;height:${height}px;overflow:hidden;position:relative;backg
 </body></html>`;
 }
 
+// ─── Availability Template 1: script — Handwritten Elegance ──────────────
+
+function buildAvailHtml_script({ width, height, photoDataUri, logoDataUri, stylistName, salonName, slots, bookingCta, instagramHandle, accentHex, bandHex }) {
+  const W = width, H = height;
+  const pad = Math.round(W * 0.055);
+  const displaySlots = (slots && slots.length) ? slots.slice(0, 5) : ["Check back soon"];
+
+  const photoBg = photoDataUri ? `
+    <img style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center top;" src="${photoDataUri}" />`
+    : `<div style="position:absolute;inset:0;background:linear-gradient(160deg,#1a1c22 0%,#2B2D35 100%);"></div>`;
+
+  const slotRows = displaySlots.map(slot => `
+    <div style="display:flex;align-items:center;gap:${Math.round(W*0.022)}px;padding:${Math.round(H*0.012)}px 0;border-top:1px solid rgba(255,255,255,0.10);">
+      <div style="width:${Math.round(W*0.025)}px;height:1px;background:${accentHex};flex-shrink:0;"></div>
+      <span style="font-family:'Lato',sans-serif;font-size:${Math.round(H*0.022)}px;font-weight:400;color:rgba(255,255,255,0.90);">${safe(slot)}</span>
+    </div>`).join("");
+
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
+<style>*{margin:0;padding:0;box-sizing:border-box}
+body{width:${W}px;height:${H}px;overflow:hidden;position:relative;background:#1a1c22;}</style>
+</head><body>
+  ${photoBg}
+  <div style="position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,0) 0%,rgba(0,0,0,0.08) 25%,rgba(0,0,0,0.65) 50%,rgba(0,0,0,0.92) 72%,rgba(0,0,0,0.97) 100%);"></div>
+  <div style="position:absolute;bottom:0;left:0;right:0;padding:${Math.round(H*0.048)}px ${pad}px ${Math.round(H*0.065)}px;">
+    <div style="width:${Math.round(W*0.075)}px;height:${Math.round(H*0.003)}px;background:${accentHex};border-radius:2px;margin-bottom:${Math.round(H*0.016)}px;"></div>
+    <div style="font-family:'Great Vibes',cursive;font-size:${Math.round(H*0.065)}px;color:rgba(255,255,255,0.85);margin-bottom:${Math.round(H*0.010)}px;line-height:1.1;">Now Booking</div>
+    <div style="font-family:'Lato',sans-serif;font-size:${Math.round(H*0.040)}px;font-weight:700;color:#fff;letter-spacing:6px;text-transform:uppercase;margin-bottom:${Math.round(H*0.022)}px;">${safe(stylistName)}</div>
+    <div>${slotRows}</div>
+    <div style="margin-top:${Math.round(H*0.028)}px;display:inline-block;background:${accentHex};border-radius:999px;padding:${Math.round(H*0.012)}px ${Math.round(W*0.07)}px;font-family:'Lato',sans-serif;font-size:${Math.round(H*0.018)}px;font-weight:700;color:#fff;letter-spacing:2px;text-transform:uppercase;">${safe(bookingCta || "Book via link in bio")}</div>
+  </div>
+  ${logoHtml(logoDataUri, W, H, pad)}
+  ${watermarkHtml(H, pad)}
+</body></html>`;
+}
+
+// ─── Availability Template 2: editorial — Magazine Split ──────────────────
+
+function buildAvailHtml_editorial({ width, height, photoDataUri, logoDataUri, stylistName, salonName, slots, bookingCta, instagramHandle, accentHex, bandHex }) {
+  const W = width, H = height;
+  const panelW = Math.round(W * 0.44);
+  const pad    = Math.round(panelW * 0.12);
+  const displaySlots = (slots && slots.length) ? slots.slice(0, 5) : ["Check back soon"];
+
+  const photo = photoDataUri
+    ? `<img style="position:absolute;right:0;top:0;width:${W - panelW}px;height:100%;object-fit:cover;object-position:center top;" src="${photoDataUri}" />`
+    : `<div style="position:absolute;right:0;top:0;width:${W - panelW}px;height:100%;background:linear-gradient(160deg,${accentHex}88 0%,#1a1c22 100%);"></div>`;
+
+  const slotItems = displaySlots.map(slot => `
+    <div style="display:flex;align-items:flex-start;gap:${Math.round(panelW*0.06)}px;margin-bottom:${Math.round(H*0.018)}px;">
+      <div style="width:${Math.round(panelW*0.026)}px;height:${Math.round(panelW*0.026)}px;border-radius:50%;background:${accentHex};flex-shrink:0;margin-top:${Math.round(H*0.008)}px;"></div>
+      <span style="font-family:'Lato',sans-serif;font-size:${Math.round(H*0.020)}px;font-weight:400;color:rgba(26,28,34,0.80);line-height:1.4;">${safe(slot)}</span>
+    </div>`).join("");
+
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@1,700&family=Lato:wght@300;400&display=swap" rel="stylesheet">
+<style>*{margin:0;padding:0;box-sizing:border-box}
+body{width:${W}px;height:${H}px;overflow:hidden;position:relative;background:#fff;}</style>
+</head><body>
+  ${photo}
+  <div style="position:absolute;left:${panelW - 2}px;top:0;width:${Math.round(panelW*0.14)}px;height:100%;background:linear-gradient(to right,#fff 0%,transparent 100%);z-index:1;pointer-events:none;"></div>
+  <div style="position:absolute;top:0;left:0;width:${panelW}px;height:100%;background:#fff;z-index:1;
+    display:flex;flex-direction:column;justify-content:center;
+    padding:${Math.round(H*0.07)}px ${pad}px;">
+    <div style="font-family:'Lato',sans-serif;font-size:${Math.round(panelW*0.046)}px;font-weight:300;
+      color:rgba(26,28,34,0.40);letter-spacing:${Math.round(panelW*0.046*0.22)}px;
+      text-transform:uppercase;margin-bottom:${Math.round(H*0.020)}px;">Now Available</div>
+    <div style="width:${Math.round(panelW*0.15)}px;height:2px;background:${accentHex};margin-bottom:${Math.round(H*0.022)}px;"></div>
+    <div style="font-family:'Playfair Display',serif;font-style:italic;font-size:${Math.round(panelW*0.19)}px;font-weight:700;
+      color:#1a1c22;line-height:1.0;word-break:break-word;margin-bottom:${Math.round(H*0.028)}px;">${safe(stylistName)}</div>
+    <div>${slotItems}</div>
+    <div style="margin-top:${Math.round(H*0.022)}px;font-family:'Lato',sans-serif;font-size:${Math.round(H*0.016)}px;font-weight:300;
+      color:rgba(26,28,34,0.42);letter-spacing:1px;">${safe(bookingCta || "Book via link in bio")}</div>
+  </div>
+  ${logoHtml(logoDataUri, W, H, Math.round(W*0.03))}
+  <div style="position:absolute;bottom:${Math.round(H*0.022)}px;left:${pad}px;z-index:2;
+    font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;
+    font-size:${Math.round(H*0.013)}px;font-weight:400;
+    color:rgba(26,28,34,0.22);letter-spacing:0.5px;">#MostlyPostly</div>
+</body></html>`;
+}
+
+// ─── Availability Template 3: bold — Vertical Statement ───────────────────
+
+function buildAvailHtml_bold({ width, height, photoDataUri, logoDataUri, stylistName, salonName, slots, bookingCta, instagramHandle, accentHex, bandHex }) {
+  const W = width, H = height;
+  const pad = Math.round(W * 0.055);
+  const panelW = Math.round(W * 0.44);
+  const nameFontSize    = Math.round(H * 0.13);
+  const eyebrowFontSize = Math.round(panelW * 0.09);
+  const displaySlots = (slots && slots.length) ? slots.slice(0, 5) : ["Check back soon"];
+
+  const photoBg = photoDataUri ? `
+    <img style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:brightness(0.65);" src="${photoDataUri}" />`
+    : `<div style="position:absolute;inset:0;background:linear-gradient(135deg,${accentHex}cc 0%,#1a1c22 100%);"></div>`;
+
+  const slotRows = displaySlots.map(slot => `
+    <div style="font-family:'Lato',sans-serif;font-size:${Math.round(panelW*0.075)}px;font-weight:300;
+      color:rgba(255,255,255,0.82);margin-bottom:${Math.round(H*0.016)}px;
+      border-left:2px solid ${accentHex};padding-left:${Math.round(panelW*0.07)}px;line-height:1.3;">${safe(slot)}</div>`).join("");
+
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@800&family=Lato:wght@300;400&display=swap" rel="stylesheet">
+<style>*{margin:0;padding:0;box-sizing:border-box}
+body{width:${W}px;height:${H}px;overflow:hidden;position:relative;background:#1a1c22;}</style>
+</head><body>
+  ${photoBg}
+  <div style="position:absolute;top:0;right:0;width:${panelW}px;height:100%;
+    background:rgba(0,0,0,0.80);
+    display:flex;flex-direction:column;justify-content:center;
+    padding:${Math.round(H*0.06)}px ${Math.round(panelW*0.12)}px;">
+    <div style="width:${Math.round(panelW*0.18)}px;height:3px;background:${accentHex};margin-bottom:${Math.round(H*0.025)}px;"></div>
+    <div style="font-family:'Lato',sans-serif;font-size:${eyebrowFontSize}px;font-weight:400;
+      color:rgba(255,255,255,0.55);letter-spacing:${Math.round(eyebrowFontSize*0.08)}px;
+      text-transform:uppercase;margin-bottom:${Math.round(H*0.030)}px;line-height:1.3;">NOW BOOKING</div>
+    <div style="margin-bottom:${Math.round(H*0.032)}px;">${slotRows}</div>
+    <div style="font-family:'Lato',sans-serif;font-size:${Math.round(panelW*0.065)}px;font-weight:300;
+      color:rgba(255,255,255,0.42);letter-spacing:1px;">${safe(bookingCta || "Book via link in bio")}</div>
+  </div>
+  <div style="position:absolute;left:0;top:0;bottom:0;width:${nameFontSize*1.25}px;
+    display:flex;align-items:center;justify-content:center;">
+    <div style="writing-mode:vertical-rl;transform:rotate(180deg);
+      font-family:'Montserrat',sans-serif;font-size:${nameFontSize}px;font-weight:800;
+      color:rgba(255,255,255,0.92);text-transform:uppercase;letter-spacing:8px;
+      text-shadow:0 4px 32px rgba(0,0,0,0.6);">${safe(stylistName)}</div>
+  </div>
+  ${logoHtml(logoDataUri, W, H, pad)}
+  ${watermarkHtml(H, pad)}
+</body></html>`;
+}
+
+// ─── Availability Template 4: luxury — Frosted Card ───────────────────────
+
+function buildAvailHtml_luxury({ width, height, photoDataUri, logoDataUri, stylistName, salonName, slots, bookingCta, instagramHandle, accentHex, bandHex }) {
+  const W = width, H = height;
+  const pad   = Math.round(W * 0.055);
+  const cardW = Math.round(W * 0.78);
+  const displaySlots = (slots && slots.length) ? slots.slice(0, 5) : ["Check back soon"];
+
+  const photoBg = photoDataUri ? `
+    <img style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:brightness(0.40) saturate(0.85);" src="${photoDataUri}" />`
+    : `<div style="position:absolute;inset:0;background:linear-gradient(135deg,${accentHex}99 0%,#1a1c22 100%);"></div>`;
+
+  const slotRows = displaySlots.map((slot, i) => `
+    ${i > 0 ? `<div style="width:100%;height:1px;background:rgba(255,255,255,0.12);margin:${Math.round(H*0.015)}px 0;"></div>` : ""}
+    <div style="font-family:'Lato',sans-serif;font-size:${Math.round(H*0.021)}px;font-weight:300;
+      color:rgba(255,255,255,0.85);text-align:center;padding:${Math.round(H*0.008)}px 0;">${safe(slot)}</div>`).join("");
+
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;1,400;1,700&family=Lato:wght@300;400&display=swap" rel="stylesheet">
+<style>*{margin:0;padding:0;box-sizing:border-box}
+body{width:${W}px;height:${H}px;overflow:hidden;position:relative;background:#1a1c22;}</style>
+</head><body>
+  ${photoBg}
+  <div style="position:absolute;left:50%;top:62%;transform:translate(-50%,-50%);
+    width:${cardW}px;
+    background:rgba(255,255,255,0.10);
+    backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+    border:1px solid rgba(255,255,255,0.18);
+    border-radius:${Math.round(H*0.022)}px;
+    padding:${Math.round(H*0.055)}px ${Math.round(cardW*0.10)}px;
+    text-align:center;">
+    <div style="font-family:'Lato',sans-serif;font-size:${Math.round(H*0.019)}px;font-weight:300;
+      color:rgba(255,255,255,0.60);letter-spacing:${Math.round(H*0.019*0.7)}px;
+      text-transform:uppercase;margin-bottom:${Math.round(H*0.025)}px;">Now Available</div>
+    <div style="width:${Math.round(cardW*0.22)}px;height:1px;background:${accentHex};
+      margin:0 auto ${Math.round(H*0.028)}px;opacity:0.8;"></div>
+    <div style="font-family:'Playfair Display',serif;font-size:${Math.round(H*0.065)}px;font-style:italic;font-weight:700;
+      color:#fff;line-height:1.1;text-shadow:0 2px 16px rgba(0,0,0,0.4);
+      margin-bottom:${Math.round(H*0.028)}px;">${safe(stylistName)}</div>
+    <div style="width:${Math.round(cardW*0.22)}px;height:1px;background:rgba(255,255,255,0.18);
+      margin:0 auto ${Math.round(H*0.022)}px;"></div>
+    <div>${slotRows}</div>
+    <div style="width:${Math.round(cardW*0.22)}px;height:1px;background:rgba(255,255,255,0.12);
+      margin:${Math.round(H*0.022)}px auto ${Math.round(H*0.018)}px;"></div>
+    <div style="font-family:'Lato',sans-serif;font-size:${Math.round(H*0.016)}px;font-weight:300;
+      color:rgba(255,255,255,0.42);letter-spacing:2px;text-transform:uppercase;">${safe(bookingCta || "Book via link in bio")}</div>
+  </div>
+  ${logoHtml(logoDataUri, W, H, pad)}
+  ${watermarkHtml(H, pad)}
+</body></html>`;
+}
+
+// ─── Availability Template 5: minimal — Moody Centered ────────────────────
+
+function buildAvailHtml_minimal({ width, height, photoDataUri, logoDataUri, stylistName, salonName, slots, bookingCta, instagramHandle, accentHex, bandHex }) {
+  const W = width, H = height;
+  const pad = Math.round(W * 0.055);
+  const displaySlots = (slots && slots.length) ? slots.slice(0, 5) : ["Check back soon"];
+
+  const photoBg = photoDataUri ? `
+    <img style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:brightness(0.28) saturate(0.8);" src="${photoDataUri}" />`
+    : `<div style="position:absolute;inset:0;background:#0f1015;"></div>`;
+
+  const slotItems = displaySlots.map(slot => `
+    <div style="font-family:'Montserrat',sans-serif;font-size:${Math.round(H*0.022)}px;font-weight:300;
+      color:rgba(255,255,255,0.70);text-align:center;margin-bottom:${Math.round(H*0.014)}px;
+      letter-spacing:1px;">${safe(slot)}</div>`).join("");
+
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@200;300;400&display=swap" rel="stylesheet">
+<style>*{margin:0;padding:0;box-sizing:border-box}
+body{width:${W}px;height:${H}px;overflow:hidden;position:relative;background:#0f1015;}</style>
+</head><body>
+  ${photoBg}
+  <div style="position:absolute;inset:0;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;text-align:center;
+    padding:${Math.round(H*0.08)}px ${Math.round(W*0.10)}px;">
+    <div style="font-family:'Montserrat',sans-serif;font-size:${Math.round(H*0.018)}px;font-weight:300;
+      color:rgba(255,255,255,0.45);letter-spacing:${Math.round(H*0.018*0.9)}px;
+      text-transform:uppercase;margin-bottom:${Math.round(H*0.025)}px;">Now Booking</div>
+    <div style="font-family:'Montserrat',sans-serif;font-size:${Math.round(H*0.088)}px;font-weight:200;
+      color:#fff;letter-spacing:4px;line-height:1.05;margin-bottom:${Math.round(H*0.028)}px;">${safe(stylistName)}</div>
+    <div style="width:${Math.round(W*0.12)}px;height:1px;background:${accentHex};
+      margin:0 auto ${Math.round(H*0.032)}px;"></div>
+    <div style="margin-bottom:${Math.round(H*0.032)}px;">${slotItems}</div>
+    <div style="display:inline-block;background:${accentHex};border-radius:999px;
+      padding:${Math.round(H*0.012)}px ${Math.round(W*0.07)}px;
+      font-family:'Montserrat',sans-serif;font-size:${Math.round(H*0.016)}px;font-weight:300;
+      color:rgba(255,255,255,0.9);letter-spacing:${Math.round(H*0.016*0.4)}px;
+      text-transform:uppercase;">${safe(bookingCta || "Book via link in bio")}</div>
+  </div>
+  ${logoHtml(logoDataUri, W, H, pad)}
+  ${watermarkHtml(H, pad)}
+</body></html>`;
+}
+
 // ─── Registry ──────────────────────────────────────────────────────────────
 
 export const TEMPLATE_META = {
@@ -296,6 +533,13 @@ export const TEMPLATE_META = {
     luxury:    { label: "Frosted Card",         desc: "Frosted glass · Serif italic" },
     minimal:   { label: "Moody Centered",       desc: "Minimal · Dark mood" },
   },
+  availability: {
+    script:    { label: "Handwritten Elegance", desc: "Script eyebrow · Photo-first · Slot rows" },
+    editorial: { label: "Magazine Split",       desc: "White panel · Serif name · Slot list" },
+    bold:      { label: "Vertical Statement",   desc: "Vertical name · Dark panel · Slots" },
+    luxury:    { label: "Frosted Card",         desc: "Frosted glass card · Centered slots" },
+    minimal:   { label: "Moody Centered",       desc: "Dark mood · Centered · Pill CTA" },
+  },
 };
 
 export const TEMPLATES = {
@@ -305,5 +549,12 @@ export const TEMPLATES = {
     bold:      buildHtml_bold,
     luxury:    buildHtml_luxury,
     minimal:   buildHtml_minimal,
+  },
+  availability: {
+    script:    buildAvailHtml_script,
+    editorial: buildAvailHtml_editorial,
+    bold:      buildAvailHtml_bold,
+    luxury:    buildAvailHtml_luxury,
+    minimal:   buildAvailHtml_minimal,
   },
 };
