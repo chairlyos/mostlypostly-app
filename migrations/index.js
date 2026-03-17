@@ -37,6 +37,7 @@ import { run as run033 } from "./033_celebration_styles.js";
 import { run as run034 } from "./034_stylist_auto_approve.js";
 import { run as run035 } from "./035_posts_service_type.js";
 import { run as run036 } from "./036_celebration_template.js";
+import { run as run037 } from "./037_availability_template.js";
 
 export const migrations = [
   { name: "001_baseline_patches",        run: run001 },
@@ -75,4 +76,5 @@ export const migrations = [
   { name: "034_stylist_auto_approve",        run: run034 },
   { name: "035_posts_service_type",          run: run035 },
   { name: "036_celebration_template",        run: run036 },
+  { name: "037_availability_template",       run: run037 },
 ];
