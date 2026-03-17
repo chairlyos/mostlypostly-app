@@ -18,6 +18,7 @@ import { sendWelcomeSms } from "../core/stylistWelcome.js";
 import { generateCelebrationImage } from "../core/celebrationImageGen.js";
 import { generateCelebrationCaption } from "../core/celebrationCaption.js";
 import { TEMPLATE_META } from "../core/postTemplates.js";
+import { buildAvailabilityImage } from "../core/buildAvailabilityImage.js";
 
 const managerPhotoUpload = multer({
   storage: multer.diskStorage({
@@ -210,6 +211,7 @@ router.get("/", requireAuth, (req, res) => {
   } catch {}
 
   const celebTemplate = salonRow.celebration_template || "script";
+  const availTemplate = salonRow.availability_template || "script";
 
   // Normalize hashtags
   let defaultHashtags = [];
@@ -676,6 +678,69 @@ router.get("/", requireAuth, (req, res) => {
               <select name="type" class="rounded-lg border border-mpBorder bg-white px-3 py-2 text-sm text-mpCharcoal focus:outline-none focus:border-mpAccent">
                 <option value="birthday">Birthday</option>
                 <option value="anniversary">Anniversary</option>
+              </select>
+            </div>
+            <button type="submit"
+              class="rounded-full bg-mpCharcoal px-5 py-2 text-sm font-semibold text-white hover:bg-mpCharcoalDark transition-colors">
+              Preview →
+            </button>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <!-- AVAILABILITY POST STYLE SECTION -->
+    <section class="mb-6">
+      <div class="rounded-2xl border border-mpBorder bg-white px-5 py-5">
+        <h2 class="text-sm font-semibold text-mpCharcoal mb-1">Availability Post Style</h2>
+        <p class="text-xs text-mpMuted mb-4">Choose a visual template for availability posts. Preview any template before saving.</p>
+
+        <!-- Template cards -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-5">
+          ${Object.entries(TEMPLATE_META.availability).map(([key, meta]) => {
+            const isActive = key === availTemplate;
+            return `
+            <div class="relative rounded-xl border-2 p-4
+              ${isActive ? "border-mpAccent bg-mpAccentLight" : "border-mpBorder bg-mpBg"}">
+              ${isActive ? `<div class="absolute top-2 right-2 w-5 h-5 rounded-full bg-mpAccent flex items-center justify-center">
+                <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+                </svg>
+              </div>` : ""}
+              <p class="text-sm font-semibold text-mpCharcoal pr-6">${meta.label}</p>
+              <p class="text-xs text-mpMuted mt-0.5 mb-3">${meta.desc}</p>
+              <form method="POST" action="/manager/admin/availability-template">
+                <input type="hidden" name="template" value="${key}" />
+                <button type="submit"
+                  class="text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors
+                    ${isActive
+                      ? "border-mpAccent bg-mpAccent text-white cursor-default"
+                      : "border-mpBorder bg-white text-mpCharcoal hover:border-mpAccent hover:text-mpAccent"}">
+                  ${isActive ? "Active" : "Set as Default"}
+                </button>
+              </form>
+            </div>`;
+          }).join("")}
+        </div>
+
+        <!-- Preview generator -->
+        <div class="rounded-xl border border-mpBorder bg-mpBg px-4 py-4">
+          <p class="text-xs font-semibold text-mpCharcoal mb-3">Generate a test preview (opens in new tab — no post created)</p>
+          <form method="GET" action="/manager/admin/availability-preview" target="_blank"
+                class="flex flex-wrap gap-3 items-end">
+            <div>
+              <label class="block text-[11px] text-mpMuted mb-1">Template</label>
+              <select name="template" class="rounded-lg border border-mpBorder bg-white px-3 py-2 text-sm text-mpCharcoal focus:outline-none focus:border-mpAccent">
+                ${Object.entries(TEMPLATE_META.availability).map(([key, meta]) =>
+                  `<option value="${key}" ${key === availTemplate ? "selected" : ""}>${meta.label}</option>`
+                ).join("")}
+              </select>
+            </div>
+            <div>
+              <label class="block text-[11px] text-mpMuted mb-1">Stylist</label>
+              <select name="stylist" class="rounded-lg border border-mpBorder bg-white px-3 py-2 text-sm text-mpCharcoal focus:outline-none focus:border-mpAccent">
+                ${db.prepare("SELECT id, name FROM stylists WHERE salon_id = ? ORDER BY name ASC").all(salon_id)
+                  .map(s => `<option value="${s.id}">${s.name}</option>`).join("") || '<option value="">No stylists yet</option>'}
               </select>
             </div>
             <button type="submit"
@@ -2028,6 +2093,52 @@ router.post("/celebration-template", requireAuth, (req, res) => {
   const valid = Object.keys(TEMPLATE_META.celebration);
   const template = valid.includes(req.body.template) ? req.body.template : "script";
   db.prepare(`UPDATE salons SET celebration_template = ? WHERE slug = ?`).run(template, salon_id);
+  res.redirect("/manager/admin#branding");
+});
+
+// GET: Availability template preview (opens image in new tab, no post created)
+router.get("/availability-preview", requireAuth, async (req, res) => {
+  const salon_id = req.manager.salon_id;
+  const validTemplates = Object.keys(TEMPLATE_META.availability);
+  const rawTemplate = req.query.template;
+  const template = validTemplates.includes(rawTemplate) ? rawTemplate : "script";
+  const { stylist: stylistId } = req.query;
+
+  if (!stylistId) return res.redirect("/manager/admin?tab=branding&err=No+stylist+selected");
+
+  const stylist = db.prepare(`SELECT * FROM stylists WHERE id = ? AND salon_id = ?`).get(stylistId, salon_id);
+  if (!stylist) return res.redirect("/manager/admin?tab=branding&err=Stylist+not+found");
+
+  // Temporarily set the requested template, generate image, restore original
+  const originalTemplate = db.prepare(`SELECT availability_template FROM salons WHERE slug = ?`).get(salon_id)?.availability_template || "script";
+  db.prepare(`UPDATE salons SET availability_template = ? WHERE slug = ?`).run(template, salon_id);
+
+  const MOCK_SLOTS = ["Tuesday: 2:00pm · Color", "Wednesday: 10:00am · Haircut", "Friday: 3:30pm · Blowout"];
+  try {
+    const imageUrl = await buildAvailabilityImage({
+      slots:           MOCK_SLOTS,
+      stylistName:     stylist.name,
+      salonName:       db.prepare(`SELECT name FROM salons WHERE slug = ?`).get(salon_id)?.name || "",
+      salonId:         salon_id,
+      stylistId:       stylist.id,
+      instagramHandle: stylist.instagram_handle || null,
+      bookingCta:      "Book via link in bio",
+    });
+    db.prepare(`UPDATE salons SET availability_template = ? WHERE slug = ?`).run(originalTemplate, salon_id);
+    res.redirect(imageUrl);
+  } catch (err) {
+    db.prepare(`UPDATE salons SET availability_template = ? WHERE slug = ?`).run(originalTemplate, salon_id);
+    console.error("[Admin] Availability preview failed:", err.message);
+    res.status(500).send(`<p style="font-family:sans-serif;padding:2rem">Preview failed: ${err.message}</p>`);
+  }
+});
+
+// POST: Save availability template selection
+router.post("/availability-template", requireAuth, (req, res) => {
+  const salon_id = req.manager.salon_id;
+  const valid    = Object.keys(TEMPLATE_META.availability);
+  const template = valid.includes(req.body.template) ? req.body.template : "script";
+  db.prepare(`UPDATE salons SET availability_template = ? WHERE slug = ?`).run(template, salon_id);
   res.redirect("/manager/admin#branding");
 });
 
