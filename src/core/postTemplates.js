@@ -133,7 +133,7 @@ function buildHtml_bold({ width, height, photoDataUri, logoDataUri, firstName, c
   const panelW = Math.round(width * 0.44);
   const nameFontSize   = Math.round(height * 0.13);
   const eyebrowFontSize = Math.round(panelW * 0.09);
-  const typeFontSize   = Math.round(panelW * 0.13);
+  const typeFontSize   = Math.round(panelW * 0.10);
   const eyebrow = celebrationType === "birthday" ? "HAPPY BIRTHDAY" : "HAPPY ANNIVERSARY";
   const typeWord = celebrationType === "birthday" ? "CELEBRATING" : "MILESTONE";
 
@@ -156,7 +156,7 @@ body{width:${width}px;height:${height}px;overflow:hidden;position:relative;backg
     padding:${Math.round(height*0.06)}px ${Math.round(panelW*0.12)}px;">
     <div style="width:${Math.round(panelW*0.18)}px;height:3px;background:${accentHex};margin-bottom:${Math.round(height*0.03)}px;"></div>
     <div style="font-family:'Lato',sans-serif;font-size:${eyebrowFontSize}px;font-weight:400;
-      color:rgba(255,255,255,0.55);letter-spacing:${Math.round(eyebrowFontSize*0.35)}px;
+      color:rgba(255,255,255,0.55);letter-spacing:${Math.round(eyebrowFontSize*0.08)}px;
       text-transform:uppercase;margin-bottom:${Math.round(height*0.02)}px;line-height:1.3;">${safe(eyebrow)}</div>
     <div style="font-family:'Montserrat',sans-serif;font-size:${typeFontSize}px;font-weight:800;
       color:${accentHex};text-transform:uppercase;letter-spacing:2px;">${safe(typeWord)}</div>
