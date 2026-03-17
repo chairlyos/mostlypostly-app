@@ -85,7 +85,7 @@ router.get("/checkout", requireAuth, async (req, res) => {
     // Founder flow: auto-apply coupon if STRIPE_FOUNDER_COUPON_ID is set.
     // Can't combine discounts[] with allow_promotion_codes — Stripe rejects it.
     ...(req.session.offer === "founder" && process.env.STRIPE_FOUNDER_COUPON_ID
-      ? { discounts: [{ coupon: process.env.STRIPE_FOUNDER_COUPON_ID }] }
+      ? { discounts: [{ promotion_code: process.env.STRIPE_FOUNDER_COUPON_ID }] }
       : { allow_promotion_codes: true }),
   };
 
