@@ -674,17 +674,34 @@ router.post("/delete-salon", requireSecret, requirePin, (req, res) => {
   const { salon_slug } = req.body;
   if (!salon_slug) return res.redirect(`/internal/vendors${qs(req)}`);
 
+  // Grab group_id before we delete the salon row
+  const salonRow = db.prepare("SELECT group_id FROM salons WHERE slug = ?").get(salon_slug);
+
   // Delete in dependency order
+  db.prepare("DELETE FROM stylist_portal_tokens WHERE post_id IN (SELECT id FROM posts WHERE salon_id = ?)").run(salon_slug);
   db.prepare("DELETE FROM post_insights WHERE post_id IN (SELECT id FROM posts WHERE salon_id = ?)").run(salon_slug);
   db.prepare("DELETE FROM posts WHERE salon_id = ?").run(salon_slug);
   db.prepare("DELETE FROM stylists WHERE salon_id = ?").run(salon_slug);
+  db.prepare("DELETE FROM manager_mfa WHERE manager_id IN (SELECT id FROM managers WHERE salon_id = ?)").run(salon_slug);
   db.prepare("DELETE FROM manager_tokens WHERE manager_id IN (SELECT id FROM managers WHERE salon_id = ?)").run(salon_slug);
   db.prepare("DELETE FROM password_reset_tokens WHERE manager_id IN (SELECT id FROM managers WHERE salon_id = ?)").run(salon_slug);
+  db.prepare("DELETE FROM security_events WHERE salon_id = ?").run(salon_slug);
   db.prepare("DELETE FROM managers WHERE salon_id = ?").run(salon_slug);
+  db.prepare("DELETE FROM salon_integrations WHERE salon_id = ?").run(salon_slug);
+  db.prepare("DELETE FROM gamification_settings WHERE salon_id = ?").run(salon_slug);
+  db.prepare("DELETE FROM platform_issues WHERE salon_id = ?").run(salon_slug);
   db.prepare("DELETE FROM salon_vendor_feeds WHERE salon_id = ?").run(salon_slug);
   db.prepare("DELETE FROM salon_vendor_approvals WHERE salon_id = ?").run(salon_slug);
   db.prepare("DELETE FROM stock_photos WHERE salon_id = ?").run(salon_slug);
   db.prepare("DELETE FROM salons WHERE slug = ?").run(salon_slug);
+
+  // Delete the salon_group if this was the only location in the group
+  if (salonRow?.group_id) {
+    const remaining = db.prepare("SELECT COUNT(*) AS n FROM salons WHERE group_id = ?").get(salonRow.group_id);
+    if (!remaining || remaining.n === 0) {
+      db.prepare("DELETE FROM salon_groups WHERE id = ?").run(salonRow.group_id);
+    }
+  }
 
   console.log(`[platformConsole] Deleted salon: ${salon_slug}`);
   res.redirect(`/internal/vendors${qs(req)}`);
