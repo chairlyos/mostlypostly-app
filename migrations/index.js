@@ -40,6 +40,7 @@ import { run as run036 } from "./036_celebration_template.js";
 import { run as run037 } from "./037_availability_template.js";
 import { run as run038 } from "./038_stylist_last_activity.js";
 import { run as run039 } from "./039_gmb.js";
+import { run as run040 } from "./040_vendor_brands.js";
 
 export const migrations = [
   { name: "001_baseline_patches",        run: run001 },
@@ -81,4 +82,5 @@ export const migrations = [
   { name: "037_availability_template",       run: run037 },
   { name: "038_stylist_last_activity",       run: run038 },
   { name: "039_gmb",                         run: run039 },
+  { name: "040_vendor_brands",               run: run040 },
 ];
