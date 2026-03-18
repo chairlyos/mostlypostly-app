@@ -318,46 +318,9 @@ router.get("/", requireAuth, (req, res) => {
     <!-- BUSINESS TAB -->
     <div id="admin-panel-business" class="admin-panel">
 
-    <!-- SOCIAL CONNECTIONS -->
-    <section class="mb-6 grid gap-4 md:grid-cols-[1.2fr,0.8fr]">
-
-      <!-- Facebook & Instagram -->
-      <div class="rounded-2xl border border-mpBorder bg-white px-4 py-4">
-        <h2 class="text-sm font-semibold text-mpCharcoal mb-2">Facebook & Instagram</h2>
-        <dl class="space-y-1 text-xs text-mpCharcoal">
-          <div class="flex justify-between">
-            <dt class="text-mpMuted">Facebook Page ID</dt>
-            <dd>${salonRow.facebook_page_id || "Not configured"}</dd>
-          </div>
-          <div class="flex justify-between">
-            <dt class="text-mpMuted">Instagram Handle</dt>
-            <dd>${
-              salonRow.instagram_handle
-                ? "@" + salonRow.instagram_handle
-                : "Not configured"
-            }</dd>
-          </div>
-          <div class="flex justify-between">
-            <dt class="text-mpMuted">Facebook Page Token</dt>
-            <dd>${salonRow.facebook_page_token ? "Stored ✓" : "Not configured"}</dd>
-          </div>
-
-          <div class="flex justify-between">
-            <dt class="text-mpMuted">Instagram Business ID</dt>
-            <dd>${salonRow.instagram_business_id || "Not configured"}</dd>
-          </div>
-        </dl>
-
-        <div class="mt-4">
-          <a href="/auth/facebook/login?salon=${salon_id}"
-             class="inline-flex items-center px-3 py-2 rounded-md text-sm font-medium bg-mpCharcoal text-white hover:bg-mpCharcoalDark">
-            Connect / Refresh Facebook & Instagram
-          </a>
-        </div>
-        <p class="mt-2 text-[11px] text-mpCharcoal0">
-              Uses your MostlyPostly Facebook App to grant or refresh Page & Instagram permissions.
-            </p>
-      </div>
+    <!-- BUSINESS INFO + CONNECTIONS NOTE -->
+    <section class="mb-6">
+      <p class="text-xs text-mpMuted mb-4">Manage your Facebook &amp; Instagram, Google Business Profile, and booking software connections from the <a href="/manager/integrations" class="text-mpAccent underline hover:text-mpCharcoal">Integrations page</a>.</p>
 
       <!-- Salon Info -->
       <div class="rounded-2xl border border-mpBorder bg-white px-4 py-4">
