@@ -245,55 +245,234 @@ router.get("/", requireSecret, requirePin, (req, res) => {
   const canceled      = salons.filter(s => s.plan_status === "canceled").length;
   const totalCampaigns = campaigns.length;
 
+  // Vendor brand config
+  const brandConfigs = db.prepare(`SELECT * FROM vendor_brands`).all();
+  const brandConfigMap = Object.fromEntries(brandConfigs.map(b => [b.vendor_name, b]));
+
+  // Union of vendor names from campaigns + brand configs
+  const allVendorNames = [...new Set([
+    ...campaigns.map(c => c.vendor_name),
+    ...brandConfigs.map(b => b.vendor_name),
+  ])].sort();
+
   // Group campaigns by vendor
   const vendors = {};
-  for (const c of campaigns) {
-    if (!vendors[c.vendor_name]) vendors[c.vendor_name] = [];
-    vendors[c.vendor_name].push(c);
-  }
+  for (const name of allVendorNames) vendors[name] = [];
+  for (const c of campaigns) vendors[c.vendor_name].push(c);
 
   const safe = s => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
   const planColor = p => ({ pro: "bg-purple-100 text-purple-700", growth: "bg-blue-100 text-blue-700", starter: "bg-green-100 text-green-700", trial: "bg-gray-100 text-gray-600" }[p] || "bg-gray-100 text-gray-600");
   const statusColor = s => ({ active: "bg-green-100 text-green-700", trialing: "bg-blue-100 text-blue-700", past_due: "bg-yellow-100 text-yellow-700", canceled: "bg-red-100 text-red-600" }[s] || "bg-gray-100 text-gray-600");
 
-  const vendorBlocks = Object.entries(vendors).map(([vendor, items]) => `
-    <div class="mb-6">
-      <div class="flex items-center justify-between mb-3">
-        <h3 class="font-bold text-gray-900">${safe(vendor)}
-          <span class="ml-2 text-xs font-normal text-gray-400">${items.length} campaign${items.length !== 1 ? "s" : ""}</span>
-        </h3>
-      </div>
-      <div class="space-y-2">
-        ${items.map(c => `
-          <div class="border rounded-xl p-4 bg-white flex gap-4 items-start">
-            ${c.photo_url ? `<img src="${safe(c.photo_url)}" class="w-14 h-14 object-cover rounded-lg border flex-shrink-0" onerror="this.style.display='none'" />` : `<div class="w-14 h-14 rounded-lg border bg-gray-50 flex-shrink-0 flex items-center justify-center text-xl">🏷️</div>`}
-            <div class="flex-1 min-w-0">
-              <div class="flex items-start justify-between gap-2">
-                <div>
-                  <p class="font-semibold text-sm">${safe(c.campaign_name)}</p>
-                  <p class="text-xs text-gray-500">${safe(c.product_name || "")}</p>
-                </div>
-                <div class="flex items-center gap-2 shrink-0">
-                  <span class="text-xs px-2 py-0.5 rounded-full ${c.active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}">${c.active ? "Active" : "Paused"}</span>
-                  <form method="POST" action="/internal/vendors/delete/${safe(c.id)}${qs(req)}"
-                        onsubmit="return confirm('Delete campaign: ${safe(c.campaign_name)}?')" class="inline">
-                    <button type="submit" class="text-xs text-red-400 hover:text-red-600">Delete</button>
-                  </form>
-                </div>
-              </div>
-              <p class="text-xs text-gray-500 mt-1 line-clamp-2">${safe(c.product_description || "")}</p>
-              <div class="mt-1.5 flex flex-wrap gap-3 text-xs text-gray-400">
-                <span>Expires: <strong class="text-gray-600">${safe(c.expires_at || "—")}</strong></span>
-                <span>Cap: <strong class="text-gray-600">${safe(c.frequency_cap || 4)}/mo</strong></span>
-                <span>Tone: <strong class="text-gray-600">${safe(c.tone_direction || "—")}</strong></span>
-              </div>
-              ${c.cta_instructions ? `<p class="text-xs text-blue-500 mt-1">CTA: ${safe(c.cta_instructions)}</p>` : ""}
+  const flashBanner = req.query.saved
+    ? `<div class="rounded-xl bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-800 font-medium mb-6">Brand config saved.</div>`
+    : req.query.added
+    ? `<div class="rounded-xl bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-800 font-medium mb-6">Campaign added.</div>`
+    : req.query.renewed
+    ? `<div class="rounded-xl bg-blue-50 border border-blue-200 px-4 py-3 text-sm text-blue-800 font-medium mb-6">Campaign renewed +30 days.</div>`
+    : req.query.error === "missing_fields"
+    ? `<div class="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700 font-medium mb-6">Vendor name, campaign name, category, and product name are required.</div>`
+    : req.query.error === "promotion_needs_expiry"
+    ? `<div class="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700 font-medium mb-6">Promotion campaigns require an expiration date.</div>`
+    : "";
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  const vendorBlocks = Object.entries(vendors).map(([vendor, items]) => {
+    const cfg = brandConfigMap[vendor] || {};
+    const brandHashtags = (() => { try { return JSON.parse(cfg.brand_hashtags || "[]"); } catch { return []; } })();
+    const categories = (() => { try { return JSON.parse(cfg.categories || "[]"); } catch { return []; } })();
+    const allowRenewal = cfg.allow_client_renewal !== 0;
+    const vendorKey = safe(vendor.replace(/\s+/g, "_"));
+
+    const catOptions = categories.length
+      ? categories.map(cat => `<option value="${safe(cat)}">${safe(cat)}</option>`).join("")
+      : `<option value="Standard">Standard</option><option value="Promotion">Promotion</option>`;
+
+    const campaignRows = items.map(c => {
+      const isExpired = c.expires_at && c.expires_at < today;
+      const statusBadge = isExpired
+        ? `<span class="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-600">Expired</span>`
+        : `<span class="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700">Active</span>`;
+      const renewBtn = isExpired ? `
+      <form method="POST" action="/internal/vendors/campaign/renew${qs(req)}" class="inline">
+        <input type="hidden" name="campaign_id" value="${safe(c.id)}" />
+        <button type="submit" class="text-xs text-blue-500 hover:text-blue-700 font-medium">Renew +30d</button>
+      </form>` : "";
+      return `
+      <div class="border rounded-xl p-4 bg-white flex gap-4 items-start">
+        ${c.photo_url
+          ? `<img src="${safe(c.photo_url)}" class="w-14 h-14 object-cover rounded-lg border flex-shrink-0" onerror="this.style.display='none'" />`
+          : `<div class="w-14 h-14 rounded-lg border bg-gray-50 flex-shrink-0 flex items-center justify-center text-xl">&#127991;</div>`}
+        <div class="flex-1 min-w-0">
+          <div class="flex items-start justify-between gap-2">
+            <div>
+              <p class="font-semibold text-sm">${safe(c.campaign_name)}</p>
+              <p class="text-xs text-gray-500">${safe(c.product_name || "")}${c.category ? ` &middot; ${safe(c.category)}` : ""}</p>
             </div>
-          </div>`).join("")}
+            <div class="flex items-center gap-2 shrink-0">
+              ${statusBadge}
+              ${renewBtn}
+              <form method="POST" action="/internal/vendors/delete/${safe(c.id)}${qs(req)}"
+                    onsubmit="return confirm('Delete campaign: ${safe(c.campaign_name)}?')" class="inline">
+                <button type="submit" class="text-xs text-red-400 hover:text-red-600">Delete</button>
+              </form>
+            </div>
+          </div>
+          <p class="text-xs text-gray-500 mt-1 line-clamp-2">${safe(c.product_description || "")}</p>
+          <div class="mt-1.5 flex flex-wrap gap-3 text-xs text-gray-400">
+            <span>Expires: <strong class="text-gray-600">${safe(c.expires_at || "&#8212;")}</strong></span>
+            <span>Cap: <strong class="text-gray-600">${safe(c.frequency_cap || 4)}/mo</strong></span>
+            ${c.category ? `<span>Category: <strong class="text-gray-600">${safe(c.category)}</strong></span>` : ""}
+            ${c.product_hashtag ? `<span>Tag: <strong class="text-gray-600">${safe(c.product_hashtag)}</strong></span>` : ""}
+          </div>
+          ${c.cta_instructions ? `<p class="text-xs text-blue-500 mt-1">CTA: ${safe(c.cta_instructions)}</p>` : ""}
+        </div>
+      </div>`;
+    }).join("");
+
+    return `
+  <div class="mb-8">
+    <div class="flex items-center justify-between mb-3">
+      <h3 class="font-bold text-gray-900">${safe(vendor)}
+        <span class="ml-2 text-xs font-normal text-gray-400">${items.length} campaign${items.length !== 1 ? "s" : ""}</span>
+      </h3>
+    </div>
+
+    <!-- Brand Config Card -->
+    <div class="border rounded-xl bg-white p-4 mb-4">
+      <p class="text-xs font-bold text-gray-700 uppercase tracking-wide mb-3">Brand Config</p>
+      <form method="POST" action="/internal/vendors/brand-config${qs(req)}" class="space-y-3">
+        <input type="hidden" name="vendor_name" value="${safe(vendor)}" />
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="text-xs text-gray-500 block mb-1">Brand Hashtag 1</label>
+            <input type="text" name="brand_hashtags[]" value="${safe(brandHashtags[0] || "")}"
+                   placeholder="#BrandTag" maxlength="60"
+                   class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm" />
+          </div>
+          <div>
+            <label class="text-xs text-gray-500 block mb-1">Brand Hashtag 2</label>
+            <input type="text" name="brand_hashtags[]" value="${safe(brandHashtags[1] || "")}"
+                   placeholder="#BrandTag" maxlength="60"
+                   class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm" />
+          </div>
+        </div>
+        <div>
+          <label class="text-xs text-gray-500 block mb-1">Campaign Categories (comma-separated)</label>
+          <input type="text" name="categories" value="${safe(categories.join(", "))}"
+                 placeholder="Color, Standard, Promotion"
+                 class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm" />
+          ${categories.length
+            ? `<div class="mt-1.5 flex flex-wrap gap-1">${categories.map(c => `<span class="text-[11px] bg-gray-100 text-gray-600 rounded-full px-2 py-0.5">${safe(c)}</span>`).join("")}</div>`
+            : ""}
+        </div>
+        <div class="flex items-center gap-3">
+          <span class="text-xs text-gray-600 font-medium">Allow client-side renewal</span>
+          <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" name="allow_client_renewal" value="1" ${allowRenewal ? "checked" : ""}
+                   class="sr-only peer" />
+            <div class="w-9 h-5 bg-gray-200 peer-checked:bg-blue-600 rounded-full transition-colors"></div>
+            <div class="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform peer-checked:translate-x-4"></div>
+          </label>
+        </div>
+        <div class="flex justify-end">
+          <button type="submit"
+                  class="text-xs bg-gray-900 text-white rounded-lg px-4 py-1.5 font-semibold hover:bg-gray-700">
+            Save Brand Config
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Campaign Rows -->
+    <div class="space-y-2">
+      ${campaignRows || `<p class="text-xs text-gray-400 py-2">No campaigns yet.</p>`}
+
+      <!-- Add Campaign Toggle + Inline Form -->
+      <button type="button"
+              onclick="var f=document.getElementById('add-form-${vendorKey}'); f.style.display=f.style.display==='none'?'block':'none';"
+              class="mt-2 text-xs border border-dashed border-gray-300 rounded-xl px-4 py-2.5 text-gray-500 hover:border-gray-500 hover:text-gray-700 w-full text-center">
+        + Add Campaign
+      </button>
+      <div id="add-form-${vendorKey}" style="display:none;" class="mt-3 border rounded-xl bg-gray-50 p-4">
+        <p class="text-xs font-bold text-gray-700 mb-3">New Campaign &mdash; ${safe(vendor)}</p>
+        <form method="POST" action="/internal/vendors/campaign/add${qs(req)}" class="space-y-3">
+          <input type="hidden" name="vendor_name" value="${safe(vendor)}" />
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="text-xs text-gray-500 block mb-1">Campaign Name *</label>
+              <input type="text" name="campaign_name" required placeholder="Spring Color 2026"
+                     class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white" />
+            </div>
+            <div>
+              <label class="text-xs text-gray-500 block mb-1">Category *</label>
+              <select name="category" required class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white">
+                <option value="">-- Select --</option>
+                ${catOptions}
+              </select>
+            </div>
+            <div>
+              <label class="text-xs text-gray-500 block mb-1">Product Name *</label>
+              <input type="text" name="product_name" required placeholder="Full Spectrum Color"
+                     class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white" />
+            </div>
+            <div>
+              <label class="text-xs text-gray-500 block mb-1">Product Hashtag (max 1)</label>
+              <input type="text" name="product_hashtag" placeholder="#FullSpectrum" maxlength="60"
+                     class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white" />
+            </div>
+            <div class="col-span-2">
+              <label class="text-xs text-gray-500 block mb-1">Product Description</label>
+              <textarea name="product_description" rows="2" placeholder="1-2 sentence description"
+                        class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white"></textarea>
+            </div>
+            <div class="col-span-2">
+              <label class="text-xs text-gray-500 block mb-1">Photo URL</label>
+              <input type="text" name="photo_url" placeholder="https://..."
+                     class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white" />
+            </div>
+            <div>
+              <label class="text-xs text-gray-500 block mb-1">Tone Direction</label>
+              <input type="text" name="tone_direction" placeholder="professional and educational"
+                     class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white" />
+            </div>
+            <div>
+              <label class="text-xs text-gray-500 block mb-1">CTA Instructions</label>
+              <input type="text" name="cta_instructions" placeholder="Ask about our color menu"
+                     class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white" />
+            </div>
+            <div>
+              <label class="text-xs text-gray-500 block mb-1">Service Pairing Notes</label>
+              <input type="text" name="service_pairing_notes" placeholder="Pairs with balayage"
+                     class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white" />
+            </div>
+            <div>
+              <label class="text-xs text-gray-500 block mb-1">Expires At (required for Promotion)</label>
+              <input type="date" name="expires_at"
+                     class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white" />
+            </div>
+            <div>
+              <label class="text-xs text-gray-500 block mb-1">Frequency Cap (posts/month)</label>
+              <input type="number" name="frequency_cap" value="4" min="1" max="30"
+                     class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white" />
+            </div>
+          </div>
+          <div class="flex justify-end gap-2">
+            <button type="button"
+                    onclick="document.getElementById('add-form-${vendorKey}').style.display='none';"
+                    class="text-xs text-gray-500 px-3 py-1.5">Cancel</button>
+            <button type="submit"
+                    class="text-xs bg-gray-900 text-white rounded-lg px-4 py-1.5 font-semibold">
+              Add Campaign
+            </button>
+          </div>
+        </form>
       </div>
     </div>
-  `).join("");
+  </div>`;
+  }).join("");
 
   const html = `<!DOCTYPE html>
 <html lang="en"><head>
@@ -322,6 +501,8 @@ router.get("/", requireSecret, requirePin, (req, res) => {
   </div>
 
   <div class="max-w-5xl mx-auto px-8 py-8 space-y-8">
+
+    ${flashBanner}
 
     <!-- Stats -->
     <div class="grid grid-cols-2 sm:grid-cols-6 gap-3">
@@ -822,6 +1003,93 @@ router.post("/upload", requireSecret, requirePin, csvUpload.single("csv"), (req,
 router.post("/delete/:id", requireSecret, requirePin, (req, res) => {
   db.prepare("DELETE FROM vendor_campaigns WHERE id = ?").run(req.params.id);
   res.redirect(`/internal/vendors${qs(req)}`);
+});
+
+// ── POST /brand-config — Upsert vendor brand config ───────────────────────────
+router.post("/brand-config", requireSecret, requirePin, (req, res) => {
+  const { vendor_name, categories } = req.body;
+  if (!vendor_name) return res.redirect(`/internal/vendors${qs(req)}`);
+
+  const rawTags = Array.isArray(req.body["brand_hashtags[]"])
+    ? req.body["brand_hashtags[]"]
+    : [req.body["brand_hashtags[]"] || ""];
+  const brandHashtags = rawTags
+    .map(t => (t || "").trim())
+    .filter(Boolean)
+    .map(t => t.startsWith("#") ? t : `#${t}`)
+    .slice(0, 2);
+
+  const cats = (categories || "").split(",").map(c => c.trim()).filter(Boolean);
+  const dedupedCats = [...new Set(cats)];
+  const allowRenewal = req.body.allow_client_renewal === "1" ? 1 : 0;
+
+  db.prepare(`
+    INSERT INTO vendor_brands (vendor_name, brand_hashtags, categories, allow_client_renewal)
+    VALUES (?, ?, ?, ?)
+    ON CONFLICT(vendor_name) DO UPDATE SET
+      brand_hashtags       = excluded.brand_hashtags,
+      categories           = excluded.categories,
+      allow_client_renewal = excluded.allow_client_renewal
+  `).run(vendor_name, JSON.stringify(brandHashtags), JSON.stringify(dedupedCats), allowRenewal);
+
+  res.redirect(`/internal/vendors${qs(req)}&saved=1`);
+});
+
+// ── POST /campaign/add — Manually add a campaign ─────────────────────────────
+router.post("/campaign/add", requireSecret, requirePin, (req, res) => {
+  const {
+    vendor_name, campaign_name, category, product_name,
+    product_description, photo_url, tone_direction,
+    cta_instructions, service_pairing_notes, expires_at,
+  } = req.body;
+  const frequency_cap = parseInt(req.body.frequency_cap, 10) || 4;
+
+  if (!vendor_name || !campaign_name || !category || !product_name) {
+    return res.redirect(`/internal/vendors${qs(req)}&error=missing_fields`);
+  }
+  if (category === "Promotion" && !expires_at) {
+    return res.redirect(`/internal/vendors${qs(req)}&error=promotion_needs_expiry`);
+  }
+
+  const rawTag = (req.body.product_hashtag || "").trim();
+  const product_hashtag = rawTag ? (rawTag.startsWith("#") ? rawTag : `#${rawTag}`) : null;
+
+  db.prepare(`INSERT OR IGNORE INTO vendor_brands (vendor_name) VALUES (?)`).run(vendor_name);
+
+  db.prepare(`
+    INSERT INTO vendor_campaigns
+      (id, vendor_name, campaign_name, category, product_name, product_description,
+       photo_url, product_hashtag, tone_direction, cta_instructions,
+       service_pairing_notes, expires_at, frequency_cap, active)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,1)
+  `).run(
+    crypto.randomUUID(), vendor_name, campaign_name, category, product_name,
+    product_description || null, photo_url || null, product_hashtag,
+    tone_direction || null, cta_instructions || null,
+    service_pairing_notes || null, expires_at || null, frequency_cap,
+  );
+
+  res.redirect(`/internal/vendors${qs(req)}&added=1`);
+});
+
+// ── POST /campaign/renew — Extend expired campaign +30 days ──────────────────
+router.post("/campaign/renew", requireSecret, requirePin, (req, res) => {
+  const { campaign_id } = req.body;
+  if (!campaign_id) return res.redirect(`/internal/vendors${qs(req)}`);
+
+  const campaign = db.prepare(`SELECT id, expires_at FROM vendor_campaigns WHERE id = ?`).get(campaign_id);
+  if (!campaign) return res.redirect(`/internal/vendors${qs(req)}`);
+
+  const newExpiry = campaign.expires_at
+    ? db.prepare(`SELECT date(?, '+30 days') AS d`).get(campaign.expires_at).d
+    : db.prepare(`SELECT date('now', '+30 days') AS d`).get().d;
+
+  db.prepare(`UPDATE vendor_campaigns SET expires_at = ? WHERE id = ?`).run(newExpiry, campaign_id);
+
+  const thisMonth = new Date().toISOString().slice(0, 7);
+  db.prepare(`DELETE FROM vendor_post_log WHERE campaign_id = ? AND posted_month = ?`).run(campaign_id, thisMonth);
+
+  res.redirect(`/internal/vendors${qs(req)}&renewed=1`);
 });
 
 export default router;
