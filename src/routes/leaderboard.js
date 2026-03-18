@@ -80,9 +80,9 @@ router.get("/:token", (req, res) => {
   const multiplier  = getBonusMultiplier(salon.slug);
   const prevRanks   = getPrevRanks(salon.slug, leaderboard);
 
-  const top3 = leaderboard.slice(0, 3);
-  const rest  = leaderboard.slice(3);          // all remaining, not capped at 12
-  const maxPts = top3[0]?.points || 1; // for progress bar scaling
+  const top3   = leaderboard.slice(0, 3);
+  const allRows = leaderboard;                  // full list always shown in right panel
+  const maxPts  = top3[0]?.points || 1;         // for progress bar scaling
 
   // ── Logo ─────────────────────────────────────────────────────────────────
   const logoHtml = salon.logo_url
@@ -168,36 +168,49 @@ router.get("/:token", (req, res) => {
       </div>`;
   }).join("");
 
-  // ── Ranked list (4th–12th) ────────────────────────────────────────────────
-  const restRows = rest.map((s, idx) => {
-    const pct = Math.round((s.points / maxPts) * 100);
-    const ini = initials(s.stylist_name);
-    const isEven = idx % 2 === 0;
-    const arrow = rankArrow(s.stylist_name, s.rank, prevRanks);
+  // ── Ranked list — ALL stylists, medals for top 3 ─────────────────────────
+  const MEDALS = { 1: "🥇", 2: "🥈", 3: "🥉" };
+  const TOP3_RING = { 1: "#F59E0B", 2: "#94A3B8", 3: "#CD7C4E" };
+
+  const allRowsHtml = allRows.map((s, idx) => {
+    const pct     = Math.round((s.points / maxPts) * 100);
+    const ini     = initials(s.stylist_name);
+    const isEven  = idx % 2 === 0;
+    const arrow   = rankArrow(s.stylist_name, s.rank, prevRanks);
+    const medal   = MEDALS[s.rank] || null;
+    const ringClr = TOP3_RING[s.rank] || null;
+
     const typePills = Object.entries(s.by_type || {})
       .sort((a, b) => b[1] - a[1])
       .map(([type, cnt]) => {
         const label = type.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
         return `<span style="font-size:.6rem;background:#EBF3FF;color:#3B72B9;padding:.15rem .45rem;border-radius:9999px;white-space:nowrap;">${label} ×${cnt}</span>`;
       }).join("");
+
+    const rankCircle = ringClr
+      ? `<div style="width:32px;height:32px;border-radius:50%;background:#0F172A;border:2px solid ${ringClr};display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:900;color:${ringClr};">${s.rank}</div>`
+      : `<div style="width:32px;height:32px;border-radius:50%;background:#F1F5F9;border:1.5px solid #E2E8F0;display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:800;color:#475569;">${s.rank}</div>`;
+
     return `
       <div class="lb-row" style="display:flex;align-items:center;gap:1rem;padding:.75rem 1.25rem;background:${isEven ? "#fff" : "#F8FAFC"};border-bottom:1px solid #E2E8F0;">
-        <!-- Rank + arrow -->
+        <!-- Rank circle + movement arrow -->
         <div style="display:flex;flex-direction:column;align-items:center;gap:.15rem;flex-shrink:0;width:32px;">
-          <div class="lb-row-rank" style="width:32px;height:32px;border-radius:50%;background:#F1F5F9;border:1.5px solid #E2E8F0;display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:800;color:#475569;">
-            ${s.rank}
-          </div>
+          ${rankCircle}
           ${arrow}
         </div>
+        <!-- Medal (top 3 only) or spacer -->
+        <div style="width:20px;text-align:center;flex-shrink:0;font-size:1rem;line-height:1;">
+          ${medal || ""}
+        </div>
         <!-- Avatar -->
-        <div style="width:40px;height:40px;border-radius:50%;background:#1e293b;display:flex;align-items:center;justify-content:center;font-size:.85rem;font-weight:800;color:#94A3B8;flex-shrink:0;">
+        <div style="width:40px;height:40px;border-radius:50%;background:${ringClr ? "#1e293b" : "#F1F5F9"};border:2px solid ${ringClr || "#E2E8F0"};display:flex;align-items:center;justify-content:center;font-size:.85rem;font-weight:800;color:${ringClr || "#94A3B8"};flex-shrink:0;">
           ${ini}
         </div>
-        <!-- Name + progress + categories -->
+        <!-- Name + progress bar + content type pills -->
         <div style="flex:1;min-width:0;">
-          <div class="lb-row-name" style="font-size:.95rem;font-weight:700;color:#0F172A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(s.stylist_name)}</div>
-          <div class="lb-row-bar-track" style="margin-top:.3rem;height:5px;background:#E2E8F0;border-radius:9999px;overflow:hidden;">
-            <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#3B72B9,#60A5FA);border-radius:9999px;transition:width .6s ease;"></div>
+          <div style="font-size:.95rem;font-weight:700;color:#0F172A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(s.stylist_name)}</div>
+          <div style="margin-top:.3rem;height:5px;background:#E2E8F0;border-radius:9999px;overflow:hidden;">
+            <div style="height:100%;width:${pct}%;background:${ringClr ? `linear-gradient(90deg,${ringClr},${ringClr}99)` : "linear-gradient(90deg,#3B72B9,#60A5FA)"};border-radius:9999px;transition:width .6s ease;"></div>
           </div>
           ${typePills ? `<div style="display:flex;flex-wrap:wrap;gap:.25rem;margin-top:.35rem;">${typePills}</div>` : ""}
         </div>
@@ -205,13 +218,13 @@ router.get("/:token", (req, res) => {
         <div style="width:80px;text-align:center;flex-shrink:0;">
           ${s.streak > 1
             ? `<span style="font-size:.75rem;font-weight:700;color:#F59E0B;">🔥 ${s.streak}wk</span>`
-            : `<span class="lb-row-sub" style="font-size:.75rem;color:#CBD5E1;">—</span>`}
+            : `<span style="font-size:.75rem;color:#CBD5E1;">—</span>`}
         </div>
         <!-- Posts -->
-        <div class="lb-row-posts" style="width:60px;text-align:right;font-size:.8rem;color:#64748B;flex-shrink:0;">${s.post_count} post${s.post_count !== 1 ? "s" : ""}</div>
+        <div style="width:60px;text-align:right;font-size:.8rem;color:#64748B;flex-shrink:0;">${s.post_count} post${s.post_count !== 1 ? "s" : ""}</div>
         <!-- Points -->
         <div style="width:80px;text-align:right;flex-shrink:0;">
-          <span style="font-size:1.1rem;font-weight:900;color:#3B72B9;">${s.points}</span>
+          <span style="font-size:1.1rem;font-weight:900;color:${ringClr || "#3B72B9"};">${s.points}</span>
           <span style="font-size:.65rem;color:#94A3B8;"> pts</span>
         </div>
       </div>`;
@@ -312,9 +325,9 @@ router.get("/:token", (req, res) => {
   <!-- ── Main ───────────────────────────────────────────────────────────── -->
   <main class="lb-main" style="flex:1;display:flex;overflow:hidden;">
 
-    <!-- Left: dark hero with podium -->
+    <!-- Left: dark hero with podium (always 45%) -->
     <div class="lb-hero" style="
-      width: ${rest.length ? "52%" : "100%"};
+      width: 45%;
       background: linear-gradient(175deg, #0F172A 0%, #1a2744 60%, #0d1f3c 100%);
       display: flex;
       flex-direction: column;
@@ -340,23 +353,23 @@ router.get("/:token", (req, res) => {
       </div>` : ""}
     </div>
 
-    <!-- Right: ranked list -->
-    ${rest.length ? `
+    <!-- Right: full ranked list — always visible -->
     <div class="lb-list" style="flex:1;display:flex;flex-direction:column;overflow:hidden;border-left:1px solid #E2E8F0;">
       <!-- List header -->
       <div class="lb-list-header" style="display:flex;align-items:center;gap:1rem;padding:.625rem 1.25rem;background:#F1F5F9;border-bottom:2px solid #E2E8F0;flex-shrink:0;">
         <div style="width:32px;"></div>
+        <div style="width:20px;"></div>
         <div style="width:40px;"></div>
         <div style="flex:1;font-size:.65rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#94A3B8;">Stylist</div>
         <div style="width:80px;text-align:center;font-size:.65rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#94A3B8;">Streak</div>
         <div style="width:60px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#94A3B8;">Posts</div>
         <div style="width:80px;text-align:right;font-size:.65rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#94A3B8;">Points</div>
       </div>
-      <!-- Rows -->
+      <!-- All stylists rows -->
       <div style="flex:1;overflow-y:auto;">
-        ${restRows}
+        ${allRowsHtml || `<div style="padding:3rem;text-align:center;color:#94A3B8;font-size:.9rem;">No posts yet this month</div>`}
       </div>
-    </div>` : ""}
+    </div>
 
   </main>
 

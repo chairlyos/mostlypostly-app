@@ -1429,10 +1429,12 @@ function buildTeamMemberForm({ salon_id, salonTone, managerSeatsAvailable }) {
             roleBtns.forEach(b => {
               if (b.disabled) return;
               b.classList.remove("border-mpCharcoal", "bg-mpCharcoal", "text-white");
-              b.classList.add("border-mpBorder", "bg-white", "text-mpMuted");
+              b.classList.add("border-mpBorder", "bg-white", "text-mpMuted",
+                              "hover:border-mpCharcoal", "hover:text-mpCharcoal");
             });
             btn.classList.add("border-mpCharcoal", "bg-mpCharcoal", "text-white");
-            btn.classList.remove("border-mpBorder", "bg-white", "text-mpMuted");
+            btn.classList.remove("border-mpBorder", "bg-white", "text-mpMuted",
+                                 "hover:border-mpCharcoal", "hover:text-mpCharcoal");
             if (role === "stylist") {
               stylistFields.classList.remove("hidden");
               portalFields.classList.add("hidden");

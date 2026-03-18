@@ -61,8 +61,11 @@ export function composeFinalCaption({
   const text = (caption || "").trim();
 
   // Strip hashtags from AI caption text (hashtags are appended separately)
+  // Also strip IG-only phrasing ("link in bio", "book via link in bio") that AI sometimes generates
   const cleanedText = text
     .replace(/#[\w-]+/g, "")
+    .replace(/book via link in bio\.?/gi, "")
+    .replace(/link in bio\.?/gi, "")
     .replace(/\s{2,}/g, " ")
     .trim();
 
@@ -112,9 +115,6 @@ export function composeFinalCaption({
   // --- 4️⃣ CTA ---
   if (ctaText) parts.push(ctaText);
 
-  // --- 5️⃣ Booking URL (IG removes it later) ---
-  if (booking) parts.push(`Book: ${booking}`);
-
   //
   // -------------------------------------------------------
   // INSTAGRAM RULES
@@ -126,14 +126,26 @@ export function composeFinalCaption({
     // 1) Remove ALL URLs
     captionOut = captionOut.replace(/https?:\/\/\S+/gi, "").trim();
 
-    // 2) Ensure correct CTA (only when a booking URL exists)
+    // 2) Remove any leftover "Book:" / "Book now" lines (remnants after URL strip)
+    captionOut = captionOut.replace(/^Book(?:\s*now)?:?\s*$/gim, "").trim();
+
+    // 3) Strip "Book via link in bio" / "link in bio" that AI may have included
+    //    (we control this ourselves below)
+    captionOut = captionOut.replace(/book via link in bio\.?/gi, "").trim();
+
+    // 4) Ensure correct CTA (only when a booking URL exists)
     if (booking && !captionOut.includes("Book via link in bio.")) {
       captionOut += `\n\nBook via link in bio.`;
     }
 
-    // 3) Return IG-specific output
+    // 5) Collapse multiple blank lines
+    captionOut = captionOut.replace(/\n{3,}/g, "\n\n").trim();
+
     return captionOut;
   }
+
+  // --- 5️⃣ Booking URL (non-IG only) ---
+  if (booking) parts.push(`Book: ${booking}`);
 
   //
   // -------------------------------------------------------
@@ -153,11 +165,17 @@ export function composeFinalCaption({
   return spaced.join("\n");
 }
 
+const MAX_HASHTAGS = 10;
+const MAX_AI_HASHTAGS = 5;
+
 /**
  * Merge and dedupe hashtags case-insensitively.
+ * AI tags are capped at MAX_AI_HASHTAGS. Total capped at MAX_HASHTAGS.
+ * Order: AI tags → salon defaults → brand tag.
  */
 export function _mergeHashtags(aiTags = [], salonDefaults = [], brandTag = BRAND_TAG) {
-  const incoming = [...(aiTags || []), ...(salonDefaults || []), brandTag];
+  const cappedAi = (aiTags || []).slice(0, MAX_AI_HASHTAGS);
+  const incoming = [...cappedAi, ...(salonDefaults || []), brandTag];
   const seen = new Set();
   const out = [];
   for (const raw of incoming) {
@@ -168,6 +186,7 @@ export function _mergeHashtags(aiTags = [], salonDefaults = [], brandTag = BRAND
     if (seen.has(key)) continue;
     seen.add(key);
     out.push(normalized);
+    if (out.length >= MAX_HASHTAGS) break;
   }
   return out;
 }
