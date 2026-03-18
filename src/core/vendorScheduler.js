@@ -24,7 +24,9 @@ export function normalizeHashtag(raw) {
   if (!raw) return "";
   const t = String(raw).trim();
   if (!t) return "";
-  return t.startsWith("#") ? t : `#${t}`;
+  const withHash = t.startsWith("#") ? t : `#${t}`;
+  if (withHash.includes(" ")) return ""; // malformed — skip silently
+  return withHash;
 }
 
 /**
@@ -68,6 +70,21 @@ async function generateVendorCaption({ campaign, salon, affiliateUrl }) {
   const salonName = salon.name || "the salon";
   const tone      = salon.tone || "friendly and professional";
 
+  // Validate affiliate URL — skip if malformed to prevent prompt injection
+  let safeAffiliateUrl = null;
+  if (affiliateUrl) {
+    try {
+      const parsed = new URL(affiliateUrl);
+      if (parsed.protocol === "https:" || parsed.protocol === "http:") {
+        safeAffiliateUrl = parsed.href;
+      } else {
+        log.warn(`Skipping non-HTTP affiliate URL for campaign ${campaign.id}: ${affiliateUrl}`);
+      }
+    } catch {
+      log.warn(`Invalid affiliate URL for campaign ${campaign.id}: ${affiliateUrl}`);
+    }
+  }
+
   const systemPrompt = `You are a social media expert writing Instagram and Facebook posts for a hair salon.
 Write a single post caption that:
 - Sounds like it comes from ${salonName}, a hair salon
@@ -87,7 +104,7 @@ Description: ${campaign.product_description || ""}
 ${campaign.tone_direction ? `Brand tone direction: ${campaign.tone_direction}` : ""}
 ${campaign.cta_instructions ? `CTA instructions: ${campaign.cta_instructions}` : ""}
 ${campaign.service_pairing_notes ? `Service pairing notes: ${campaign.service_pairing_notes}` : ""}
-${affiliateUrl ? `Include this partner link in the post: ${affiliateUrl}` : ""}
+${safeAffiliateUrl ? `Include this partner link in the post: ${safeAffiliateUrl}` : ""}
 
 Remember: this is for ${salonName} — write in their voice (${tone}), not the brand's voice.`;
 

@@ -13,6 +13,13 @@ describe("normalizeHashtag", () => {
     expect(normalizeHashtag("")).toBe("");
     expect(normalizeHashtag(null)).toBe("");
   });
+  it("returns empty string for whitespace-only input", () => {
+    expect(normalizeHashtag("   ")).toBe("");
+  });
+  it("returns empty string for multi-word input (invalid hashtag)", () => {
+    expect(normalizeHashtag("aveda color")).toBe("");
+    expect(normalizeHashtag("#aveda color")).toBe("");
+  });
 });
 
 describe("buildVendorHashtagBlock", () => {
