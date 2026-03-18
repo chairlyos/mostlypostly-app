@@ -1287,8 +1287,16 @@ Log in to review: ${managerLink}
     const salonId   = salon?.salon_id || salon?.id || salon?.salon_info?.slug;
     const stylistId = stylist?.id || stylist?.stylist_id;
 
-    // Check for an active booking software integration (currently: Zenoti)
-    const integration = salonId
+    // Zenoti auto-sync availability is a Pro-only feature.
+    // Starter/Growth stylists fall through to the GPT text-parse path below.
+    const salonPlanRow = salonId
+      ? db.prepare(`SELECT plan, plan_status FROM salons WHERE slug = ?`).get(salonId)
+      : null;
+    const salonIsPro = salonPlanRow?.plan === "pro" &&
+      ["active", "trialing"].includes(salonPlanRow?.plan_status);
+
+    // Check for an active booking software integration (currently: Zenoti) — Pro only
+    const integration = (salonId && salonIsPro)
       ? db.prepare(`SELECT platform FROM salon_integrations WHERE salon_id = ? AND sync_enabled = 1 LIMIT 1`).get(salonId)
       : null;
 
