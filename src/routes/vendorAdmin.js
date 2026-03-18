@@ -329,126 +329,36 @@ router.get("/", requireSecret, requirePin, (req, res) => {
         <input type="hidden" name="campaign_id" value="${safe(c.id)}" />
         <button type="submit" class="text-xs text-blue-500 hover:text-blue-700 font-medium">Renew +30d</button>
       </form>` : "";
-      const editKey = safe(c.id.replace(/-/g, ""));
       return `
-      <div class="border rounded-xl bg-white overflow-hidden">
-        <div class="p-4 flex gap-4 items-start">
-          ${c.photo_url
-            ? `<img src="${safe(c.photo_url)}" class="w-14 h-14 object-cover rounded-lg border flex-shrink-0" onerror="this.style.display='none'" />`
-            : `<div class="w-14 h-14 rounded-lg border bg-gray-50 flex-shrink-0 flex items-center justify-center text-xl">&#127991;</div>`}
-          <div class="flex-1 min-w-0">
-            <div class="flex items-start justify-between gap-2">
-              <div>
-                <p class="font-semibold text-sm">${safe(c.campaign_name)}</p>
-                <p class="text-xs text-gray-500">${safe(c.product_name || "")}${c.category ? ` &middot; ${safe(c.category)}` : ""}</p>
-              </div>
-              <div class="flex items-center gap-2 shrink-0">
-                ${statusBadge}
-                ${renewBtn}
-                <button type="button"
-                        onclick="var f=document.getElementById('edit-form-${editKey}');f.style.display=f.style.display==='none'?'block':'none';"
-                        class="text-xs text-blue-500 hover:text-blue-700 font-medium">Edit</button>
-                <form method="POST" action="/internal/vendors/delete/${safe(c.id)}${qs(req)}"
-                      onsubmit="return confirm('Delete campaign: ${safe(c.campaign_name)}?')" class="inline">
-                  <button type="submit" class="text-xs text-red-400 hover:text-red-600">Delete</button>
-                </form>
-              </div>
+      <div class="border rounded-xl bg-white p-4 flex gap-4 items-start">
+        ${c.photo_url
+          ? `<img src="${safe(c.photo_url)}" class="w-14 h-14 object-cover rounded-lg border flex-shrink-0" onerror="this.style.display='none'" />`
+          : `<div class="w-14 h-14 rounded-lg border bg-gray-50 flex-shrink-0 flex items-center justify-center text-xl">&#127991;</div>`}
+        <div class="flex-1 min-w-0">
+          <div class="flex items-start justify-between gap-2">
+            <div>
+              <p class="font-semibold text-sm">${safe(c.campaign_name)}</p>
+              <p class="text-xs text-gray-500">${safe(c.product_name || "")}${c.category ? ` &middot; ${safe(c.category)}` : ""}</p>
             </div>
-            <p class="text-xs text-gray-500 mt-1 line-clamp-2">${safe(c.product_description || "")}</p>
-            <div class="mt-1.5 flex flex-wrap gap-3 text-xs text-gray-400">
-              <span>Expires: <strong class="text-gray-600">${safe(c.expires_at || "&#8212;")}</strong></span>
-              <span>Cap: <strong class="text-gray-600">${safe(c.frequency_cap || 4)}/mo</strong></span>
-              ${c.category ? `<span>Category: <strong class="text-gray-600">${safe(c.category)}</strong></span>` : ""}
-              ${c.product_hashtag ? `<span>Tag: <strong class="text-gray-600">${safe(c.product_hashtag)}</strong></span>` : ""}
+            <div class="flex items-center gap-2 shrink-0">
+              ${statusBadge}
+              ${renewBtn}
+              <a href="/internal/vendors/campaign/${safe(c.id)}/edit${qs(req)}"
+                 class="text-xs text-blue-500 hover:text-blue-700 font-medium">Edit</a>
+              <form method="POST" action="/internal/vendors/delete/${safe(c.id)}${qs(req)}"
+                    onsubmit="return confirm('Delete campaign: ${safe(c.campaign_name)}?')" class="inline">
+                <button type="submit" class="text-xs text-red-400 hover:text-red-600">Delete</button>
+              </form>
             </div>
-            ${c.cta_instructions ? `<p class="text-xs text-blue-500 mt-1">CTA: ${safe(c.cta_instructions)}</p>` : ""}
           </div>
-        </div>
-        <!-- Inline Edit Form -->
-        <div id="edit-form-${editKey}" style="display:none;" class="border-t bg-gray-50 p-4">
-          <p class="text-xs font-bold text-gray-700 mb-3">Edit Campaign</p>
-          <form method="POST" action="/internal/vendors/campaign/edit${qs(req)}" enctype="multipart/form-data" class="space-y-3">
-            <input type="hidden" name="campaign_id" value="${safe(c.id)}" />
-            <div class="grid grid-cols-2 gap-3">
-              <div>
-                <label class="text-xs text-gray-500 block mb-1">Campaign Name *</label>
-                <input type="text" name="campaign_name" required value="${safe(c.campaign_name)}"
-                       class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white" />
-              </div>
-              <div>
-                <label class="text-xs text-gray-500 block mb-1">Category *</label>
-                <input type="text" name="category" required value="${safe(c.category || "")}"
-                       class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white" />
-              </div>
-              <div>
-                <label class="text-xs text-gray-500 block mb-1">Product Name *</label>
-                <input type="text" name="product_name" required value="${safe(c.product_name || "")}"
-                       class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white" />
-              </div>
-              <div>
-                <label class="text-xs text-gray-500 block mb-1">Product Hashtag</label>
-                <input type="text" name="product_hashtag" value="${safe((c.product_hashtag || "").replace(/^#/, ""))}"
-                       placeholder="#FullSpectrum" maxlength="60"
-                       class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white" />
-              </div>
-              <div class="col-span-2">
-                <div class="flex items-center justify-between mb-1">
-                  <label class="text-xs text-gray-500">Product Description *</label>
-                  <button type="button"
-                          onclick="aiGenerateDesc(this, '${safe(c.vendor_name)}', '${safe(c.product_name || "")}', 'edit-desc-${editKey}')"
-                          class="text-xs text-purple-600 hover:text-purple-800 font-medium flex items-center gap-1">
-                    ✨ AI Generate
-                  </button>
-                </div>
-                <textarea id="edit-desc-${editKey}" name="product_description" rows="3" required
-                          class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white">${safe(c.product_description || "")}</textarea>
-              </div>
-              <div class="col-span-2">
-                <label class="text-xs text-gray-500 block mb-1">Photo</label>
-                <div class="flex gap-2 items-center">
-                  <input type="text" name="photo_url" value="${safe(c.photo_url || "")}"
-                         placeholder="https://... (or upload below)"
-                         class="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white" />
-                  <input type="file" name="photo_file" accept="image/*"
-                         class="text-xs text-gray-600 file:mr-2 file:rounded file:border-0 file:bg-gray-100 file:px-2 file:py-1 file:text-xs file:font-medium" />
-                </div>
-              </div>
-              <div>
-                <label class="text-xs text-gray-500 block mb-1">Tone Direction</label>
-                <input type="text" name="tone_direction" value="${safe(c.tone_direction || "")}"
-                       class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white" />
-              </div>
-              <div>
-                <label class="text-xs text-gray-500 block mb-1">CTA Instructions</label>
-                <input type="text" name="cta_instructions" value="${safe(c.cta_instructions || "")}"
-                       class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white" />
-              </div>
-              <div>
-                <label class="text-xs text-gray-500 block mb-1">Service Pairing Notes</label>
-                <input type="text" name="service_pairing_notes" value="${safe(c.service_pairing_notes || "")}"
-                       class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white" />
-              </div>
-              <div>
-                <label class="text-xs text-gray-500 block mb-1">Expires At</label>
-                <input type="date" name="expires_at" value="${safe(c.expires_at || "")}"
-                       class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white" />
-              </div>
-              <div>
-                <label class="text-xs text-gray-500 block mb-1">Frequency Cap (posts/month)</label>
-                <input type="number" name="frequency_cap" value="${safe(c.frequency_cap || 4)}" min="1" max="30"
-                       class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white" />
-              </div>
-            </div>
-            <div class="flex justify-end gap-2">
-              <button type="button"
-                      onclick="document.getElementById('edit-form-${editKey}').style.display='none';"
-                      class="text-xs text-gray-500 px-3 py-1.5">Cancel</button>
-              <button type="submit"
-                      class="text-xs bg-gray-900 text-white rounded-lg px-4 py-1.5 font-semibold">
-                Save Changes
-              </button>
-            </div>
-          </form>
+          <p class="text-xs text-gray-500 mt-1 line-clamp-2">${safe(c.product_description || "")}</p>
+          <div class="mt-1.5 flex flex-wrap gap-3 text-xs text-gray-400">
+            <span>Expires: <strong class="text-gray-600">${safe(c.expires_at || "&#8212;")}</strong></span>
+            <span>Cap: <strong class="text-gray-600">${safe(c.frequency_cap || 4)}/mo</strong></span>
+            ${c.category ? `<span>Category: <strong class="text-gray-600">${safe(c.category)}</strong></span>` : ""}
+            ${c.product_hashtag ? `<span>Tag: <strong class="text-gray-600">${safe(c.product_hashtag)}</strong></span>` : ""}
+          </div>
+          ${c.cta_instructions ? `<p class="text-xs text-blue-500 mt-1">CTA: ${safe(c.cta_instructions)}</p>` : ""}
         </div>
       </div>`;
     }).join("");
@@ -1461,6 +1371,133 @@ Do NOT include pricing, calls to action, or hashtags.`;
     console.error("[vendorAdmin] AI description error:", err.message);
     return res.json({ error: err.message });
   }
+});
+
+// ── GET /campaign/:id/edit — Dedicated edit page for a campaign ──────────────
+router.get("/campaign/:id/edit", requireSecret, requirePin, (req, res) => {
+  const campaign = db.prepare(`SELECT * FROM vendor_campaigns WHERE id = ?`).get(req.params.id);
+  if (!campaign) return res.status(404).send("Campaign not found.");
+
+  const s = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  const hashtag = (campaign.product_hashtag || "").replace(/^#/, "");
+
+  res.send(`<!DOCTYPE html>
+<html lang="en"><head>
+  <meta charset="UTF-8"/><title>Edit Campaign — Platform Console</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f9fafb;padding:24px;}
+    .card{background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:32px;max-width:720px;margin:0 auto;}
+    h1{font-size:1.1rem;font-weight:700;color:#111827;margin-bottom:4px;}
+    .sub{font-size:.8rem;color:#6b7280;margin-bottom:24px;}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+    .col-span-2{grid-column:span 2;}
+    label{display:block;font-size:.75rem;color:#6b7280;margin-bottom:4px;}
+    input,textarea{width:100%;border:1px solid #e5e7eb;border-radius:8px;padding:8px 12px;font-size:.875rem;background:#fff;color:#111827;}
+    textarea{resize:vertical;}
+    .file-row{display:flex;gap:8px;align-items:center;}
+    .file-row input[type=text]{flex:1;}
+    .actions{display:flex;justify-content:flex-end;gap:10px;margin-top:20px;}
+    .btn{padding:8px 18px;border-radius:8px;font-size:.8rem;font-weight:600;cursor:pointer;border:none;text-decoration:none;display:inline-block;}
+    .btn-cancel{background:#f3f4f6;color:#374151;}
+    .btn-save{background:#111827;color:#fff;}
+  </style>
+</head>
+<body>
+<div class="card">
+  <h1>Edit Campaign</h1>
+  <p class="sub">${s(campaign.vendor_name)} &middot; ${s(campaign.campaign_name)}</p>
+
+  <form method="POST" action="/internal/vendors/campaign/edit${qs(req)}" enctype="multipart/form-data">
+    <input type="hidden" name="campaign_id" value="${s(campaign.id)}" />
+    <div class="grid">
+      <div>
+        <label>Campaign Name *</label>
+        <input type="text" name="campaign_name" required value="${s(campaign.campaign_name)}" />
+      </div>
+      <div>
+        <label>Category</label>
+        <input type="text" name="category" value="${s(campaign.category || "")}" />
+      </div>
+      <div>
+        <label>Product Name *</label>
+        <input type="text" name="product_name" required value="${s(campaign.product_name || "")}" />
+      </div>
+      <div>
+        <label>Product Hashtag</label>
+        <input type="text" name="product_hashtag" value="${s(hashtag)}" placeholder="#FullSpectrum" maxlength="60" />
+      </div>
+      <div class="col-span-2">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+          <label style="margin-bottom:0;">Product Description *</label>
+          <button type="button" id="ai-btn"
+                  onclick="aiGen(this)"
+                  style="font-size:.75rem;color:#7c3aed;font-weight:600;background:none;border:none;cursor:pointer;padding:0;">
+            ✨ AI Generate
+          </button>
+        </div>
+        <textarea id="desc-area" name="product_description" rows="4" required>${s(campaign.product_description || "")}</textarea>
+      </div>
+      <div class="col-span-2">
+        <label>Photo URL (or upload below)</label>
+        <div class="file-row">
+          <input type="text" name="photo_url" value="${s(campaign.photo_url || "")}" placeholder="https://..." />
+          <input type="file" name="photo_file" accept="image/*" style="font-size:.75rem;color:#6b7280;" />
+        </div>
+      </div>
+      <div>
+        <label>Tone Direction</label>
+        <input type="text" name="tone_direction" value="${s(campaign.tone_direction || "")}" />
+      </div>
+      <div>
+        <label>CTA Instructions</label>
+        <input type="text" name="cta_instructions" value="${s(campaign.cta_instructions || "")}" />
+      </div>
+      <div class="col-span-2">
+        <label>Service Pairing Notes</label>
+        <input type="text" name="service_pairing_notes" value="${s(campaign.service_pairing_notes || "")}" />
+      </div>
+      <div>
+        <label>Expires At</label>
+        <input type="date" name="expires_at" value="${s(campaign.expires_at || "")}" />
+      </div>
+      <div>
+        <label>Frequency Cap (posts/month)</label>
+        <input type="number" name="frequency_cap" value="${s(campaign.frequency_cap || 4)}" min="1" max="30" />
+      </div>
+    </div>
+    <div class="actions">
+      <a href="/internal/vendors${qs(req)}" class="btn btn-cancel">Cancel</a>
+      <button type="submit" class="btn btn-save">Save Changes</button>
+    </div>
+  </form>
+</div>
+<script>
+function aiGen(btn) {
+  var productName = document.querySelector('[name="product_name"]').value.trim();
+  var vendorName  = ${JSON.stringify(s(campaign.vendor_name))};
+  if (!productName) { alert('Enter a product name first.'); return; }
+  btn.textContent = '⏳ Generating…';
+  btn.disabled = true;
+  fetch('/internal/vendors/campaign/ai-description${qs(req)}', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ vendor_name: vendorName, product_name: productName })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.description) {
+      document.getElementById('desc-area').value = data.description;
+    } else {
+      alert('AI generation failed: ' + (data.error || 'Unknown error'));
+    }
+  })
+  .catch(function(err) { alert('Request failed: ' + err.message); })
+  .finally(function() { btn.textContent = '✨ AI Generate'; btn.disabled = false; });
+}
+</script>
+</body></html>`);
 });
 
 // ── POST /campaign/renew — Extend expired campaign +30 days ──────────────────

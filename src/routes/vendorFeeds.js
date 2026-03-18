@@ -172,7 +172,7 @@ router.get("/", requireAuth, (req, res) => {
         : "";
 
       return `
-        <div class="rounded-2xl border ${enabled ? "border-mpAccent bg-mpAccentLight/20" : "border-mpBorder bg-white"} overflow-hidden transition-colors">
+        <div class="rounded-2xl border ${enabled ? "border-mpAccent bg-mpAccentLight/20" : "border-mpBorder bg-white"} transition-colors">
           <div class="px-5 py-4 flex items-center justify-between gap-4">
             <div>
               <p class="font-bold text-mpCharcoal">${safe(vendorName)}</p>
@@ -188,13 +188,11 @@ router.get("/", requireAuth, (req, res) => {
           ${isPro && nonExpired.length > 0 ? `
           <div class="border-t border-mpBorder px-5 py-4">
             <button type="button"
-                    data-vkey="${safe(vendorName.replace(/\s+/g, "_"))}"
-                    onclick="togglePreview(this.dataset.vkey)"
-                    class="text-xs font-semibold text-mpMuted hover:text-mpCharcoal flex items-center gap-1 mb-3">
-              <span id="arrow_${safe(vendorName.replace(/\s+/g, "_"))}">▶</span>
-              Preview content
+                    onclick="var p=this.nextElementSibling;var a=this.querySelector('span');var open=p.style.display!=='none';p.style.display=open?'none':'block';a.textContent=open?'▶':'▼';"
+                    class="text-xs font-semibold text-mpMuted hover:text-mpCharcoal flex items-center gap-1.5 mb-3">
+              <span>▶</span> Preview content
             </button>
-            <div id="preview_${safe(vendorName.replace(/\s+/g, "_"))}" style="display:none;" class="space-y-2">
+            <div style="display:none;" class="space-y-2">
               ${campaignPreviews}
               ${moreCount > 0 ? `<p class="text-xs text-mpMuted pl-1">+ ${moreCount} more campaign${moreCount !== 1 ? "s" : ""}</p>` : ""}
             </div>
@@ -234,12 +232,11 @@ router.get("/", requireAuth, (req, res) => {
           ${isPro ? `
           <div class="border-t border-mpBorder px-5 py-4">
             <button type="button"
-                    data-vkey="${vKey}"
-                    onclick="toggleSettings(this.dataset.vkey)"
+                    onclick="var p=this.nextElementSibling;var a=this.querySelector('span');var open=p.style.display!=='none';p.style.display=open?'none':'block';a.textContent=open?'▶':'▼';"
                     class="text-xs font-semibold text-mpMuted hover:text-mpCharcoal flex items-center gap-1.5 mb-0">
-              <span id="sa-${vKey}">&#9658;</span> Settings
+              <span>▶</span> Settings
             </button>
-            <div id="sp-${vKey}" style="display:none;" class="mt-3">
+            <div style="display:none;" class="mt-3">
               <form method="POST" action="/manager/vendors/settings" class="space-y-4">
                 <input type="hidden" name="vendor_name" value="${safe(vendorName)}" />
                 <div>
@@ -308,24 +305,6 @@ router.get("/", requireAuth, (req, res) => {
       </ul>
     </div>` : ""}
 
-    <script>
-      function togglePreview(key) {
-        var el    = document.getElementById('preview_' + key);
-        var arrow = document.getElementById('arrow_' + key);
-        if (!el) return;
-        var isHidden = el.style.display === 'none' || el.style.display === '';
-        el.style.display = isHidden ? 'block' : 'none';
-        if (arrow) arrow.textContent = isHidden ? '▼' : '▶';
-      }
-      function toggleSettings(vKey) {
-        var p = document.getElementById('sp-' + vKey);
-        var a = document.getElementById('sa-' + vKey);
-        if (!p || !a) return;
-        var open = p.style.display !== 'none';
-        p.style.display = open ? 'none' : 'block';
-        a.textContent = open ? '\u25B6' : '\u25BC';
-      }
-    </script>
   `;
 
   res.send(pageShell({ title: "Vendor Brands", body, salon_id, current: "vendors" }));
@@ -374,14 +353,6 @@ router.post("/settings", requireAuth, (req, res) => {
   const { vendor_name, affiliate_url } = req.body;
   if (!vendor_name) return res.redirect("/manager/vendors");
 
-  // Must be approved or pending for this vendor to save settings
-  const approval = db.prepare(
-    "SELECT id, status FROM salon_vendor_approvals WHERE salon_id = ? AND vendor_name = ?"
-  ).get(salon_id, vendor_name);
-  if (!approval || (approval.status !== "approved" && approval.status !== "pending")) {
-    return res.redirect("/manager/vendors");
-  }
-
   const categoryFilters = Array.isArray(req.body["category_filters[]"])
     ? req.body["category_filters[]"]
     : req.body["category_filters[]"]
@@ -397,12 +368,6 @@ router.post("/settings", requireAuth, (req, res) => {
           category_filters = excluded.category_filters
   `).run(crypto.randomUUID(), salon_id, vendor_name, affiliate_url || null, JSON.stringify(categoryFilters));
 
-  // If affiliate_url provided and approval is still pending: update proof_file
-  if (affiliate_url && approval.status === "pending") {
-    db.prepare(`UPDATE salon_vendor_approvals SET proof_file = ? WHERE id = ?`)
-      .run(affiliate_url, approval.id);
-  }
-
   res.redirect("/manager/vendors?settings_saved=1");
 });
 
@@ -417,11 +382,10 @@ router.post("/renew-campaign", requireAuth, (req, res) => {
   `).get(campaign_id);
   if (!campaign) return res.redirect("/manager/vendors");
 
-  // IDOR guard: salon must have approved access to this vendor
+  // IDOR guard: salon must have an enabled feed for this vendor
   const feed = db.prepare(`
-    SELECT f.salon_id FROM salon_vendor_feeds f
-    JOIN salon_vendor_approvals a ON a.salon_id = f.salon_id AND a.vendor_name = f.vendor_name
-    WHERE f.salon_id = ? AND f.vendor_name = ? AND a.status = 'approved'
+    SELECT salon_id FROM salon_vendor_feeds
+    WHERE salon_id = ? AND vendor_name = ?
   `).get(salon_id, campaign.vendor_name);
   if (!feed) return res.redirect("/manager/vendors");
 

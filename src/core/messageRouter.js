@@ -1367,7 +1367,17 @@ Log in to review: ${managerLink}
       }
       // Stylist not mapped to the integration → fall through to GPT text-parse path
     }
-    // No integration → fall through to GPT text-parse path (stylist texts their own times)
+    // No booking software integration connected.
+    // If the message is a bare intent ("post my availability") with no actual times,
+    // prompt the stylist to text their open slots and return early.
+    const hasActualTimes = /\d\s*(am|pm)|:\d{2}|\d\s*[-–]\s*\d/i.test(cleanText);
+    if (!hasActualTimes) {
+      await sendMessage.sendText(chatId,
+        `What are your open times this week? Text me your availability and I'll create a post!\n\nExample:\n"Available Tuesday 2–5pm, Wednesday 10am–2pm, and Friday 3–7pm"`
+      );
+      endTimer(start);
+      return;
+    }
   }
 
   // Availability posts don't require an image — route them directly (GPT-based text parse)
