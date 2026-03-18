@@ -422,12 +422,11 @@ router.get("/", requireSecret, requirePin, (req, res) => {
       ${campaignRows || `<p class="text-xs text-gray-400 py-2">No campaigns yet.</p>`}
 
       <!-- Add Campaign Toggle + Inline Form -->
-      <button type="button"
-              onclick="var f=document.getElementById('add-form-${vendorKey}'); f.style.display=f.style.display==='none'?'block':'none';"
-              class="mt-2 text-xs border border-dashed border-gray-300 rounded-xl px-4 py-2.5 text-gray-500 hover:border-gray-500 hover:text-gray-700 w-full text-center">
-        + Add Campaign
-      </button>
-      <div id="add-form-${vendorKey}" style="display:none;" class="mt-3 border rounded-xl bg-gray-50 p-4">
+      <details class="mt-2">
+        <summary class="cursor-pointer text-xs border border-dashed border-gray-300 rounded-xl px-4 py-2.5 text-gray-500 hover:border-gray-500 hover:text-gray-700 w-full text-center list-none select-none">
+          + Add Campaign
+        </summary>
+        <div class="mt-3 border rounded-xl bg-gray-50 p-4">
         <p class="text-xs font-bold text-gray-700 mb-3">New Campaign &mdash; ${safe(vendor)}</p>
         <form method="POST" action="/internal/vendors/campaign/add${qs(req)}" class="space-y-3">
           <input type="hidden" name="vendor_name" value="${safe(vendor)}" />
@@ -492,7 +491,7 @@ router.get("/", requireSecret, requirePin, (req, res) => {
           </div>
           <div class="flex justify-end gap-2">
             <button type="button"
-                    onclick="document.getElementById('add-form-${vendorKey}').style.display='none';"
+                    onclick="this.closest('details').removeAttribute('open');"
                     class="text-xs text-gray-500 px-3 py-1.5">Cancel</button>
             <button type="submit"
                     class="text-xs bg-gray-900 text-white rounded-lg px-4 py-1.5 font-semibold">
@@ -500,7 +499,8 @@ router.get("/", requireSecret, requirePin, (req, res) => {
             </button>
           </div>
         </form>
-      </div>
+        </div>
+      </details>
     </div>
   </div>`;
   }).join("");
@@ -1206,9 +1206,8 @@ router.post("/brand-config", requireSecret, requirePin, (req, res) => {
   const { vendor_name, categories } = req.body;
   if (!vendor_name) return res.redirect(`/internal/vendors${qs(req)}`);
 
-  const rawTags = Array.isArray(req.body["brand_hashtags[]"])
-    ? req.body["brand_hashtags[]"]
-    : [req.body["brand_hashtags[]"] || ""];
+  const rawInput = req.body["brand_hashtags[]"] ?? req.body.brand_hashtags;
+  const rawTags = Array.isArray(rawInput) ? rawInput : (rawInput ? [rawInput] : []);
   const brandHashtags = rawTags
     .map(t => (t || "").trim())
     .filter(Boolean)
@@ -1478,11 +1477,13 @@ function aiGen(btn) {
   var productName = document.querySelector('[name="product_name"]').value.trim();
   var vendorName  = ${JSON.stringify(s(campaign.vendor_name))};
   if (!productName) { alert('Enter a product name first.'); return; }
+  var csrfToken = document.querySelector('meta[name="csrf-token"]');
+  csrfToken = csrfToken ? csrfToken.content : '';
   btn.textContent = '⏳ Generating…';
   btn.disabled = true;
   fetch('/internal/vendors/campaign/ai-description${qs(req)}', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
     body: JSON.stringify({ vendor_name: vendorName, product_name: productName })
   })
   .then(function(r) { return r.json(); })

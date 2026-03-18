@@ -276,6 +276,7 @@ router.get("/", (req, res) => {
               <span class="rounded-full bg-mpAccentLight px-2 py-0.5 text-[10px] font-bold text-mpAccent uppercase">${postTypeLabel(p.post_type)}</span>
               <span class="ml-auto text-[10px] text-mpMuted">${pubDate}</span>
             </div>
+            ${p.stylist_name ? `<p class="text-[11px] font-semibold text-mpCharcoal mb-0.5">${p.stylist_name}</p>` : ""}
             <p class="text-xs text-mpMuted leading-relaxed line-clamp-2">${caption}</p>
           </div>
           <div class="grid grid-cols-3 gap-2 text-center border-t border-mpBorder pt-3">

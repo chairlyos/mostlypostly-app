@@ -187,15 +187,15 @@ router.get("/", requireAuth, (req, res) => {
           <!-- Campaign previews — Pro only -->
           ${isPro && nonExpired.length > 0 ? `
           <div class="border-t border-mpBorder px-5 py-4">
-            <button type="button"
-                    onclick="var p=this.nextElementSibling;var a=this.querySelector('span');var open=p.style.display!=='none';p.style.display=open?'none':'block';a.textContent=open?'▶':'▼';"
-                    class="text-xs font-semibold text-mpMuted hover:text-mpCharcoal flex items-center gap-1.5 mb-3">
-              <span>▶</span> Preview content
-            </button>
-            <div style="display:none;" class="space-y-2">
-              ${campaignPreviews}
-              ${moreCount > 0 ? `<p class="text-xs text-mpMuted pl-1">+ ${moreCount} more campaign${moreCount !== 1 ? "s" : ""}</p>` : ""}
-            </div>
+            <details class="vendor-accordion">
+              <summary class="text-xs font-semibold text-mpMuted hover:text-mpCharcoal cursor-pointer select-none mb-3">
+                ▶ Preview content
+              </summary>
+              <div class="space-y-2">
+                ${campaignPreviews}
+                ${moreCount > 0 ? `<p class="text-xs text-mpMuted pl-1">+ ${moreCount} more campaign${moreCount !== 1 ? "s" : ""}</p>` : ""}
+              </div>
+            </details>
           </div>` : ""}
 
           <!-- Expired campaigns (Pro only) -->
@@ -231,12 +231,11 @@ router.get("/", requireAuth, (req, res) => {
           <!-- Settings section (Pro only, collapsed by default) -->
           ${isPro ? `
           <div class="border-t border-mpBorder px-5 py-4">
-            <button type="button"
-                    onclick="var p=this.nextElementSibling;var a=this.querySelector('span');var open=p.style.display!=='none';p.style.display=open?'none':'block';a.textContent=open?'▶':'▼';"
-                    class="text-xs font-semibold text-mpMuted hover:text-mpCharcoal flex items-center gap-1.5 mb-0">
-              <span>▶</span> Settings
-            </button>
-            <div style="display:none;" class="mt-3">
+            <details class="vendor-accordion">
+              <summary class="text-xs font-semibold text-mpMuted hover:text-mpCharcoal cursor-pointer select-none">
+                ▶ Settings
+              </summary>
+              <div class="mt-3">
               <form method="POST" action="/manager/vendors/settings" class="space-y-4">
                 <input type="hidden" name="vendor_name" value="${safe(vendorName)}" />
                 <div>
@@ -270,12 +269,18 @@ router.get("/", requireAuth, (req, res) => {
                 </button>
               </form>
             </div>
+            </details>
           </div>` : ""}
         </div>`;
     }).join("");
   }
 
   const body = `
+    <style>
+      .vendor-accordion summary { list-style: none; }
+      .vendor-accordion summary::-webkit-details-marker { display: none; }
+      .vendor-accordion[open] > summary { color: #2B2D35; }
+    </style>
     ${flashBanners}
     <section class="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
       <div>
