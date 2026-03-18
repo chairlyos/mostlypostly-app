@@ -75,8 +75,9 @@ router.get("/callback", async (req, res) => {
       { headers: { Authorization: `Bearer ${accessToken}` } }
     );
     const accountsData = await accountsResp.json();
+    console.log("[Google OAuth] Accounts response:", JSON.stringify(accountsData));
     const account = accountsData.accounts?.[0];
-    if (!account) throw new Error("No Google Business accounts found.");
+    if (!account) throw new Error(`No Google Business accounts found. Response: ${JSON.stringify(accountsData)}`);
 
     // 3. Fetch locations
     const locResp = await fetch(
