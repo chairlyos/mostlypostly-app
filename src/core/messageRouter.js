@@ -818,6 +818,38 @@ export async function handleIncomingMessage({
     return;
   }
 
+  // COLLAB — opt in to IG collaborator tagging
+  if (command === "COLLAB") {
+    try {
+      db.prepare(`UPDATE stylists SET ig_collab = 1 WHERE id = ?`).run(_stylistId);
+      await sendMessage.sendText(chatId,
+        "You're in! You'll be tagged as a collaborator on your posts going forward. " +
+        "You'll get an Instagram notification each time — just tap Accept and it'll show up on your profile too. " +
+        "Text NOCOLLAB anytime to turn it off."
+      );
+    } catch (err) {
+      console.error("[Router] COLLAB update failed:", err.message);
+      await sendMessage.sendText(chatId, "Sorry, couldn't update your settings. Try again in a moment.");
+    }
+    endTimer(start);
+    return;
+  }
+
+  // NOCOLLAB — opt out of IG collaborator tagging
+  if (command === "NOCOLLAB") {
+    try {
+      db.prepare(`UPDATE stylists SET ig_collab = 0 WHERE id = ?`).run(_stylistId);
+      await sendMessage.sendText(chatId,
+        "Got it — collaborator tagging is off. Text COLLAB anytime to turn it back on."
+      );
+    } catch (err) {
+      console.error("[Router] NOCOLLAB update failed:", err.message);
+      await sendMessage.sendText(chatId, "Sorry, couldn't update your settings. Try again in a moment.");
+    }
+    endTimer(start);
+    return;
+  }
+
   // LEADERBOARD — send the public leaderboard URL
   if (/^(leaderboard|who('?s| is) (leading|winning|in the lead)|rankings?)$/i.test(cleanText)) {
     const salonId = salon?.salon_id || salon?.id || salon?.salon_info?.slug;
