@@ -5,7 +5,7 @@
     {"id": 43, "subject": "Task 2: Console — brand config + manual add + active/expired + renew", "status": "completed"},
     {"id": 44, "subject": "Task 3: Client — vendor settings + affiliate URL + category filters + renew", "status": "completed"},
     {"id": 45, "subject": "Task 4: vendorScheduler — hashtag tiers + affiliate URL + category filters", "status": "completed"},
-    {"id": 46, "subject": "Task 5: Push + docs update", "status": "pending", "blockedBy": [43, 44, 45]}
+    {"id": 46, "subject": "Task 5: Push + docs update", "status": "completed"}
   ],
   "lastUpdated": "2026-03-18T06:00:00.000Z"
 }

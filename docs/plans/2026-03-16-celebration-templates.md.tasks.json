@@ -1,0 +1,10 @@
+{
+  "planPath": "docs/plans/2026-03-16-celebration-templates.md",
+  "tasks": [
+    {"id": 0, "subject": "Task 1: Migration 036 + template registry scaffold", "status": "completed"},
+    {"id": 1, "subject": "Task 2: Scheduler update", "status": "completed", "blockedBy": [0]},
+    {"id": 2, "subject": "Task 3: Admin UI + preview + save routes", "status": "completed", "blockedBy": [0]},
+    {"id": 3, "subject": "Task 4: Push and smoke test", "status": "completed", "blockedBy": [1, 2]}
+  ],
+  "lastUpdated": "2026-03-16T12:30:00.000Z"
+}

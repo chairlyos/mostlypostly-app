@@ -1,0 +1,9 @@
+{
+  "planPath": "docs/plans/2026-03-17-signup-funnel-nav-lock.md",
+  "tasks": [
+    {"id": 32, "subject": "Task 1: Add navLocked option to pageShell.js", "status": "completed"},
+    {"id": 33, "subject": "Task 2: Pass navLocked from billing route for new accounts", "status": "completed", "blockedBy": [32]},
+    {"id": 34, "subject": "Task 3: Website CTA buttons scroll to pricing section", "status": "completed"}
+  ],
+  "lastUpdated": "2026-03-17T00:00:00.000Z"
+}
