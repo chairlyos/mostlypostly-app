@@ -126,8 +126,8 @@ export function composeFinalCaption({
     // 1) Remove ALL URLs
     captionOut = captionOut.replace(/https?:\/\/\S+/gi, "").trim();
 
-    // 2) Ensure correct CTA
-    if (!captionOut.includes("Book via link in bio.")) {
+    // 2) Ensure correct CTA (only when a booking URL exists)
+    if (booking && !captionOut.includes("Book via link in bio.")) {
       captionOut += `\n\nBook via link in bio.`;
     }
 
