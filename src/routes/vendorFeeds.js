@@ -50,6 +50,15 @@ router.get("/", requireAuth, (req, res) => {
   `).all(salon_id);
   const approvalMap = Object.fromEntries(approvals.map(a => [a.vendor_name, a.status]));
 
+  // Brand configs and vendor settings (Task 3)
+  const brandConfigs = db.prepare(`SELECT * FROM vendor_brands`).all();
+  const brandConfigMap = Object.fromEntries(brandConfigs.map(b => [b.vendor_name, b]));
+
+  const vendorSettings = db.prepare(`
+    SELECT vendor_name, affiliate_url, category_filters FROM salon_vendor_feeds WHERE salon_id = ?
+  `).all(salon_id);
+  const vendorSettingsMap = Object.fromEntries(vendorSettings.map(s => [s.vendor_name, s]));
+
   // Group campaigns by vendor
   const vendorMap = {};
   for (const c of campaigns) {
@@ -80,6 +89,19 @@ router.get("/", requireAuth, (req, res) => {
       </a>
     </div>`;
 
+  // Flash banners (Task 3)
+  const flashBanners = [
+    req.query.settings_saved
+      ? `<div class="rounded-xl bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-800 font-medium mb-4">Vendor settings saved.</div>`
+      : "",
+    req.query.renewed
+      ? `<div class="rounded-xl bg-blue-50 border border-blue-200 px-4 py-3 text-sm text-blue-800 font-medium mb-4">"${safe(decodeURIComponent(req.query.renewed || ""))}" renewed &#8212; campaign is active again.</div>`
+      : "",
+    req.query.requested
+      ? `<div class="rounded-xl bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-700 font-medium mb-4">Access requested. We&#8217;ll review shortly.</div>`
+      : "",
+  ].join("");
+
   let vendorCards = "";
   if (vendors.length === 0) {
     vendorCards = `<div class="text-center py-12 text-mpMuted text-sm">No vendor campaigns are available yet. Check back soon.</div>`;
@@ -91,6 +113,14 @@ router.get("/", requireAuth, (req, res) => {
       const isPending      = approvalStatus === "pending";
       const isDenied       = approvalStatus === "denied";
       const canToggle      = isPro && isApproved;
+
+      // Task 3: brand config and vendor settings per vendor
+      const brandCfg      = brandConfigMap[vendorName] || {};
+      const vendorSetting = vendorSettingsMap[vendorName] || {};
+      const brandCategories = (() => { try { return JSON.parse(brandCfg.categories || "[]"); } catch { return []; } })();
+      const activeFilters   = (() => { try { return JSON.parse(vendorSetting.category_filters || "[]"); } catch { return []; } })();
+      const canRenew        = brandCfg.allow_client_renewal !== 0;
+      const vKey            = safe(vendorName.replace(/\s+/g, "_"));
 
       const today      = new Date().toISOString().slice(0, 10);
       const nonExpired = items.filter(c => !c.expires_at || c.expires_at >= today);
@@ -181,11 +211,86 @@ router.get("/", requireAuth, (req, res) => {
               ${moreCount > 0 ? `<p class="text-xs text-mpMuted pl-1">+ ${moreCount} more campaign${moreCount !== 1 ? "s" : ""}</p>` : ""}
             </div>
           </div>` : ""}
+
+          <!-- Expired campaigns (approved only) -->
+          ${isApproved && expired.length > 0 ? `
+          <div class="border-t border-mpBorder px-5 py-4">
+            <p class="text-[11px] text-mpMuted font-semibold uppercase tracking-wide mb-2">Expired Campaigns</p>
+            <div class="space-y-2">
+              ${expired.map(c => `
+                <div class="rounded-xl border border-mpBorder bg-mpBg p-3 flex gap-3 items-start opacity-60">
+                  ${c.photo_url
+                    ? `<img src="${safe(c.photo_url)}" class="w-14 h-14 object-cover rounded-lg border border-mpBorder flex-shrink-0" style="filter:grayscale(1)" onerror="this.style.display='none'" />`
+                    : `<div class="w-14 h-14 rounded-lg border border-mpBorder bg-white flex items-center justify-center text-mpMuted text-xl flex-shrink-0">&#127991;</div>`}
+                  <div class="min-w-0 flex-1">
+                    <div class="flex items-start justify-between gap-2">
+                      <div>
+                        <p class="text-xs font-semibold text-mpCharcoal">${safe(c.campaign_name)}</p>
+                        <p class="text-[11px] text-mpMuted">Expired ${safe(c.expires_at)}</p>
+                      </div>
+                      ${canRenew ? `
+                      <form method="POST" action="/manager/vendors/renew-campaign" class="shrink-0">
+                        <input type="hidden" name="campaign_id" value="${safe(c.id)}" />
+                        <button type="submit"
+                                class="text-[11px] rounded-full bg-mpCharcoal text-white px-3 py-1 font-semibold hover:bg-mpCharcoalDark">
+                          Renew
+                        </button>
+                      </form>` : ""}
+                    </div>
+                  </div>
+                </div>`).join("")}
+            </div>
+          </div>` : ""}
+
+          <!-- Settings section (approved only, collapsed by default) -->
+          ${isApproved ? `
+          <div class="border-t border-mpBorder px-5 py-4">
+            <button type="button"
+                    onclick="var p=document.getElementById('sp-${vKey}'); var a=document.getElementById('sa-${vKey}'); var open=p.style.display!=='none'; p.style.display=open?'none':'block'; a.textContent=open?'\u25B6':'\u25BC';"
+                    class="text-xs font-semibold text-mpMuted hover:text-mpCharcoal flex items-center gap-1.5 mb-0">
+              <span id="sa-${vKey}">&#9658;</span> Settings
+            </button>
+            <div id="sp-${vKey}" style="display:none;" class="mt-3">
+              <form method="POST" action="/manager/vendors/settings" class="space-y-4">
+                <input type="hidden" name="vendor_name" value="${safe(vendorName)}" />
+                <div>
+                  <label class="block text-xs font-semibold text-mpCharcoal mb-1">Affiliate URL</label>
+                  <input type="url" name="affiliate_url"
+                         value="${safe(vendorSetting.affiliate_url || "")}"
+                         placeholder="https://aveda.com/ref/your-salon"
+                         class="w-full border border-mpBorder rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-mpAccent" />
+                  <p class="text-[11px] text-mpMuted mt-1">
+                    Your unique partner link &#8212; added to all ${safe(vendorName)} posts automatically.
+                    Also serves as proof of partnership when requesting access.
+                  </p>
+                </div>
+                ${brandCategories.length > 0 ? `
+                <div>
+                  <label class="block text-xs font-semibold text-mpCharcoal mb-2">Product Categories to Sync</label>
+                  <div class="flex flex-wrap gap-3">
+                    ${brandCategories.map(cat => `
+                      <label class="flex items-center gap-2 text-sm text-mpMuted cursor-pointer">
+                        <input type="checkbox" name="category_filters[]" value="${safe(cat)}"
+                               ${activeFilters.includes(cat) ? "checked" : ""}
+                               class="rounded border-mpBorder" />
+                        ${safe(cat)}
+                      </label>`).join("")}
+                  </div>
+                  <p class="text-[11px] text-mpMuted mt-1">Leave all unchecked to sync all categories.</p>
+                </div>` : ""}
+                <button type="submit"
+                        class="rounded-xl bg-mpCharcoal text-white px-5 py-2 text-sm font-semibold hover:bg-mpCharcoalDark transition-colors">
+                  Save Settings
+                </button>
+              </form>
+            </div>
+          </div>` : ""}
         </div>`;
     }).join("");
   }
 
   const body = `
+    ${flashBanners}
     <section class="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
       <div>
         <h1 class="text-2xl font-bold">Vendor Brands</h1>
@@ -267,6 +372,83 @@ router.post("/request-access", requireAuth, (req, res) => {
   `).run(crypto.randomUUID(), salon_id, vendor_name);
 
   res.redirect(`/manager/vendors?requested=1`);
+});
+
+// ── POST /settings ────────────────────────────────────────────────────────────
+router.post("/settings", requireAuth, (req, res) => {
+  const salon_id = req.manager.salon_id;
+  const { vendor_name, affiliate_url } = req.body;
+  if (!vendor_name) return res.redirect("/manager/vendors");
+
+  const categoryFilters = Array.isArray(req.body["category_filters[]"])
+    ? req.body["category_filters[]"]
+    : req.body["category_filters[]"]
+    ? [req.body["category_filters[]"]]
+    : [];
+
+  db.prepare(`
+    UPDATE salon_vendor_feeds
+    SET affiliate_url = ?, category_filters = ?
+    WHERE salon_id = ? AND vendor_name = ?
+  `).run(affiliate_url || null, JSON.stringify(categoryFilters), salon_id, vendor_name);
+
+  // If affiliate_url provided: update proof_file on existing pending approval
+  // or create a pending approval request if none exists
+  if (affiliate_url) {
+    const approval = db.prepare(`
+      SELECT id, status FROM salon_vendor_approvals
+      WHERE salon_id = ? AND vendor_name = ?
+    `).get(salon_id, vendor_name);
+
+    if (approval && approval.status === "pending") {
+      db.prepare(`UPDATE salon_vendor_approvals SET proof_file = ? WHERE id = ?`)
+        .run(affiliate_url, approval.id);
+    } else if (!approval) {
+      db.prepare(`
+        INSERT OR IGNORE INTO salon_vendor_approvals
+          (id, salon_id, vendor_name, status, proof_file, requested_at)
+        VALUES (?, ?, ?, 'pending', ?, datetime('now'))
+      `).run(crypto.randomUUID(), salon_id, vendor_name, affiliate_url);
+    }
+  }
+
+  res.redirect("/manager/vendors?settings_saved=1");
+});
+
+// ── POST /renew-campaign ──────────────────────────────────────────────────────
+router.post("/renew-campaign", requireAuth, (req, res) => {
+  const salon_id = req.manager.salon_id;
+  const { campaign_id } = req.body;
+  if (!campaign_id) return res.redirect("/manager/vendors");
+
+  const campaign = db.prepare(`
+    SELECT id, campaign_name, vendor_name, expires_at FROM vendor_campaigns WHERE id = ?
+  `).get(campaign_id);
+  if (!campaign) return res.redirect("/manager/vendors");
+
+  // IDOR guard: salon must have approved+enabled access to this vendor
+  const feed = db.prepare(`
+    SELECT f.enabled FROM salon_vendor_feeds f
+    JOIN salon_vendor_approvals a ON a.salon_id = f.salon_id AND a.vendor_name = f.vendor_name
+    WHERE f.salon_id = ? AND f.vendor_name = ? AND a.status = 'approved' AND f.enabled = 1
+  `).get(salon_id, campaign.vendor_name);
+  if (!feed) return res.redirect("/manager/vendors");
+
+  // Gate: only if brand allows client renewal
+  const brand = db.prepare(`SELECT allow_client_renewal FROM vendor_brands WHERE vendor_name = ?`)
+    .get(campaign.vendor_name);
+  if (!brand || brand.allow_client_renewal === 0) return res.redirect("/manager/vendors");
+
+  const newExpiry = campaign.expires_at
+    ? db.prepare(`SELECT date(?, '+30 days') AS d`).get(campaign.expires_at).d
+    : db.prepare(`SELECT date('now', '+30 days') AS d`).get().d;
+
+  db.prepare(`UPDATE vendor_campaigns SET expires_at = ? WHERE id = ?`).run(newExpiry, campaign_id);
+
+  const thisMonth = new Date().toISOString().slice(0, 7);
+  db.prepare(`DELETE FROM vendor_post_log WHERE campaign_id = ? AND posted_month = ?`).run(campaign_id, thisMonth);
+
+  res.redirect(`/manager/vendors?renewed=${encodeURIComponent(campaign.campaign_name)}`);
 });
 
 export default router;
