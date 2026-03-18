@@ -796,11 +796,105 @@ router.get("/", requireSecret, requirePin, (req, res) => {
 
     <!-- Vendor Campaigns -->
     <div class="border rounded-2xl bg-white p-6">
-      <h2 class="font-bold mb-4">Vendor Campaigns
-        <span class="ml-2 text-sm font-normal text-gray-400">${totalCampaigns} total</span>
-      </h2>
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="font-bold">Vendor Campaigns
+          <span class="ml-2 text-sm font-normal text-gray-400">${totalCampaigns} total</span>
+        </h2>
+        <button type="button"
+                onclick="var f=document.getElementById('top-add-campaign-form'); f.style.display=f.style.display==='none'?'block':'none';"
+                class="text-xs bg-gray-900 text-white rounded-lg px-4 py-2 font-semibold hover:bg-gray-700">
+          + Add Campaign
+        </button>
+      </div>
+
+      <!-- Top-level Add Campaign form (always visible, works without existing vendors) -->
+      <div id="top-add-campaign-form" style="display:none;" class="mb-6 border rounded-xl bg-gray-50 p-4">
+        <p class="text-xs font-bold text-gray-700 mb-3">New Campaign</p>
+        <form method="POST" action="/internal/vendors/campaign/add${qs(req)}" class="space-y-3">
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="text-xs text-gray-500 block mb-1">Brand / Vendor Name *</label>
+              <input type="text" name="vendor_name" required placeholder="Aveda"
+                     class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white" />
+              <p class="text-[11px] text-gray-400 mt-0.5">Creates the brand automatically if it doesn't exist yet.</p>
+            </div>
+            <div>
+              <label class="text-xs text-gray-500 block mb-1">Campaign Name *</label>
+              <input type="text" name="campaign_name" required placeholder="Spring Color 2026"
+                     class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white" />
+            </div>
+            <div>
+              <label class="text-xs text-gray-500 block mb-1">Category *</label>
+              <select name="category" required class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white">
+                <option value="">-- Select --</option>
+                <option value="Standard">Standard</option>
+                <option value="Promotion">Promotion</option>
+                <option value="Color">Color</option>
+                <option value="Treatment">Treatment</option>
+                <option value="Styling">Styling</option>
+                <option value="Care">Care</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-xs text-gray-500 block mb-1">Product Name *</label>
+              <input type="text" name="product_name" required placeholder="Full Spectrum Color"
+                     class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white" />
+            </div>
+            <div>
+              <label class="text-xs text-gray-500 block mb-1">Product Hashtag (max 1)</label>
+              <input type="text" name="product_hashtag" placeholder="#FullSpectrum" maxlength="60"
+                     class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white" />
+            </div>
+            <div>
+              <label class="text-xs text-gray-500 block mb-1">Expires At (required for Promotion)</label>
+              <input type="date" name="expires_at"
+                     class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white" />
+            </div>
+            <div class="col-span-2">
+              <label class="text-xs text-gray-500 block mb-1">Product Description</label>
+              <textarea name="product_description" rows="2" placeholder="1-2 sentence description"
+                        class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white"></textarea>
+            </div>
+            <div>
+              <label class="text-xs text-gray-500 block mb-1">Photo URL</label>
+              <input type="text" name="photo_url" placeholder="https://..."
+                     class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white" />
+            </div>
+            <div>
+              <label class="text-xs text-gray-500 block mb-1">Tone Direction</label>
+              <input type="text" name="tone_direction" placeholder="professional and educational"
+                     class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white" />
+            </div>
+            <div>
+              <label class="text-xs text-gray-500 block mb-1">CTA Instructions</label>
+              <input type="text" name="cta_instructions" placeholder="Ask about our color menu"
+                     class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white" />
+            </div>
+            <div>
+              <label class="text-xs text-gray-500 block mb-1">Service Pairing Notes</label>
+              <input type="text" name="service_pairing_notes" placeholder="Pairs with balayage"
+                     class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white" />
+            </div>
+            <div>
+              <label class="text-xs text-gray-500 block mb-1">Frequency Cap (posts/month)</label>
+              <input type="number" name="frequency_cap" value="4" min="1" max="30"
+                     class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white" />
+            </div>
+          </div>
+          <div class="flex justify-end gap-2">
+            <button type="button"
+                    onclick="document.getElementById('top-add-campaign-form').style.display='none';"
+                    class="text-xs text-gray-500 px-3 py-1.5">Cancel</button>
+            <button type="submit"
+                    class="text-xs bg-gray-900 text-white rounded-lg px-4 py-1.5 font-semibold hover:bg-gray-700">
+              Add Campaign
+            </button>
+          </div>
+        </form>
+      </div>
+
       ${campaigns.length === 0
-        ? `<div class="text-center py-12 text-gray-400 text-sm">No campaigns loaded yet. Upload a CSV to get started.</div>`
+        ? `<div class="text-center py-8 text-gray-400 text-sm">No campaigns yet. Use the button above or upload a CSV.</div>`
         : vendorBlocks}
     </div>
 
