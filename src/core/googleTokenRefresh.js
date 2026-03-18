@@ -19,6 +19,10 @@ export async function refreshGmbToken(salon) {
     throw new Error(`[GMB] No refresh token for salon ${salon.slug}`);
   }
 
+  if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+    throw new Error("[GMB] Missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET env vars");
+  }
+
   const params = new URLSearchParams({
     client_id:     process.env.GOOGLE_CLIENT_ID,
     client_secret: process.env.GOOGLE_CLIENT_SECRET,
@@ -37,7 +41,7 @@ export async function refreshGmbToken(salon) {
     throw new Error(`[GMB] Token refresh failed: ${JSON.stringify(data)}`);
   }
 
-  const newExpiry = new Date(Date.now() + data.expires_in * 1000).toISOString();
+  const newExpiry = new Date(Date.now() + (data.expires_in || 3600) * 1000).toISOString();
 
   db.prepare(`
     UPDATE salons SET google_access_token = ?, google_token_expiry = ? WHERE slug = ?

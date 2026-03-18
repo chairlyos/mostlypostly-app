@@ -2,6 +2,11 @@
 import express from "express";
 import db from "../../db.js";
 
+function requireAuth(req, res, next) {
+  if (!req.session?.manager_id) return res.redirect("/manager/login");
+  next();
+}
+
 const router = express.Router();
 
 const SCOPES = [
@@ -110,7 +115,7 @@ router.get("/callback", async (req, res) => {
 
     // 5. Single location — save directly
     const location = locations[0];
-    await saveGmbCredentials({ salon_id, accessToken, refreshToken, expiry, location });
+    saveGmbCredentials({ salon_id, accessToken, refreshToken, expiry, location });
 
     res.redirect(`/manager/integrations?salon=${encodeURIComponent(salon_id)}&gmb=connected`);
   } catch (err) {
@@ -134,7 +139,7 @@ router.post("/select-location", async (req, res) => {
     );
     const location = await locResp.json();
 
-    await saveGmbCredentials({ salon_id, accessToken, refreshToken, expiry, location });
+    saveGmbCredentials({ salon_id, accessToken, refreshToken, expiry, location });
     delete req.session.gmb_pending;
 
     res.redirect(`/manager/integrations?salon=${encodeURIComponent(salon_id)}&gmb=connected`);
@@ -145,8 +150,8 @@ router.post("/select-location", async (req, res) => {
 });
 
 // ── POST /auth/google/disconnect ─────────────────────────────────────────────
-router.post("/disconnect", (req, res) => {
-  const salon_id = req.session?.salon_id || req.body?.salon_id;
+router.post("/disconnect", requireAuth, (req, res) => {
+  const salon_id = req.session.salon_id;
   if (!salon_id) return res.redirect("/manager/integrations");
 
   db.prepare(`
@@ -164,7 +169,7 @@ router.post("/disconnect", (req, res) => {
 });
 
 // ── Helper ────────────────────────────────────────────────────────────────────
-async function saveGmbCredentials({ salon_id, accessToken, refreshToken, expiry, location }) {
+function saveGmbCredentials({ salon_id, accessToken, refreshToken, expiry, location }) {
   db.prepare(`
     UPDATE salons SET
       google_location_id   = ?,
