@@ -6,6 +6,7 @@ import { createLogger } from "./utils/logHelper.js";
 import { rehostTwilioMedia } from "./utils/rehostTwilioMedia.js";
 import { publishToFacebook, publishToFacebookMulti } from "./publishers/facebook.js";
 import { publishToInstagram, publishToInstagramCarousel, publishStoryToInstagram } from "./publishers/instagram.js";
+import { publishWhatsNewToGmb, publishOfferToGmb } from "./publishers/googleBusiness.js";
 import { logEvent } from "./core/analyticsDb.js";
 import { runCelebrationCheck } from "./core/celebrationScheduler.js";
 
@@ -170,7 +171,10 @@ function getSalonPolicy(salonSlug) {
         content_priority, content_mix,
         facebook_page_id, facebook_page_token,
         instagram_business_id, instagram_handle,
-        booking_url, default_cta, default_hashtags, tone
+        booking_url, default_cta, default_hashtags, tone,
+        plan,
+        google_location_id, google_access_token, google_refresh_token,
+        google_business_name, google_token_expiry, gmb_enabled
       FROM salons
       WHERE slug = ?
     `)
@@ -473,6 +477,41 @@ export async function runSchedulerOnce() {
           }
 
           console.log(`✅ [${post.id}] Published (fb today: ${fbPostedToday}/${fbDailyCap}, ig today: ${igPostedToday}/${igDailyCap})`);
+
+          // --- GMB publish (independent — does not block FB/IG) ---
+          const gmbEligible = ["growth", "pro"].includes(salon.plan)
+            && salon.gmb_enabled
+            && salon.google_location_id
+            && salon.google_refresh_token
+            && postType !== "availability";
+
+          if (gmbEligible) {
+            try {
+              const caption   = post.final_caption;
+              const image     = allImages[0] || post.image_url;
+              const todayIso  = new Date().toISOString().split("T")[0];
+              const isOffer   = ["promotions", "vendor_post"].includes(postType);
+              let gmbResp;
+
+              if (isOffer) {
+                gmbResp = await publishOfferToGmb(salon, caption, image, {
+                  title:     post.product_name || salon.name,
+                  startDate: todayIso,
+                  endDate:   post.promotion_expires_at,
+                });
+              } else {
+                gmbResp = await publishWhatsNewToGmb(salon, caption, image);
+              }
+
+              if (gmbResp?.id) {
+                db.prepare("UPDATE posts SET google_post_id = ? WHERE id = ?")
+                  .run(gmbResp.id, post.id);
+                console.log(`✅ [${post.id}] GMB published: ${gmbResp.id}`);
+              }
+            } catch (gmbErr) {
+              console.error(`⚠️ [${post.id}] GMB publish failed (FB/IG unaffected):`, gmbErr.message);
+            }
+          }
 
         } catch (err) {
           console.error(`❌ [${post.id}] Failed:`, err.message);
