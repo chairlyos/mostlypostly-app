@@ -26,6 +26,7 @@ export async function sendWelcomeSms(stylist, salonName) {
       `Hi ${name}! ${salonName} has added you to MostlyPostly — your AI social media assistant.\n\n` +
       `Text a photo and we'll create a professional Instagram & Facebook caption automatically.\n\n` +
       `🎬 See how it works: ${WATCH_URL}\n\n` +
+      `💡 Tip: Text COLLAB to have your work show up on your personal Instagram too.\n\n` +
       `Tap Agree below or reply AGREE to get started. Reply STOP to opt out. Msg & data rates may apply.`,
       ["reply:AGREE"]
     );
@@ -35,6 +36,7 @@ export async function sendWelcomeSms(stylist, salonName) {
       `👋 Hi ${name}! You're set up on MostlyPostly for ${salonName}.\n\n` +
       `🎬 Get started: ${WATCH_URL}\n\n` +
       `Text MENU anytime to see everything you can do.\n\n` +
+      `💡 Text COLLAB to have your work show up on your personal Instagram too.\n\n` +
       `📸 Tip: Always send camera photos, not screenshots — they process fastest!`
     );
   }
