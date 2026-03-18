@@ -316,7 +316,7 @@ router.get("/", requireAuth, (req, res) => {
 
     <!-- ── Facebook & Instagram ─────────────────────────────── -->
     <div class="border border-mpBorder rounded-2xl bg-white overflow-hidden mb-4">
-      <button class="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-mpBg transition-colors" onclick="toggleCard('fb')">
+      <button id="toggle-btn-fb" type="button" class="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-mpBg transition-colors cursor-pointer">
         <div class="flex items-center gap-3">
           ${statusDot(fbConnected)}
           <span class="font-semibold text-mpCharcoal">Facebook &amp; Instagram</span>
@@ -326,7 +326,7 @@ router.get("/", requireAuth, (req, res) => {
           ${chevron('fb')}
         </div>
       </button>
-      <div id="card-fb" class="${fbConnected ? 'block' : 'hidden'} border-t border-gray-100 px-6 py-5">
+      <div id="card-fb" data-open="${fbConnected}" class="border-t border-gray-100 px-6 py-5">
         ${fbConnected ? `
         <div class="mb-4 rounded-xl bg-mpBg border border-mpBorder p-3 text-xs space-y-1.5">
           <div class="flex justify-between">
@@ -371,7 +371,7 @@ router.get("/", requireAuth, (req, res) => {
 
     <!-- ── Google Business Profile ──────────────────────────── -->
     <div class="border border-mpBorder rounded-2xl bg-white overflow-hidden mb-4">
-      <button class="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-mpBg transition-colors" onclick="toggleCard('gmb')">
+      <button id="toggle-btn-gmb" type="button" class="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-mpBg transition-colors cursor-pointer">
         <div class="flex items-center gap-3">
           ${statusDot(gmbConnected)}
           <span class="font-semibold text-mpCharcoal">Google Business Profile</span>
@@ -381,14 +381,14 @@ router.get("/", requireAuth, (req, res) => {
           ${chevron('gmb')}
         </div>
       </button>
-      <div id="card-gmb" class="${gmbConnected ? 'block' : 'hidden'} border-t border-gray-100 px-6 py-5">
+      <div id="card-gmb" data-open="${gmbConnected}" class="border-t border-gray-100 px-6 py-5">
         ${gmbCardBody}
       </div>
     </div>
 
     <!-- ── Zenoti ───────────────────────────────────────────── -->
     <div class="border border-mpBorder rounded-2xl bg-white overflow-hidden mb-4">
-      <button class="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-mpBg transition-colors" onclick="toggleCard('zenoti')">
+      <button id="toggle-btn-zenoti" type="button" class="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-mpBg transition-colors cursor-pointer">
         <div class="flex items-center gap-3">
           ${statusDot(zenotiConnected)}
           <span class="font-semibold text-mpCharcoal">Zenoti</span>
@@ -398,7 +398,7 @@ router.get("/", requireAuth, (req, res) => {
           ${chevron('zenoti')}
         </div>
       </button>
-      <div id="card-zenoti" class="${zenotiConnected ? 'block' : 'hidden'} border-t border-gray-100 px-6 py-5">
+      <div id="card-zenoti" data-open="${zenotiConnected}" class="border-t border-gray-100 px-6 py-5">
         ${zenotiCardBody}
       </div>
     </div>
@@ -428,21 +428,23 @@ router.get("/", requireAuth, (req, res) => {
     </div>
 
     <script>
-      function toggleCard(id) {
-        const card = document.getElementById('card-' + id);
-        const chevron = document.getElementById('chevron-' + id);
-        const hidden = card.classList.contains('hidden');
-        card.classList.toggle('hidden', !hidden);
-        chevron.style.transform = hidden ? 'rotate(180deg)' : '';
-      }
-      // Set initial chevron state for open cards
       document.addEventListener('DOMContentLoaded', function() {
         ['fb', 'gmb', 'zenoti'].forEach(function(id) {
-          const card = document.getElementById('card-' + id);
-          const chevron = document.getElementById('chevron-' + id);
-          if (card && chevron && !card.classList.contains('hidden')) {
-            chevron.style.transform = 'rotate(180deg)';
-          }
+          var btn    = document.getElementById('toggle-btn-' + id);
+          var card   = document.getElementById('card-' + id);
+          var chevron = document.getElementById('chevron-' + id);
+          if (!btn || !card) return;
+
+          // Set initial state: open cards get rotated chevron; closed cards hidden
+          var isOpen = card.dataset.open === 'true';
+          card.style.display = isOpen ? 'block' : 'none';
+          if (chevron) chevron.style.transform = isOpen ? 'rotate(180deg)' : '';
+
+          btn.addEventListener('click', function() {
+            var open = card.style.display !== 'none';
+            card.style.display = open ? 'none' : 'block';
+            if (chevron) chevron.style.transform = open ? '' : 'rotate(180deg)';
+          });
         });
       });
     </script>
