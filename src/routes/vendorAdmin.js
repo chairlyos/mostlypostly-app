@@ -495,17 +495,6 @@ router.get("/", requireSecret, requirePin, (req, res) => {
     .stat-val  { font-size:28px; font-weight:800; color:#111827; line-height:1; }
     .stat-lbl  { font-size:12px; color:#6b7280; margin-top:4px; }
   </style>
-  <script>
-    function toggleTopAddForm() {
-      var f = document.getElementById('top-add-campaign-form');
-      if (!f) return;
-      f.hidden = !f.hidden;
-    }
-    function hideTopAddForm() {
-      var f = document.getElementById('top-add-campaign-form');
-      if (f) f.hidden = true;
-    }
-  </script>
 </head>
 <body class="bg-gray-50 text-gray-900 min-h-screen">
 
@@ -821,15 +810,14 @@ router.get("/", requireSecret, requirePin, (req, res) => {
         <h2 class="font-bold">Vendor Campaigns
           <span class="ml-2 text-sm font-normal text-gray-400">${totalCampaigns} total</span>
         </h2>
-        <button type="button"
-                onclick="toggleTopAddForm()"
+        <button type="button" id="btn-add-campaign"
                 class="text-xs bg-gray-900 text-white rounded-lg px-4 py-2 font-semibold hover:bg-gray-700">
           + Add Campaign
         </button>
       </div>
 
       <!-- Top-level Add Campaign form (always visible, works without existing vendors) -->
-      <div id="top-add-campaign-form" hidden class="mb-6 border rounded-xl bg-gray-50 p-4">
+      <div id="top-add-campaign-form" style="display:none" class="mb-6 border rounded-xl bg-gray-50 p-4">
         <p class="text-xs font-bold text-gray-700 mb-3">New Campaign</p>
         <form method="POST" action="/internal/vendors/campaign/add${qs(req)}" class="space-y-3">
           <div class="grid grid-cols-2 gap-3">
@@ -903,8 +891,7 @@ router.get("/", requireSecret, requirePin, (req, res) => {
             </div>
           </div>
           <div class="flex justify-end gap-2">
-            <button type="button"
-                    onclick="hideTopAddForm()"
+            <button type="button" id="btn-cancel-add-campaign"
                     class="text-xs text-gray-500 px-3 py-1.5">Cancel</button>
             <button type="submit"
                     class="text-xs bg-gray-900 text-white rounded-lg px-4 py-1.5 font-semibold hover:bg-gray-700">
@@ -920,6 +907,25 @@ router.get("/", requireSecret, requirePin, (req, res) => {
     </div>
 
   </div>
+
+<script>
+(function() {
+  var form = document.getElementById('top-add-campaign-form');
+  var btnOpen = document.getElementById('btn-add-campaign');
+  var btnCancel = document.getElementById('btn-cancel-add-campaign');
+  if (btnOpen && form) {
+    btnOpen.addEventListener('click', function() {
+      form.style.display = form.style.display === 'none' ? 'block' : 'none';
+    });
+  }
+  if (btnCancel && form) {
+    btnCancel.addEventListener('click', function() {
+      form.style.display = 'none';
+    });
+  }
+})();
+</script>
+
 </body></html>`;
 
   res.send(html);
