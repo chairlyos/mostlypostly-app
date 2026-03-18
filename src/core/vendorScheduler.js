@@ -18,25 +18,55 @@ const log = {
   warn:  (...a) => console.warn(tag, ...a),
 };
 
+// ─── Exported helpers (testable pure functions) ──────────────────────────────
+
+export function normalizeHashtag(raw) {
+  if (!raw) return "";
+  const t = String(raw).trim();
+  if (!t) return "";
+  return t.startsWith("#") ? t : `#${t}`;
+}
+
+/**
+ * Build the locked hashtag block for vendor posts.
+ * Order: first 3 salon defaults + up to 2 brand hashtags + up to 1 product hashtag + #MostlyPostly
+ * Deduplicates case-insensitively. Appended AFTER AI caption — never passed to AI.
+ */
+export function buildVendorHashtagBlock({ salonHashtags, brandHashtags, productHashtag }) {
+  const BRAND_TAG = "#MostlyPostly";
+  const seen = new Set();
+  const out = [];
+
+  const add = (tag) => {
+    const t = normalizeHashtag(tag);
+    if (!t) return;
+    const key = t.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push(t);
+  };
+
+  (salonHashtags || []).slice(0, 3).forEach(add);
+  (brandHashtags || []).slice(0, 2).forEach(add);
+  if (productHashtag) add(productHashtag);
+  add(BRAND_TAG);
+
+  return out.join(" ");
+}
+
 // =====================================================
 // OpenAI caption generation for vendor posts
 // =====================================================
 
-async function generateVendorCaption({ campaign, salon }) {
+async function generateVendorCaption({ campaign, salon, affiliateUrl }) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     log.warn("Missing OPENAI_API_KEY — skipping vendor caption generation");
     return null;
   }
 
-  const salonName  = salon.name || "the salon";
-  const tone       = salon.tone || "friendly and professional";
-  const hashtags   = (() => {
-    try { return JSON.parse(campaign.hashtags || "[]"); } catch { return []; }
-  })();
-  const salonHashtags = (() => {
-    try { return JSON.parse(salon.default_hashtags || "[]"); } catch { return []; }
-  })();
+  const salonName = salon.name || "the salon";
+  const tone      = salon.tone || "friendly and professional";
 
   const systemPrompt = `You are a social media expert writing Instagram and Facebook posts for a hair salon.
 Write a single post caption that:
@@ -44,9 +74,9 @@ Write a single post caption that:
 - Matches the salon's tone: "${tone}"
 - Promotes the product/service naturally without sounding like an ad
 - Is 2-4 sentences max
-- Includes 3-5 relevant hashtags at the end (combine campaign and salon hashtags)
 - Does NOT mention specific prices
-- Ends with a subtle CTA if CTA instructions are provided`;
+- Ends with a subtle CTA if CTA instructions are provided
+- Does NOT include any hashtags`;
 
   const userPrompt = `Write a social media caption for the following vendor product/campaign:
 
@@ -57,9 +87,7 @@ Description: ${campaign.product_description || ""}
 ${campaign.tone_direction ? `Brand tone direction: ${campaign.tone_direction}` : ""}
 ${campaign.cta_instructions ? `CTA instructions: ${campaign.cta_instructions}` : ""}
 ${campaign.service_pairing_notes ? `Service pairing notes: ${campaign.service_pairing_notes}` : ""}
-
-Campaign hashtags: ${hashtags.join(", ") || "none"}
-Salon hashtags: ${salonHashtags.join(", ") || "none"}
+${affiliateUrl ? `Include this partner link in the post: ${affiliateUrl}` : ""}
 
 Remember: this is for ${salonName} — write in their voice (${tone}), not the brand's voice.`;
 
@@ -135,30 +163,42 @@ async function processSalon(salon, thisMonth) {
 
   // 2. Get enabled vendor feeds for this salon that are also approved
   const enabledVendors = db.prepare(`
-    SELECT f.vendor_name
+    SELECT f.vendor_name, f.affiliate_url, f.category_filters
     FROM salon_vendor_feeds f
     JOIN salon_vendor_approvals a ON a.salon_id = f.salon_id AND a.vendor_name = f.vendor_name
     WHERE f.salon_id = ?
       AND f.enabled = 1
       AND a.status = 'approved'
-  `).all(salonId).map(r => r.vendor_name);
+  `).all(salonId);
 
   if (enabledVendors.length === 0) return 0;
 
-  // 3. For each enabled vendor, get active non-expired campaigns
-  for (const vendorName of enabledVendors) {
-    const campaigns = db.prepare(`
-      SELECT *
-      FROM vendor_campaigns
+  // 3. For each enabled vendor, get active non-expired campaigns (with optional category filter)
+  for (const vendor of enabledVendors) {
+    const vendorName      = vendor.vendor_name;
+    const affiliateUrl    = vendor.affiliate_url || null;
+    const categoryFilters = (() => {
+      try { return JSON.parse(vendor.category_filters || "[]"); } catch { return []; }
+    })();
+
+    let campaignSql = `
+      SELECT * FROM vendor_campaigns
       WHERE vendor_name = ?
         AND active = 1
         AND (expires_at IS NULL OR expires_at >= date('now'))
-      ORDER BY created_at ASC
-    `).all(vendorName);
+    `;
+    const queryParams = [vendorName];
+    if (categoryFilters.length > 0) {
+      campaignSql += ` AND category IN (${categoryFilters.map(() => "?").join(",")})`;
+      queryParams.push(...categoryFilters);
+    }
+    campaignSql += " ORDER BY created_at ASC";
+
+    const campaigns = db.prepare(campaignSql).all(...queryParams);
 
     for (const campaign of campaigns) {
       try {
-        const didCreate = await processCampaign(campaign, salon, thisMonth);
+        const didCreate = await processCampaign(campaign, salon, thisMonth, affiliateUrl);
         if (didCreate) created++;
       } catch (err) {
         log.warn(`Error processing campaign ${campaign.id} for salon ${salonId}: ${err.message}`);
@@ -169,7 +209,7 @@ async function processSalon(salon, thisMonth) {
   return created;
 }
 
-async function processCampaign(campaign, salon, thisMonth) {
+async function processCampaign(campaign, salon, thisMonth, affiliateUrl) {
   const salonId = salon.slug;
 
   // 4. Check monthly post count against frequency_cap
@@ -203,12 +243,29 @@ async function processCampaign(campaign, salon, thisMonth) {
 
   // 6. Generate AI caption adapted to salon's tone
   log.info(`  Generating caption for salon ${salonId} / campaign "${campaign.campaign_name}"`);
-  const caption = await generateVendorCaption({ campaign, salon });
+  const caption = await generateVendorCaption({ campaign, salon, affiliateUrl });
 
   if (!caption) {
     log.warn(`  Skipping campaign ${campaign.id} — caption generation failed`);
     return false;
   }
+
+  // Build locked hashtag block — appended AFTER AI caption, never passed to AI
+  const brandCfg = db.prepare(
+    `SELECT brand_hashtags FROM vendor_brands WHERE vendor_name = ?`
+  ).get(campaign.vendor_name);
+  const brandHashtags = (() => {
+    try { return JSON.parse(brandCfg?.brand_hashtags || "[]"); } catch { return []; }
+  })();
+  const salonDefaultTags = (() => {
+    try { return JSON.parse(salon.default_hashtags || "[]"); } catch { return []; }
+  })();
+  const lockedBlock = buildVendorHashtagBlock({
+    salonHashtags: salonDefaultTags,
+    brandHashtags,
+    productHashtag: campaign.product_hashtag || null,
+  });
+  const finalCaption = caption + (lockedBlock ? `\n\n${lockedBlock}` : "");
 
   // 7. Compute next salon post number
   const { maxnum } = db.prepare(
@@ -240,8 +297,8 @@ async function processCampaign(campaign, salon, thisMonth) {
     salon_id:            salonId,
     stylist_name:        `${campaign.vendor_name} (Campaign)`,
     image_url:           campaign.photo_url || null,
-    base_caption:        caption,
-    final_caption:       caption,
+    base_caption:        caption,        // AI text only, no hashtags
+    final_caption:       finalCaption,   // AI text + locked hashtag block
     post_type:           "standard_post",
     status,
     vendor_campaign_id:  campaign.id,
