@@ -16,7 +16,11 @@ function requireAuth(req, res, next) {
 }
 
 function safe(s) {
-  return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 function parseHashtags(raw) {
@@ -201,7 +205,9 @@ router.get("/", requireAuth, (req, res) => {
           <!-- Campaign previews — approved only -->
           ${isApproved && nonExpired.length > 0 ? `
           <div class="border-t border-mpBorder px-5 py-4">
-            <button type="button" onclick="togglePreview('${safe(vendorName.replace(/\s+/g, "_"))}')"
+            <button type="button"
+                    data-vkey="${safe(vendorName.replace(/\s+/g, "_"))}"
+                    onclick="togglePreview(this.dataset.vkey)"
                     class="text-xs font-semibold text-mpMuted hover:text-mpCharcoal flex items-center gap-1 mb-3">
               <span id="arrow_${safe(vendorName.replace(/\s+/g, "_"))}">▶</span>
               Preview content
@@ -246,7 +252,8 @@ router.get("/", requireAuth, (req, res) => {
           ${isApproved ? `
           <div class="border-t border-mpBorder px-5 py-4">
             <button type="button"
-                    onclick="var p=document.getElementById('sp-${vKey}'); var a=document.getElementById('sa-${vKey}'); var open=p.style.display!=='none'; p.style.display=open?'none':'block'; a.textContent=open?'\u25B6':'\u25BC';"
+                    data-vkey="${vKey}"
+                    onclick="toggleSettings(this.dataset.vkey)"
                     class="text-xs font-semibold text-mpMuted hover:text-mpCharcoal flex items-center gap-1.5 mb-0">
               <span id="sa-${vKey}">&#9658;</span> Settings
             </button>
@@ -327,6 +334,14 @@ router.get("/", requireAuth, (req, res) => {
         const hidden = el.classList.toggle('hidden');
         if (arrow) arrow.textContent = hidden ? '▶' : '▼';
       }
+      function toggleSettings(vKey) {
+        var p = document.getElementById('sp-' + vKey);
+        var a = document.getElementById('sa-' + vKey);
+        if (!p || !a) return;
+        var open = p.style.display !== 'none';
+        p.style.display = open ? 'none' : 'block';
+        a.textContent = open ? '\u25B6' : '\u25BC';
+      }
     </script>
   `;
 
@@ -380,36 +395,33 @@ router.post("/settings", requireAuth, (req, res) => {
   const { vendor_name, affiliate_url } = req.body;
   if (!vendor_name) return res.redirect("/manager/vendors");
 
+  // Must be approved or pending for this vendor to save settings
+  const approval = db.prepare(
+    "SELECT id, status FROM salon_vendor_approvals WHERE salon_id = ? AND vendor_name = ?"
+  ).get(salon_id, vendor_name);
+  if (!approval || (approval.status !== "approved" && approval.status !== "pending")) {
+    return res.redirect("/manager/vendors");
+  }
+
   const categoryFilters = Array.isArray(req.body["category_filters[]"])
     ? req.body["category_filters[]"]
     : req.body["category_filters[]"]
     ? [req.body["category_filters[]"]]
     : [];
 
+  // Upsert so settings are saved even if no feed row exists yet
   db.prepare(`
-    UPDATE salon_vendor_feeds
-    SET affiliate_url = ?, category_filters = ?
-    WHERE salon_id = ? AND vendor_name = ?
-  `).run(affiliate_url || null, JSON.stringify(categoryFilters), salon_id, vendor_name);
+    INSERT INTO salon_vendor_feeds (id, salon_id, vendor_name, enabled, affiliate_url, category_filters)
+    VALUES (?, ?, ?, 0, ?, ?)
+    ON CONFLICT(salon_id, vendor_name) DO UPDATE
+      SET affiliate_url = excluded.affiliate_url,
+          category_filters = excluded.category_filters
+  `).run(crypto.randomUUID(), salon_id, vendor_name, affiliate_url || null, JSON.stringify(categoryFilters));
 
-  // If affiliate_url provided: update proof_file on existing pending approval
-  // or create a pending approval request if none exists
-  if (affiliate_url) {
-    const approval = db.prepare(`
-      SELECT id, status FROM salon_vendor_approvals
-      WHERE salon_id = ? AND vendor_name = ?
-    `).get(salon_id, vendor_name);
-
-    if (approval && approval.status === "pending") {
-      db.prepare(`UPDATE salon_vendor_approvals SET proof_file = ? WHERE id = ?`)
-        .run(affiliate_url, approval.id);
-    } else if (!approval) {
-      db.prepare(`
-        INSERT OR IGNORE INTO salon_vendor_approvals
-          (id, salon_id, vendor_name, status, proof_file, requested_at)
-        VALUES (?, ?, ?, 'pending', ?, datetime('now'))
-      `).run(crypto.randomUUID(), salon_id, vendor_name, affiliate_url);
-    }
+  // If affiliate_url provided and approval is still pending: update proof_file
+  if (affiliate_url && approval.status === "pending") {
+    db.prepare(`UPDATE salon_vendor_approvals SET proof_file = ? WHERE id = ?`)
+      .run(affiliate_url, approval.id);
   }
 
   res.redirect("/manager/vendors?settings_saved=1");
