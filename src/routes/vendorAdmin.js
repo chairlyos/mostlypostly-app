@@ -1249,10 +1249,11 @@ router.post("/campaign/add", requireSecret, requirePin, vendorCampaignUpload, (r
   const rawTag = (req.body.product_hashtag || "").trim();
   const product_hashtag = rawTag ? (rawTag.startsWith("#") ? rawTag : `#${rawTag}`) : null;
 
-  // Uploaded file takes priority over URL
+  // Uploaded file takes priority over URL; build fully-qualified public URL
+  const PUBLIC_BASE = (process.env.PUBLIC_BASE_URL || "").replace(/\/$/, "");
   let finalPhotoUrl = photo_url || null;
   if (req.file) {
-    finalPhotoUrl = `/uploads/vendor-photos/${req.file.filename}`;
+    finalPhotoUrl = `${PUBLIC_BASE}/uploads/vendor-photos/${req.file.filename}`;
   }
 
   db.prepare(`INSERT OR IGNORE INTO vendor_brands (vendor_name) VALUES (?)`).run(vendor_name);
@@ -1289,10 +1290,15 @@ router.post("/campaign/edit", requireSecret, requirePin, vendorCampaignUpload, (
   const rawTag = (req.body.product_hashtag || "").trim();
   const product_hashtag = rawTag ? (rawTag.startsWith("#") ? rawTag : `#${rawTag}`) : null;
 
-  // Uploaded file takes priority over URL
+  // Uploaded file takes priority over URL; build fully-qualified public URL.
+  // If neither provided, preserve the existing photo_url from the DB.
+  const PUBLIC_BASE_EDIT = (process.env.PUBLIC_BASE_URL || "").replace(/\/$/, "");
   let finalPhotoUrl = photo_url || null;
   if (req.file) {
-    finalPhotoUrl = `/uploads/vendor-photos/${req.file.filename}`;
+    finalPhotoUrl = `${PUBLIC_BASE_EDIT}/uploads/vendor-photos/${req.file.filename}`;
+  } else if (!finalPhotoUrl) {
+    const existing = db.prepare(`SELECT photo_url FROM vendor_campaigns WHERE id = ?`).get(campaign_id);
+    finalPhotoUrl = existing?.photo_url || null;
   }
 
   db.prepare(`
