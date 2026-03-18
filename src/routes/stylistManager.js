@@ -543,7 +543,7 @@ router.post("/edit/:id", requireAuth, photoUpload.single("photo"), (req, res) =>
   const salon_id = req.manager.salon_id;
   const { first_name, last_name, phone, instagram_handle, tone_variant,
           birthday_mmdd, hire_date, bio, profile_url, celebrations_enabled,
-          auto_approve } = req.body;
+          auto_approve, ig_collab } = req.body;
 
   const specialtiesRaw = req.body.specialties || "";
   const specialties = JSON.stringify(
@@ -563,7 +563,8 @@ router.post("/edit/:id", requireAuth, photoUpload.single("photo"), (req, res) =>
       instagram_handle = ?, tone_variant = ?,
       birthday_mmdd = ?, hire_date = ?,
       specialties = ?, bio = ?, profile_url = ?,
-      photo_url = ?, celebrations_enabled = ?, auto_approve = ?
+      photo_url = ?, celebrations_enabled = ?, auto_approve = ?,
+      ig_collab = ?
     WHERE id = ? AND salon_id = ?
   `).run(
     name, first_name || null, last_name || null, normalizePhone(phone),
@@ -572,6 +573,7 @@ router.post("/edit/:id", requireAuth, photoUpload.single("photo"), (req, res) =>
     specialties, bio || null, profile_url || null,
     photo_url, celebrations_enabled === "1" ? 1 : 0,
     auto_approve === "1" ? 1 : 0,
+    ig_collab === "1" && !!(instagram_handle || null) ? 1 : 0,
     req.params.id, salon_id,
   );
 
@@ -1041,6 +1043,24 @@ function buildStylistForm({ salon_id, salonTone, stylist, isEdit }) {
                  ${s.auto_approve ? "checked" : ""}
                  class="h-4 w-4 rounded border-mpBorder text-mpAccent" />
           <label for="auto_approve_check" class="text-xs text-mpMuted">Auto-approve — posts go straight to queue when stylist approves (no manager review)</label>
+        </div>
+
+        <!-- IG Collaborator -->
+        <div class="flex items-start gap-2">
+          <input type="checkbox" name="ig_collab" value="1" id="ig_collab_check"
+                 ${s.ig_collab ? "checked" : ""}
+                 ${!s.instagram_handle ? "disabled" : ""}
+                 class="mt-0.5 h-4 w-4 rounded border-mpBorder text-mpAccent ${!s.instagram_handle ? "opacity-40 cursor-not-allowed" : ""}" />
+          <div>
+            <label for="ig_collab_check" class="text-xs ${!s.instagram_handle ? "text-mpBorder cursor-not-allowed" : "text-mpMuted"}">
+              Tag as Instagram Collaborator
+            </label>
+            <p class="text-[11px] text-mpMuted mt-0.5">
+              ${!s.instagram_handle
+                ? "Set an Instagram handle first to enable collaborator tagging."
+                : "Posts published to Instagram will invite this stylist as a collaborator. They'll receive an in-app notification to accept."}
+            </p>
+          </div>
         </div>
 
         <!-- Submit -->
