@@ -182,6 +182,39 @@ router.get("/", (req, res) => {
       AND p.published_at >= date('now', 'start of month')
   `).get(salon_id) : null;
 
+  // Link Performance / UTM click ROI
+  const period = req.query.period || 'month';
+  let dateFilter = '';
+  if (period === 'month') {
+    dateFilter = `AND strftime('%Y-%m', clicked_at) = strftime('%Y-%m', 'now')`;
+  } else if (period === 'last_month') {
+    dateFilter = `AND strftime('%Y-%m', clicked_at) = strftime('%Y-%m', date('now', '-1 month'))`;
+  }
+  // 'all' = no filter
+
+  const utmClicks = db.prepare(`
+    SELECT click_type, COUNT(*) AS cnt
+    FROM utm_clicks
+    WHERE salon_id = ? AND clicked_at IS NOT NULL ${dateFilter}
+    GROUP BY click_type
+  `).all(salon_id);
+
+  const clickMap = {};
+  for (const r of utmClicks) clickMap[r.click_type] = r.cnt;
+  const bookingClicks = clickMap.booking || 0;
+  const vendorClicks  = clickMap.vendor  || 0;
+  const bioClicks     = clickMap.bio     || 0;
+
+  const salon = db.prepare(`SELECT avg_ticket_value FROM salons WHERE slug=?`).get(salon_id);
+  const ticketValue  = salon?.avg_ticket_value || 95;
+  const productValue = 45;
+  const bookingRoi   = bookingClicks * ticketValue;
+  const vendorRoi    = vendorClicks  * productValue;
+  const bioRoi       = bioClicks     * ticketValue;
+  const totalRoi     = bookingRoi + vendorRoi + bioRoi;
+
+  const hasAnyClicks = db.prepare(`SELECT 1 FROM utm_clicks WHERE salon_id = ? LIMIT 1`).get(salon_id);
+
   // ── HTML ──────────────────────────────────────────────────────────
 
   const resultBanner = msgParam ? `
@@ -406,6 +439,47 @@ router.get("/", (req, res) => {
     ${topPostsHtml}
     ${byTypeHtml}
     ${recentTable}
+    <div class="bg-white rounded-xl border border-gray-200 p-6 mt-6">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-semibold text-gray-800">Link Performance</h2>
+        <form method="GET" action="/analytics" style="display:inline">
+          <select name="period" onchange="this.form.submit()" class="text-sm border border-gray-200 rounded px-2 py-1 bg-white">
+            <option value="month" ${period === 'month' ? 'selected' : ''}>This month</option>
+            <option value="last_month" ${period === 'last_month' ? 'selected' : ''}>Last month</option>
+            <option value="all" ${period === 'all' ? 'selected' : ''}>All time</option>
+          </select>
+        </form>
+      </div>
+      ${!hasAnyClicks && ticketValue === 95 ? `
+      <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4 text-sm text-yellow-800">
+        Set your <a href="/manager/admin" class="underline font-medium">avg ticket value</a> in Business Info to personalize ROI estimates.
+      </div>` : ''}
+      <table class="w-full text-sm">
+        <tbody>
+          <tr class="border-b border-gray-100">
+            <td class="py-2 text-gray-600">Booking links</td>
+            <td class="py-2 text-right font-medium">${bookingClicks} click${bookingClicks !== 1 ? 's' : ''}</td>
+            <td class="py-2 text-right text-green-700 font-medium">Est. $${bookingRoi.toLocaleString()}</td>
+          </tr>
+          <tr class="border-b border-gray-100">
+            <td class="py-2 text-gray-600">Vendor links</td>
+            <td class="py-2 text-right font-medium">${vendorClicks} click${vendorClicks !== 1 ? 's' : ''}</td>
+            <td class="py-2 text-right text-green-700 font-medium">Est. $${vendorRoi.toLocaleString()}</td>
+          </tr>
+          ${bioClicks > 0 ? `
+          <tr class="border-b border-gray-100">
+            <td class="py-2 text-gray-600">Instagram bio</td>
+            <td class="py-2 text-right font-medium">${bioClicks} click${bioClicks !== 1 ? 's' : ''}</td>
+            <td class="py-2 text-right text-green-700 font-medium">Est. $${bioRoi.toLocaleString()}</td>
+          </tr>` : ''}
+          <tr>
+            <td class="pt-3 font-semibold text-gray-800">Total est. ROI via MostlyPostly</td>
+            <td></td>
+            <td class="pt-3 text-right font-semibold text-green-700">$${totalRoi.toLocaleString()}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   `;
 
   res.send(pageShell({ title: "Analytics", body, salon_id }));
