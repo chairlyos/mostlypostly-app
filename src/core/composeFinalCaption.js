@@ -60,6 +60,7 @@ export function composeFinalCaption({
   postId = null,
   postType = null,
   stylistSlug = null,
+  noBookingCta = false,
   }) {
   const parts = [];
 
@@ -140,8 +141,8 @@ export function composeFinalCaption({
     //    (we control this ourselves below)
     captionOut = captionOut.replace(/book via link in bio\.?/gi, "").trim();
 
-    // 4) Ensure correct CTA (only when a booking URL exists)
-    if (booking && !captionOut.includes("Book via link in bio.")) {
+    // 4) Ensure correct CTA (only when a booking URL exists and not suppressed)
+    if (booking && !noBookingCta && !captionOut.includes("Book via link in bio.")) {
       captionOut += `\n\nBook via link in bio.`;
     }
 

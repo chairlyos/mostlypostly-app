@@ -454,9 +454,6 @@ export async function runSchedulerOnce() {
               .replace(/https?:\/\/\S+/gi, '')
               .replace(/\n{3,}/g, '\n\n')
               .trim();
-            if (post.final_caption.includes('Shop today:')) {
-              igCaption += '\n\nShop, link in bio.';
-            }
           }
 
           const isMulti = allImages.length > 1;
