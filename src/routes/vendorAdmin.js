@@ -62,7 +62,6 @@ const CSV_HEADERS = [
   "product_description",
   "photo_url",
   "hashtags",
-  "tone_direction",
   "cta_instructions",
   "service_pairing_notes",
   "expires_at",
@@ -76,11 +75,10 @@ const CSV_EXAMPLE = [
   "Long-lasting professional color that protects the integrity of every strand.",
   "https://aveda.com/images/full-spectrum.jpg",
   "#AvedaColor,#FullSpectrum,#SalonExclusive",
-  "professional and educational",
   "Ask your stylist about our full Aveda color menu.",
   "Pairs beautifully with balayage, highlights, and full color services.",
   "2026-09-30",
-  "4",
+  "3",
 ];
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
@@ -451,11 +449,6 @@ router.get("/", requireSecret, requirePin, (req, res) => {
               <p class="text-[11px] text-gray-400 mt-0.5">Provide a URL or upload an image file. Uploaded file takes priority.</p>
             </div>
             <div>
-              <label class="text-xs text-gray-500 block mb-1">Tone Direction</label>
-              <input type="text" name="tone_direction" placeholder="professional and educational"
-                     class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white" />
-            </div>
-            <div>
               <label class="text-xs text-gray-500 block mb-1">CTA Instructions</label>
               <input type="text" name="cta_instructions" placeholder="Ask about our color menu"
                      class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white" />
@@ -472,7 +465,7 @@ router.get("/", requireSecret, requirePin, (req, res) => {
             </div>
             <div>
               <label class="text-xs text-gray-500 block mb-1">Frequency Cap (posts/month)</label>
-              <input type="number" name="frequency_cap" value="4" min="1" max="30"
+              <input type="number" name="frequency_cap" value="3" min="1" max="6"
                      class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white" />
             </div>
           </div>
@@ -1027,11 +1020,6 @@ router.get("/", requireSecret, requirePin, (req, res) => {
               <p class="text-[11px] text-gray-400 mt-0.5">Provide a URL or upload an image file. Uploaded file takes priority.</p>
             </div>
             <div>
-              <label class="text-xs text-gray-500 block mb-1">Tone Direction</label>
-              <input type="text" name="tone_direction" placeholder="professional and educational"
-                     class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white" />
-            </div>
-            <div>
               <label class="text-xs text-gray-500 block mb-1">CTA Instructions</label>
               <input type="text" name="cta_instructions" placeholder="Ask about our color menu"
                      class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white" />
@@ -1043,7 +1031,7 @@ router.get("/", requireSecret, requirePin, (req, res) => {
             </div>
             <div>
               <label class="text-xs text-gray-500 block mb-1">Frequency Cap (posts/month)</label>
-              <input type="number" name="frequency_cap" value="4" min="1" max="30"
+              <input type="number" name="frequency_cap" value="3" min="1" max="6"
                      class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white" />
             </div>
           </div>
@@ -1379,9 +1367,9 @@ router.post("/upload", requireSecret, requirePin, csvUpload.single("csv"), (req,
   const insert = db.prepare(`
     INSERT OR IGNORE INTO vendor_campaigns
       (id, vendor_name, campaign_name, product_name, product_description,
-       photo_url, hashtags, tone_direction, cta_instructions,
+       photo_url, hashtags, cta_instructions,
        service_pairing_notes, expires_at, frequency_cap, active)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,1)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,1)
   `);
 
   let imported = 0;
@@ -1401,6 +1389,12 @@ router.post("/upload", requireSecret, requirePin, csvUpload.single("csv"), (req,
 
     const freqCap = parseInt(getCol(row, "frequency_cap"), 10);
 
+    // Auto-expiry: if expires_at not provided, default to 30 days from today
+    let expires_at = getCol(row, "expires_at") || null;
+    if (!expires_at) {
+      expires_at = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    }
+
     try {
       insert.run(
         crypto.randomUUID(),
@@ -1410,11 +1404,10 @@ router.post("/upload", requireSecret, requirePin, csvUpload.single("csv"), (req,
         getCol(row, "product_description") || null,
         getCol(row, "photo_url") || null,
         hashtags,
-        getCol(row, "tone_direction") || null,
         getCol(row, "cta_instructions") || null,
         getCol(row, "service_pairing_notes") || null,
-        getCol(row, "expires_at") || null,
-        isNaN(freqCap) ? 4 : freqCap,
+        expires_at,
+        isNaN(freqCap) ? 3 : freqCap,
       );
       imported++;
     } catch (err) {
@@ -1449,29 +1442,22 @@ router.post("/brand-config", requireSecret, requirePin, (req, res) => {
   const dedupedCats = [...new Set(cats)];
   const allowRenewal = req.body.allow_client_renewal === "1" ? 1 : 0;
 
-  // Also save product_value if provided
-  const product_value = parseInt(req.body.product_value, 10) || null;
+  // Also save product_value, min_gap_days, platform_max_cap if provided
+  const product_value    = parseInt(req.body.product_value, 10) || null;
+  const min_gap_days     = parseInt(req.body.min_gap_days, 10) || 3;
+  const platform_max_cap = parseInt(req.body.platform_max_cap, 10) || 6;
 
-  if (product_value) {
-    db.prepare(`
-      INSERT INTO vendor_brands (vendor_name, brand_hashtags, categories, allow_client_renewal, product_value)
-      VALUES (?, ?, ?, ?, ?)
-      ON CONFLICT(vendor_name) DO UPDATE SET
-        brand_hashtags       = excluded.brand_hashtags,
-        categories           = excluded.categories,
-        allow_client_renewal = excluded.allow_client_renewal,
-        product_value        = excluded.product_value
-    `).run(vendor_name, JSON.stringify(brandHashtags), JSON.stringify(dedupedCats), allowRenewal, product_value);
-  } else {
-    db.prepare(`
-      INSERT INTO vendor_brands (vendor_name, brand_hashtags, categories, allow_client_renewal)
-      VALUES (?, ?, ?, ?)
-      ON CONFLICT(vendor_name) DO UPDATE SET
-        brand_hashtags       = excluded.brand_hashtags,
-        categories           = excluded.categories,
-        allow_client_renewal = excluded.allow_client_renewal
-    `).run(vendor_name, JSON.stringify(brandHashtags), JSON.stringify(dedupedCats), allowRenewal);
-  }
+  db.prepare(`
+    INSERT INTO vendor_brands (vendor_name, brand_hashtags, categories, allow_client_renewal, product_value, min_gap_days, platform_max_cap)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(vendor_name) DO UPDATE SET
+      brand_hashtags       = excluded.brand_hashtags,
+      categories           = excluded.categories,
+      allow_client_renewal = excluded.allow_client_renewal,
+      product_value        = CASE WHEN excluded.product_value IS NOT NULL THEN excluded.product_value ELSE product_value END,
+      min_gap_days         = excluded.min_gap_days,
+      platform_max_cap     = excluded.platform_max_cap
+  `).run(vendor_name, JSON.stringify(brandHashtags), JSON.stringify(dedupedCats), allowRenewal, product_value, min_gap_days, platform_max_cap);
 
   // Redirect back to brand page if we came from the edit page
   const referer = req.get('referer') || '';
@@ -1486,16 +1472,22 @@ router.post("/brand-config", requireSecret, requirePin, (req, res) => {
 router.post("/campaign/add", requireSecret, requirePin, vendorCampaignUpload, (req, res) => {
   const {
     vendor_name, campaign_name, campaign_type, category, product_name,
-    product_description, photo_url, tone_direction,
-    cta_instructions, service_pairing_notes, expires_at,
+    product_description, photo_url,
+    cta_instructions, service_pairing_notes,
   } = req.body;
-  const frequency_cap = parseInt(req.body.frequency_cap, 10) || 4;
+  const frequency_cap = parseInt(req.body.frequency_cap, 10) || 3;
 
   if (!vendor_name || !campaign_name || !campaign_type || !category || !product_name || !product_description) {
     return res.redirect(`/internal/vendors${qs(req)}&error=missing_fields`);
   }
-  if (campaign_type === "Promotion" && !expires_at) {
+  if (campaign_type === "Promotion" && !req.body.expires_at) {
     return res.redirect(`/internal/vendors${qs(req)}&error=promotion_needs_expiry`);
+  }
+
+  // Auto-expiry: if expires_at not provided, default to 30 days from today
+  let expires_at = req.body.expires_at || null;
+  if (!expires_at) {
+    expires_at = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   }
 
   const rawTag = (req.body.product_hashtag || "").trim();
@@ -1513,14 +1505,14 @@ router.post("/campaign/add", requireSecret, requirePin, vendorCampaignUpload, (r
   db.prepare(`
     INSERT INTO vendor_campaigns
       (id, vendor_name, campaign_name, campaign_type, category, product_name, product_description,
-       photo_url, product_hashtag, tone_direction, cta_instructions,
+       photo_url, product_hashtag, cta_instructions,
        service_pairing_notes, expires_at, frequency_cap, active)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,1)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,1)
   `).run(
     crypto.randomUUID(), vendor_name, campaign_name, campaign_type, category, product_name,
     product_description || null, finalPhotoUrl, product_hashtag,
-    tone_direction || null, cta_instructions || null,
-    service_pairing_notes || null, expires_at || null, frequency_cap,
+    cta_instructions || null,
+    service_pairing_notes || null, expires_at, frequency_cap,
   );
 
   res.redirect(`/internal/vendors${qs(req)}&added=1`);
@@ -1530,10 +1522,10 @@ router.post("/campaign/add", requireSecret, requirePin, vendorCampaignUpload, (r
 router.post("/campaign/edit", requireSecret, requirePin, vendorCampaignUpload, (req, res) => {
   const {
     campaign_id, campaign_name, campaign_type, category, product_name,
-    product_description, photo_url, tone_direction,
+    product_description, photo_url,
     cta_instructions, service_pairing_notes, expires_at,
   } = req.body;
-  const frequency_cap = parseInt(req.body.frequency_cap, 10) || 4;
+  const frequency_cap = parseInt(req.body.frequency_cap, 10) || 3;
 
   if (!campaign_id || !campaign_name || !category || !product_name || !product_description) {
     return res.redirect(`/internal/vendors${qs(req)}&error=missing_fields`);
@@ -1556,12 +1548,12 @@ router.post("/campaign/edit", requireSecret, requirePin, vendorCampaignUpload, (
   db.prepare(`
     UPDATE vendor_campaigns SET
       campaign_name = ?, campaign_type = ?, category = ?, product_name = ?, product_description = ?,
-      photo_url = ?, product_hashtag = ?, tone_direction = ?, cta_instructions = ?,
+      photo_url = ?, product_hashtag = ?, cta_instructions = ?,
       service_pairing_notes = ?, expires_at = ?, frequency_cap = ?
     WHERE id = ?
   `).run(
     campaign_name, campaign_type || "Standard", category || null, product_name, product_description || null,
-    finalPhotoUrl, product_hashtag, tone_direction || null, cta_instructions || null,
+    finalPhotoUrl, product_hashtag, cta_instructions || null,
     service_pairing_notes || null, expires_at || null, frequency_cap, campaign_id,
   );
 
@@ -1718,6 +1710,20 @@ router.get("/brands/:name/edit", requireSecret, requirePin, (req, res) => {
                  placeholder="Color, Standard, Promotion"
                  class="w-full border rounded-lg px-3 py-2 text-sm" />
           <p class="text-[11px] text-gray-400 mt-1">Shown as checkboxes in the salon's vendor settings. Leave empty to show all categories.</p>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">Min gap between posts (days)</label>
+            <input type="number" name="min_gap_days" value="${safe(brand.min_gap_days ?? 3)}" min="1" max="30"
+                   class="w-full border rounded-lg px-3 py-2 text-sm" />
+            <p class="text-[11px] text-gray-400 mt-1">Platform floor — salons cannot post this brand more frequently than this.</p>
+          </div>
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">Max posts/month per campaign (ceiling)</label>
+            <input type="number" name="platform_max_cap" value="${safe(brand.platform_max_cap ?? 6)}" min="1" max="30"
+                   class="w-full border rounded-lg px-3 py-2 text-sm" />
+            <p class="text-[11px] text-gray-400 mt-1">Platform ceiling — salons cannot set their frequency cap above this.</p>
+          </div>
         </div>
         <div class="flex items-center gap-3">
           <span class="text-xs text-gray-600 font-medium">Allow client-side renewal</span>
@@ -1930,11 +1936,6 @@ router.get("/brands/:name", requireSecret, requirePin, (req, res) => {
             <p class="text-[11px] text-gray-400 mt-0.5">Provide a URL or upload an image file. Uploaded file takes priority.</p>
           </div>
           <div>
-            <label class="text-xs text-gray-500 block mb-1">Tone Direction</label>
-            <input type="text" name="tone_direction" placeholder="professional and educational"
-                   class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm" />
-          </div>
-          <div>
             <label class="text-xs text-gray-500 block mb-1">CTA Instructions</label>
             <input type="text" name="cta_instructions" placeholder="Ask about our color menu"
                    class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm" />
@@ -1951,7 +1952,7 @@ router.get("/brands/:name", requireSecret, requirePin, (req, res) => {
           </div>
           <div>
             <label class="text-xs text-gray-500 block mb-1">Frequency Cap (posts/month)</label>
-            <input type="number" name="frequency_cap" value="4" min="1" max="30"
+            <input type="number" name="frequency_cap" value="3" min="1" max="6"
                    class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm" />
           </div>
         </div>
@@ -2119,10 +2120,6 @@ router.get("/campaign/:id/edit", requireSecret, requirePin, (req, res) => {
         </div>
       </div>
       <div>
-        <label>Tone Direction</label>
-        <input type="text" name="tone_direction" value="${s(campaign.tone_direction || "")}" />
-      </div>
-      <div>
         <label>CTA Instructions</label>
         <input type="text" name="cta_instructions" value="${s(campaign.cta_instructions || "")}" />
       </div>
@@ -2136,7 +2133,7 @@ router.get("/campaign/:id/edit", requireSecret, requirePin, (req, res) => {
       </div>
       <div>
         <label>Frequency Cap (posts/month)</label>
-        <input type="number" name="frequency_cap" value="${s(campaign.frequency_cap || 4)}" min="1" max="30" />
+        <input type="number" name="frequency_cap" value="${s(campaign.frequency_cap || 3)}" min="1" max="6" />
       </div>
     </div>
     <div class="actions">

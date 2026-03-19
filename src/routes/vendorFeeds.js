@@ -155,7 +155,7 @@ router.get("/", requireAuth, (req, res) => {
 
       const campaignPreviews = nonExpired.slice(0, 5).map(c => {
         const tags = parseHashtags(c.hashtags).slice(0, 4);
-        const cap = c.frequency_cap || 4;
+        const cap = c.frequency_cap || 3;
         const atCap = c.monthCount >= cap;
         return `
           <div class="rounded-xl border border-mpBorder bg-mpBg p-3 flex gap-3 items-start" data-campaign-wrapper>
@@ -523,7 +523,7 @@ router.post("/add-to-queue", requireAuth, async (req, res) => {
   if (!campaign) return res.json({ success: false, error: "Campaign not found" });
 
   const thisMonth = new Date().toISOString().slice(0, 7);
-  const cap = campaign.frequency_cap || 4;
+  const cap = campaign.frequency_cap || 3;
   const { count: monthCount } = db.prepare(`
     SELECT COUNT(*) AS count FROM vendor_post_log
     WHERE salon_id = ? AND campaign_id = ? AND posted_month = ?
