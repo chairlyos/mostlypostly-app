@@ -9,10 +9,14 @@ import { publishToInstagram, publishToInstagramCarousel, publishStoryToInstagram
 import { publishWhatsNewToGmb, publishOfferToGmb } from "./publishers/googleBusiness.js";
 import { logEvent } from "./core/analyticsDb.js";
 import { runCelebrationCheck } from "./core/celebrationScheduler.js";
+import { runVendorSync } from './core/vendorSync.js';
 import { appendUtm, slugify } from './core/utm.js';
 import { buildTrackingToken, buildShortUrl } from './core/trackingUrl.js';
 
 const log = createLogger("scheduler");
+
+// Nightly vendor sync guard — resets on restart (acceptable — sync is idempotent)
+const vendorSyncRanToday = new Map(); // key: "YYYY-MM-DD", value: true
 
 // ENV flags
 const FORCE_POST_NOW = process.env.FORCE_POST_NOW === "1";
@@ -305,6 +309,16 @@ export async function runSchedulerOnce() {
   runCelebrationCheck().catch(err =>
     console.error("[Scheduler] CelebrationCheck error:", err.message)
   );
+
+  // Nightly vendor sync — fire at 2am UTC (off-peak, before US business hours)
+  const vendorSyncToday = new Date().toISOString().slice(0, 10);
+  const utcHour = new Date().getUTCHours();
+  if (utcHour === 2 && !vendorSyncRanToday.has(vendorSyncToday)) {
+    vendorSyncRanToday.set(vendorSyncToday, true);
+    runVendorSync().catch(err =>
+      console.error('[Scheduler] VendorSync error:', err.message)
+    );
+  }
 
   expireStalePosts();
 
