@@ -45,6 +45,7 @@ import { run as run041 } from "./041_ig_collab.js";
 import { run as run042 } from "./042_staff_active.js";
 import { run as run043 } from "./043_utm_tracking.js";
 import { run as run044 } from "./044_campaign_type.js";
+import { run as run045 } from "./045_vendor_sync_meta.js";
 
 export const migrations = [
   { name: "001_baseline_patches",        run: run001 },
@@ -91,4 +92,5 @@ export const migrations = [
   { name: "042_staff_active",                run: run042 },
   { name: "043_utm_tracking",               run: run043 },
   { name: "044_campaign_type",              run: run044 },
+  { name: "045_vendor_sync_meta",           run: run045 },
 ];
