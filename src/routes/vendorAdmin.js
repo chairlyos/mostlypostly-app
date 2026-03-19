@@ -421,7 +421,7 @@ router.get("/", requireSecret, requirePin, (req, res) => {
               <div class="flex items-center justify-between mb-1">
                 <label class="text-xs text-gray-500">Product Description *</label>
                 <button type="button"
-                        onclick="aiGenerateDesc(this, '${safe(vendor)}', document.getElementById('${inlineProdId}').value, '${inlineFormId}')"
+                        onclick="aiGenerateDesc(this, '${safe(vendor)}', '${inlineProdId}', '${inlineFormId}')"
                         class="text-xs text-purple-600 hover:text-purple-800 font-medium flex items-center gap-1">
                   &#10024; AI Generate
                 </button>
@@ -989,7 +989,7 @@ router.get("/", requireSecret, requirePin, (req, res) => {
               <div class="flex items-center justify-between mb-1">
                 <label class="text-xs text-gray-500">Product Description *</label>
                 <button type="button"
-                        onclick="aiGenerateDesc(this, document.getElementById('top-form-vendor-name').value, document.getElementById('top-form-product-name').value, 'top-form-desc')"
+                        onclick="aiGenerateDesc(this, 'top-form-vendor-name', 'top-form-product-name', 'top-form-desc')"
                         class="text-xs text-purple-600 hover:text-purple-800 font-medium flex items-center gap-1">
                   ✨ AI Generate
                 </button>
@@ -1106,13 +1106,26 @@ function toggleEditForm(key) {
   if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
 }
 
-async function aiGenerateDesc(btn, vendorName, productName, targetId) {
+async function aiGenerateDesc(btn, vendorArg, productNameInputId, targetId) {
+  // Resolve vendor: try as element ID first, fall back to literal string
+  var vendorEl = document.getElementById(vendorArg);
+  var vendorName = vendorEl ? vendorEl.value : vendorArg;
+  // Resolve product name: always by element ID
+  var prodEl = document.getElementById(productNameInputId);
+  if (!prodEl) {
+    alert('Could not find product name field (ID: ' + productNameInputId + ')');
+    return;
+  }
+  var productName = prodEl.value;
   if (!vendorName || !productName) {
     alert('Enter vendor name and product name first.');
     return;
   }
   var target = document.getElementById(targetId);
-  if (!target) return;
+  if (!target) {
+    alert('Could not find description field (ID: ' + targetId + ')');
+    return;
+  }
   // If already has content, skip lookup
   if (target.value.trim()) {
     if (!confirm('Description already has content. Replace it with AI-generated text?')) return;
@@ -1783,7 +1796,7 @@ router.get("/brands/:name", requireSecret, requirePin, (req, res) => {
             <div class="flex items-center justify-between mb-1">
               <label class="text-xs text-gray-500">Product Description *</label>
               <button type="button"
-                      onclick="aiGenerateDescBrand(this, '${safe(brand.vendor_name)}', document.getElementById('brand-form-product-name').value, 'brand-form-desc')"
+                      onclick="aiGenerateDescBrand(this, '${safe(brand.vendor_name)}', 'brand-form-product-name', 'brand-form-desc')"
                       class="text-xs text-purple-600 hover:text-purple-800 font-medium">
                 &#10024; AI Generate
               </button>
@@ -1840,13 +1853,26 @@ router.get("/brands/:name", requireSecret, requirePin, (req, res) => {
   </div>
 
 <script>
-async function aiGenerateDescBrand(btn, vendorName, productName, targetId) {
+async function aiGenerateDescBrand(btn, vendorArg, productNameInputId, targetId) {
+  // Resolve vendor: try as element ID first, fall back to literal string
+  var vendorEl = document.getElementById(vendorArg);
+  var vendorName = vendorEl ? vendorEl.value : vendorArg;
+  // Resolve product name: always by element ID
+  var prodEl = document.getElementById(productNameInputId);
+  if (!prodEl) {
+    alert('Could not find product name field (ID: ' + productNameInputId + ')');
+    return;
+  }
+  var productName = prodEl.value;
   if (!vendorName || !productName) {
     alert('Enter product name first.');
     return;
   }
   var target = document.getElementById(targetId);
-  if (!target) return;
+  if (!target) {
+    alert('Could not find description field (ID: ' + targetId + ')');
+    return;
+  }
   if (target.value.trim()) {
     if (!confirm('Description already has content. Replace it with AI-generated text?')) return;
   }
