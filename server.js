@@ -92,6 +92,7 @@ import helpRoute from "./src/routes/help.js";
 import teamPerformanceRoute from "./src/routes/teamPerformance.js";
 import leaderboardRoute from "./src/routes/leaderboard.js";
 import internalRouter from "./src/routes/internal.js";
+import trackingRouter from "./src/routes/tracking.js";
 import { lookupStylist } from "./src/core/salonLookup.js";
 
 // Scheduler
@@ -360,6 +361,12 @@ function restoreManagerSession(req, res, next) {
   next();
 }
 
+
+// -------------------------------------------------------
+// 0. TRACKING REDIRECTS — public, no auth required
+// Must come before auth middleware so redirect links work unauthenticated.
+// -------------------------------------------------------
+app.use("/t", trackingRouter);
 
 // -------------------------------------------------------
 // 1. MANAGER AUTH (login/signup) — MUST COME FIRST
