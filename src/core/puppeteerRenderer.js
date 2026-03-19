@@ -64,6 +64,8 @@ async function getBrowser() {
  * Render an HTML string to a JPEG buffer at the given pixel dimensions.
  * Waits for fonts and images to load before screenshotting.
  */
+export { getBrowser };
+
 export async function renderHtmlToJpeg(html, width, height) {
   const b = await getBrowser();
   const page = await b.newPage();
