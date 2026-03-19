@@ -344,60 +344,63 @@ router.get("/", requireAuth, (req, res) => {
     </div>` : ""}
 
     <script>
-document.querySelectorAll('.add-to-queue-btn').forEach(function(btn) {
-  btn.addEventListener('click', async function() {
-    if (btn.disabled) return;
-    const campaignId = btn.dataset.campaignId;
-    const cap = parseInt(btn.dataset.cap, 10);
-    btn.textContent = 'Adding\u2026';
-    btn.disabled = true;
-    try {
-      const res = await fetch('/manager/vendors/add-to-queue', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.content || ''
-        },
-        body: JSON.stringify({ campaign_id: campaignId })
-      });
-      const data = await res.json();
-      if (data.success) {
-        btn.textContent = 'Added \u2713';
-        const vendorAccordion = btn.closest('details.vendor-accordion');
-        if (vendorAccordion) {
-          const pill = vendorAccordion.querySelector('.count-pill');
-          if (pill) pill.textContent = data.count + '/' + data.cap + ' this month';
+(function() {
+  var csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
+
+  document.addEventListener('click', async function(e) {
+    // Add to Queue
+    var addBtn = e.target.closest('.add-to-queue-btn');
+    if (addBtn) {
+      if (addBtn.disabled) return;
+      var campaignId = addBtn.dataset.campaignId;
+      addBtn.textContent = 'Adding\u2026';
+      addBtn.disabled = true;
+      try {
+        var res = await fetch('/manager/vendors/add-to-queue', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf },
+          body: JSON.stringify({ campaign_id: campaignId })
+        });
+        var data = await res.json();
+        if (data.success) {
+          addBtn.textContent = 'Added \u2713';
+          var accordion = addBtn.closest('details.vendor-accordion');
+          if (accordion) {
+            var pill = accordion.querySelector('.count-pill');
+            if (pill) pill.textContent = data.count + '/' + data.cap + ' this month';
+          }
+          if (data.count >= data.cap) {
+            addBtn.textContent = 'Monthly cap reached';
+            addBtn.disabled = true;
+            addBtn.className = addBtn.className.replace('bg-blue-600 text-white hover:bg-blue-700', 'bg-gray-200 text-gray-400 cursor-not-allowed');
+          }
+        } else {
+          addBtn.textContent = data.error ? data.error.slice(0, 40) : 'Error \u2014 try again';
+          setTimeout(function() { addBtn.textContent = 'Add to Queue'; addBtn.disabled = false; }, 3000);
         }
-        if (data.count >= data.cap) {
-          btn.textContent = 'Monthly cap reached';
-          btn.className = btn.className.replace('bg-blue-600 text-white hover:bg-blue-700', 'bg-gray-200 text-gray-400 cursor-not-allowed');
-        }
-      } else {
-        btn.textContent = data.error ? data.error.slice(0, 40) : 'Error \u2014 try again';
-        setTimeout(function() { btn.textContent = 'Add to Queue'; btn.disabled = false; }, 3000);
+      } catch (err) {
+        addBtn.textContent = 'Error \u2014 try again';
+        setTimeout(function() { addBtn.textContent = 'Add to Queue'; addBtn.disabled = false; }, 3000);
       }
-    } catch (e) {
-      btn.textContent = 'Error \u2014 try again';
-      setTimeout(function() { btn.textContent = 'Add to Queue'; btn.disabled = false; }, 3000);
+      return;
+    }
+
+    // Reset
+    var resetBtn = e.target.closest('.reset-campaign-btn');
+    if (resetBtn) {
+      if (!confirm('Reset this month\'s post count for this campaign?')) return;
+      try {
+        var r = await fetch('/manager/vendors/reset-campaign', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf },
+          body: JSON.stringify({ campaign_id: resetBtn.dataset.campaignId })
+        });
+        var d = await r.json();
+        if (d.success) location.reload();
+      } catch (err) {}
     }
   });
-});
-
-document.querySelectorAll('.reset-campaign-btn').forEach(function(btn) {
-  btn.addEventListener('click', async function() {
-    if (!confirm('Reset this month\'s post count for this campaign?')) return;
-    const res = await fetch('/manager/vendors/reset-campaign', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.content || ''
-      },
-      body: JSON.stringify({ campaign_id: btn.dataset.campaignId })
-    });
-    const data = await res.json();
-    if (data.success) location.reload();
-  });
-});
+})();
 </script>
 
   `;
