@@ -1,0 +1,40 @@
+{
+  "version": "1.0",
+  "timestamp": "2026-03-19T21:28:44.584Z",
+  "phase": "1",
+  "phase_name": "Vendor Sync",
+  "phase_dir": ".planning/phases/01-vendor-sync",
+  "plan": 0,
+  "task": 0,
+  "total_tasks": 0,
+  "status": "paused",
+  "completed_tasks": [
+    {"id": 1, "name": "260319-dqb: Fix vendor post image not publishing", "status": "done", "commit": "86319c9"},
+    {"id": 2, "name": "260319-fii: Fix AI Generate button in Platform Console", "status": "done", "commit": "4560978"},
+    {"id": 3, "name": "260319-i8s: Inject affiliate URL into vendor posts (deterministic)", "status": "done", "commit": "ba90a69"},
+    {"id": 4, "name": "feat(tracking): use SHORT_URL_BASE env var for short links", "status": "done", "commit": "c41ed2b"}
+  ],
+  "remaining_tasks": [
+    {"id": 5, "name": "Plan Phase 1 (Vendor Sync) — no PLAN.md exists yet", "status": "not_started"}
+  ],
+  "blockers": [
+    {
+      "description": "Phase 1 FEAT-031 (Aveda portal sync) blocked — needs Aveda portal URL and login type from Tasha",
+      "type": "human_action",
+      "workaround": "Build parallel components (caption gen, dedup, schema) while waiting"
+    }
+  ],
+  "human_actions_pending": [
+    {"action": "Confirm Aveda portal URL and login type with Tasha", "context": "Needed for FEAT-031 Aveda portal scraping in Phase 1", "blocking": false}
+  ],
+  "decisions": [
+    {"decision": "Affiliate URL injection is now deterministic — system appends 'Shop today: {shortUrl}' AFTER AI copy", "rationale": "AI-included URLs were unreliable and bypassed UTM tracking", "phase": "quick-260319-i8s"},
+    {"decision": "IG vendor captions derived at publish time by stripping URLs and appending 'Shop, link in bio.'", "rationale": "IG doesn't support clickable URLs in captions; no DB migration needed", "phase": "quick-260319-i8s"},
+    {"decision": "SHORT_URL_BASE env var controls the short link domain (go.mpostly.co)", "rationale": "Allows staging/prod to use different short link bases without code changes", "phase": "c41ed2b"}
+  ],
+  "uncommitted_files": [
+    ".planning/quick/260319-i8s-inject-affiliate-url-into-vendor-posts-f/260319-i8s-CONTEXT.md"
+  ],
+  "next_action": "Run /gsd:plan-phase for Phase 1 (Vendor Sync) — phase directory exists at .planning/phases/01-vendor-sync/ but no PLAN.md yet",
+  "context_notes": "Session completed 3 quick tasks (all merged to dev). Main milestone Phase 1 not yet started — still in planning state. All quick tasks are logged in STATE.md Quick Tasks Completed table."
+}
