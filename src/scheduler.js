@@ -442,6 +442,23 @@ export async function runSchedulerOnce() {
             throw new Error("No image URL available for this post — cannot publish to Instagram or Facebook");
           }
 
+          // --- Vendor post: derive platform-specific captions ---
+          const isVendorPost = !!post.vendor_campaign_id;
+          let fbCaption = post.final_caption;
+          let igCaption = post.final_caption;
+
+          if (isVendorPost) {
+            // IG: strip "Shop today: URL" line, strip any remaining URLs, append "Shop, link in bio."
+            igCaption = post.final_caption
+              .replace(/\n\nShop today: https?:\/\/\S+/gi, '')
+              .replace(/https?:\/\/\S+/gi, '')
+              .replace(/\n{3,}/g, '\n\n')
+              .trim();
+            if (post.final_caption.includes('Shop today:')) {
+              igCaption += '\n\nShop, link in bio.';
+            }
+          }
+
           const isMulti = allImages.length > 1;
           console.log(`📸 [Scheduler] Publishing ${allImages.length} image(s) for ${post.id} (${postType}, ${isMulti ? "carousel" : "single"})`);
 
@@ -458,19 +475,19 @@ export async function runSchedulerOnce() {
               linkUrl:  storyLinkUrl,
             });
           } else if (isMulti) {
-            fbResp = await publishToFacebookMulti(fbPageId, post.final_caption, allImages, fbToken);
+            fbResp = await publishToFacebookMulti(fbPageId, fbCaption, allImages, fbToken);
             igResp = await publishToInstagramCarousel({
               salon_id:  salon.slug,
-              caption:   post.final_caption,
+              caption:   igCaption,
               imageUrls: allImages,
             });
           } else {
             const image = allImages[0] || post.image_url;
-            fbResp = await publishToFacebook(fbPageId, post.final_caption, image, fbToken);
+            fbResp = await publishToFacebook(fbPageId, fbCaption, image, fbToken);
             igResp = await publishToInstagram({
               salon_id:               salon.slug,
               imageUrl:               image,
-              caption:                post.final_caption,
+              caption:                igCaption,
               instagram_business_id:  salon.instagram_business_id || salon?.salon_info?.instagram_business_id,
               stylist_id:             post.stylist_id || null,
             });
@@ -504,7 +521,7 @@ export async function runSchedulerOnce() {
 
           if (gmbEligible) {
             try {
-              const caption   = post.final_caption;
+              const caption   = fbCaption;
               const image     = allImages[0] || post.image_url;
               const todayIso  = new Date().toISOString().split("T")[0];
               const isOffer   = ["promotions", "vendor_post"].includes(postType);
