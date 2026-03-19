@@ -516,20 +516,20 @@ router.get("/", requireSecret, requirePin, (req, res) => {
   <!-- Tab Nav -->
   <div class="border-b bg-white sticky top-0 z-10 shadow-sm">
     <div class="max-w-5xl mx-auto px-8 flex gap-0 overflow-x-auto">
-      <button class="tab-btn active" onclick="showTab('overview')" data-tab="overview">Overview</button>
-      <button class="tab-btn" onclick="showTab('brands')" data-tab="brands">
+      <button type="button" class="tab-btn active" data-tab="overview">Overview</button>
+      <button type="button" class="tab-btn" data-tab="brands">
         Brands &amp; Campaigns
         <span class="ml-1 badge bg-purple-100 text-purple-700">${totalCampaigns}</span>
       </button>
-      <button class="tab-btn" onclick="showTab('salons')" data-tab="salons">
+      <button type="button" class="tab-btn" data-tab="salons">
         Salons
         <span class="ml-1 badge bg-gray-100 text-gray-600">${totalSalons}</span>
       </button>
-      <button class="tab-btn" onclick="showTab('support')" data-tab="support">
+      <button type="button" class="tab-btn" data-tab="support">
         Support
         ${openIssueCount + openRequestCount > 0 ? `<span class="ml-1 badge bg-red-100 text-red-700">${openIssueCount + openRequestCount}</span>` : ""}
       </button>
-      <button class="tab-btn" onclick="showTab('approvals')" data-tab="approvals">
+      <button type="button" class="tab-btn" data-tab="approvals">
         Approvals
         ${pendingCount > 0 ? `<span class="ml-1 badge bg-yellow-100 text-yellow-700">${pendingCount}</span>` : ""}
       </button>
@@ -543,7 +543,7 @@ router.get("/", requireSecret, requirePin, (req, res) => {
     <!-- ═══ OVERVIEW TAB ══════════════════════════════════════════════════════ -->
     <div id="tab-overview" class="tab-section active space-y-6">
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div class="stat-card cursor-pointer hover:border-gray-300" onclick="showTab('salons')">
+        <div class="stat-card cursor-pointer hover:border-gray-300" data-tab="salons" role="button">
           <div class="stat-val">${totalSalons}</div><div class="stat-lbl">Total Accounts</div></div>
         <div class="stat-card">
           <div class="stat-val text-green-600">${active}</div><div class="stat-lbl">Active</div></div>
@@ -551,22 +551,22 @@ router.get("/", requireSecret, requirePin, (req, res) => {
           <div class="stat-val text-blue-600">${trialing}</div><div class="stat-lbl">Trialing</div></div>
         <div class="stat-card">
           <div class="stat-val text-red-500">${canceled}</div><div class="stat-lbl">Canceled</div></div>
-        <div class="stat-card cursor-pointer hover:border-gray-300" onclick="showTab('brands')">
+        <div class="stat-card cursor-pointer hover:border-gray-300" data-tab="brands" role="button">
           <div class="stat-val text-purple-600">${totalCampaigns}</div><div class="stat-lbl">Vendor Campaigns</div></div>
-        <div class="stat-card cursor-pointer hover:border-gray-300" onclick="showTab('approvals')">
+        <div class="stat-card cursor-pointer hover:border-gray-300" data-tab="approvals" role="button">
           <div class="stat-val ${pendingCount > 0 ? "text-yellow-500" : "text-gray-400"}">${pendingCount}</div><div class="stat-lbl">Pending Approvals</div></div>
-        <div class="stat-card cursor-pointer hover:border-gray-300" onclick="showTab('support')">
+        <div class="stat-card cursor-pointer hover:border-gray-300" data-tab="support" role="button">
           <div class="stat-val ${openIssueCount > 0 ? "text-red-500" : "text-gray-400"}">${openIssueCount}</div><div class="stat-lbl">Open Issues</div></div>
-        <div class="stat-card cursor-pointer hover:border-gray-300" onclick="showTab('support')">
+        <div class="stat-card cursor-pointer hover:border-gray-300" data-tab="support" role="button">
           <div class="stat-val ${openRequestCount > 0 ? "text-indigo-600" : "text-gray-400"}">${openRequestCount}</div><div class="stat-lbl">Feature Requests</div></div>
       </div>
       <div class="rounded-xl bg-white border p-5 text-sm text-gray-600 space-y-2">
         <p class="font-semibold text-gray-800">Quick actions</p>
         <div class="flex flex-wrap gap-3">
-          <button onclick="showTab('brands')" class="px-4 py-2 bg-gray-900 text-white rounded-lg text-xs font-semibold hover:bg-gray-700">Manage Brands &amp; Campaigns</button>
-          <button onclick="showTab('salons')" class="px-4 py-2 border rounded-lg text-xs font-semibold hover:bg-gray-50">Manage Salons</button>
-          ${pendingCount > 0 ? `<button onclick="showTab('approvals')" class="px-4 py-2 bg-yellow-500 text-white rounded-lg text-xs font-semibold hover:bg-yellow-600">${pendingCount} Pending Approval${pendingCount !== 1 ? "s" : ""}</button>` : ""}
-          ${openIssueCount > 0 ? `<button onclick="showTab('support')" class="px-4 py-2 bg-red-500 text-white rounded-lg text-xs font-semibold hover:bg-red-600">${openIssueCount} Open Issue${openIssueCount !== 1 ? "s" : ""}</button>` : ""}
+          <button type="button" data-tab="brands" class="px-4 py-2 bg-gray-900 text-white rounded-lg text-xs font-semibold hover:bg-gray-700">Manage Brands &amp; Campaigns</button>
+          <button type="button" data-tab="salons" class="px-4 py-2 border rounded-lg text-xs font-semibold hover:bg-gray-50">Manage Salons</button>
+          ${pendingCount > 0 ? `<button type="button" data-tab="approvals" class="px-4 py-2 bg-yellow-500 text-white rounded-lg text-xs font-semibold hover:bg-yellow-600">${pendingCount} Pending Approval${pendingCount !== 1 ? "s" : ""}</button>` : ""}
+          ${openIssueCount > 0 ? `<button type="button" data-tab="support" class="px-4 py-2 bg-red-500 text-white rounded-lg text-xs font-semibold hover:bg-red-600">${openIssueCount} Open Issue${openIssueCount !== 1 ? "s" : ""}</button>` : ""}
         </div>
       </div>
     </div>
@@ -1066,13 +1066,25 @@ function showTab(name) {
   document.querySelectorAll('.tab-btn').forEach(function(b) {
     b.classList.toggle('active', b.dataset.tab === name);
   });
-  sessionStorage.setItem('console-tab', name);
+  try { sessionStorage.setItem('console-tab', name); } catch(e) {}
 }
+
+// Event delegation — handle all [data-tab] clicks via document
+document.addEventListener('click', function(e) {
+  var el = e.target.closest('[data-tab]');
+  if (!el) return;
+  // Only act on tab-btn buttons or role=button cards (not form elements etc.)
+  var tag = el.tagName.toLowerCase();
+  if (tag === 'button' || el.getAttribute('role') === 'button') {
+    showTab(el.dataset.tab);
+  }
+});
 
 // Restore tab from session (e.g. after form submit redirect)
 (function() {
-  var saved = sessionStorage.getItem('console-tab') || 'overview';
-  showTab(saved);
+  var saved;
+  try { saved = sessionStorage.getItem('console-tab'); } catch(e) {}
+  showTab(saved || 'overview');
 
   var form = document.getElementById('top-add-campaign-form');
   var btnOpen = document.getElementById('btn-add-campaign');

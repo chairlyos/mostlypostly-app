@@ -373,12 +373,12 @@ document.querySelectorAll('.add-to-queue-btn').forEach(function(btn) {
           btn.className = btn.className.replace('bg-blue-600 text-white hover:bg-blue-700', 'bg-gray-200 text-gray-400 cursor-not-allowed');
         }
       } else {
-        btn.textContent = 'Error \u2014 try again';
-        btn.disabled = false;
+        btn.textContent = data.error ? data.error.slice(0, 40) : 'Error \u2014 try again';
+        setTimeout(function() { btn.textContent = 'Add to Queue'; btn.disabled = false; }, 3000);
       }
     } catch (e) {
       btn.textContent = 'Error \u2014 try again';
-      btn.disabled = false;
+      setTimeout(function() { btn.textContent = 'Add to Queue'; btn.disabled = false; }, 3000);
     }
   });
 });
@@ -525,13 +525,14 @@ router.post("/add-to-queue", requireAuth, async (req, res) => {
   const isPro = ['pro'].includes(salon?.plan);
   if (!isPro) return res.json({ success: false, error: 'Pro plan required' });
 
+  // Get affiliate URL if the feed is configured, otherwise proceed without one
   const feed = db.prepare(`SELECT affiliate_url FROM salon_vendor_feeds WHERE salon_id = ? AND vendor_name = ?`).get(salonId, campaign.vendor_name);
-  if (!feed) return res.json({ success: false, error: 'Vendor feed not enabled' });
+  const affiliateUrl = feed?.affiliate_url || null;
 
   const { generateVendorCaption, buildVendorHashtagBlock } = await import("../core/vendorScheduler.js");
 
-  const caption = await generateVendorCaption({ campaign, salon, affiliateUrl: feed?.affiliate_url || null });
-  if (!caption) return res.json({ success: false, error: "Caption generation failed" });
+  const caption = await generateVendorCaption({ campaign, salon, affiliateUrl });
+  if (!caption) return res.json({ success: false, error: "Caption generation failed — check OpenAI API key" });
 
   const brandCfg = db.prepare(`SELECT brand_hashtags FROM vendor_brands WHERE vendor_name = ?`).get(campaign.vendor_name);
   const brandHashtags = (() => { try { return JSON.parse(brandCfg?.brand_hashtags || "[]"); } catch { return []; } })();
