@@ -129,8 +129,13 @@ router.get("/", requireAuth, (req, res) => {
       // Task 3: brand config and vendor settings per vendor
       const brandCfg      = brandConfigMap[vendorName] || {};
       const vendorSetting = vendorSettingsMap[vendorName] || {};
-      // Pull categories from actual campaign data for this brand (not vendor_brands.categories which may be unpopulated)
-      const brandCategories = [...new Set(items.map(c => c.category).filter(Boolean))].sort();
+      // Pull categories from ALL campaigns for this vendor (not just active ones) so checkboxes reflect the full category set
+      const allBrandCampaigns = db.prepare(`
+        SELECT DISTINCT category FROM vendor_campaigns
+        WHERE vendor_name = ? AND category IS NOT NULL AND category != ''
+        ORDER BY category
+      `).all(vendorName);
+      const brandCategories = allBrandCampaigns.map(r => r.category);
       const activeFilters   = (() => { try { return JSON.parse(vendorSetting.category_filters || "[]"); } catch { return []; } })();
       const canRenew        = brandCfg.allow_client_renewal !== 0;
       const vKey            = safe(vendorName.replace(/\s+/g, "_"));
