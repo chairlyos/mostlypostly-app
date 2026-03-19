@@ -21,6 +21,7 @@ import OpenAI from "openai";
 import db from "../../db.js";
 import { UPLOADS_DIR } from "../core/uploadPath.js";
 import { enforceStaffLimits } from "./billing.js";
+import { runVendorSync } from "../core/vendorSync.js";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -1825,6 +1826,30 @@ router.get("/brands/:name", requireSecret, requirePin, (req, res) => {
           </p>
         </div>
       </div>
+
+      <!-- Automated Sync Status -->
+      <div class="mt-6 pt-6 border-t">
+        <h3 class="font-semibold text-sm text-gray-700 mb-3">Automated Sync</h3>
+        <div class="grid grid-cols-3 gap-4 text-sm mb-4">
+          <div>
+            <span class="text-gray-500 text-xs block mb-0.5">Last Sync</span>
+            <span class="font-medium">${brand.last_sync_at ? new Date(brand.last_sync_at).toLocaleString() : 'Never'}</span>
+          </div>
+          <div>
+            <span class="text-gray-500 text-xs block mb-0.5">Campaigns Imported</span>
+            <span class="font-medium">${brand.last_sync_count || 0}</span>
+          </div>
+          <div>
+            <span class="text-gray-500 text-xs block mb-0.5">Status</span>
+            <span class="font-medium ${brand.last_sync_error ? 'text-red-600' : 'text-green-600'}">${brand.last_sync_error ? 'Error' : (brand.last_sync_at ? 'OK' : 'Not synced')}</span>
+          </div>
+        </div>
+        ${brand.last_sync_error ? `<div class="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-3 mb-3">${safe(brand.last_sync_error)}</div>` : ''}
+        <button type="button" onclick="syncVendor('${safe(brand.vendor_name)}')"
+                class="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition font-medium">
+          Sync Now
+        </button>
+      </div>
     </div>
 
     <!-- Campaigns Table -->
@@ -1996,6 +2021,17 @@ document.addEventListener('click', function(e) {
   var btn = e.target.closest('[data-action="ai-gen-desc-brand"]');
   if (btn) { e.preventDefault(); aiGenerateDescBrand(btn, btn.dataset.vendor, btn.dataset.prodId, btn.dataset.targetId); }
 });
+
+function syncVendor(name) {
+  var btn = event.target;
+  var origText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Syncing...';
+  fetch('/internal/vendors/sync/' + encodeURIComponent(name) + '?secret=' + new URLSearchParams(window.location.search).get('secret'), { method: 'POST' })
+    .then(function(r) { return r.json(); })
+    .then(function(d) { btn.textContent = d.status === 'started' ? 'Started — refresh in 2min' : 'Error'; })
+    .catch(function() { btn.textContent = 'Error'; btn.disabled = false; });
+}
 </script>
 
 </body></html>`);
@@ -2171,6 +2207,24 @@ router.post("/campaign/renew", requireSecret, requirePin, (req, res) => {
   db.prepare(`DELETE FROM vendor_post_log WHERE campaign_id = ? AND posted_month = ?`).run(campaign_id, thisMonth);
 
   res.redirect(`/internal/vendors${qs(req)}&renewed=1`);
+});
+
+// ── POST /sync/:vendorName — Trigger on-demand vendor sync ────────────────────
+router.post("/sync/:vendorName", requireSecret, requirePin, (req, res) => {
+  const { vendorName } = req.params;
+
+  // Verify vendor exists
+  const brand = db.prepare(`SELECT vendor_name FROM vendor_brands WHERE vendor_name = ?`).get(vendorName);
+  if (!brand) {
+    return res.status(404).json({ error: "Vendor not found" });
+  }
+
+  // Fire async — don't await (operator sees result on next page load via last_sync_at)
+  runVendorSync(vendorName).catch(err => {
+    console.error(`[VendorAdmin] Sync error for ${vendorName}:`, err.message);
+  });
+
+  res.json({ status: "started", vendor: vendorName, message: "Sync started — refresh page in a few minutes to see results" });
 });
 
 export default router;
