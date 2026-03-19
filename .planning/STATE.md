@@ -2,16 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: planning
-stopped_at: Phase 1 context gathered
-last_updated: "2026-03-19T17:17:28Z"
-last_activity: 2026-03-19 - Completed quick task 260319-i8s: Inject affiliate URL into vendor posts (deterministic)
+status: unknown
+stopped_at: Completed 01-vendor-sync plan 03 (PDF caption bypass in vendorScheduler)
+last_updated: "2026-03-19T22:15:36.586Z"
 progress:
   total_phases: 4
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  total_plans: 5
+  completed_plans: 1
 ---
 
 # Project State
@@ -21,16 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-19)
 
 **Core value:** Salons never run out of quality content — the platform generates, recycles, and publishes it automatically while building the salon's online reputation.
-**Current focus:** Phase 1 — Vendor Sync
+**Current focus:** Phase 01 — vendor-sync
 
 ## Current Position
 
-Phase: 1 of 4 (Vendor Sync)
-Plan: 0 of TBD in current phase
-Status: Ready to plan
-Last activity: 2026-03-19 — Roadmap created, phases derived from requirements
-
-Progress: [░░░░░░░░░░] 0%
+Phase: 01 (vendor-sync) — EXECUTING
+Plan: 1 of 5
 
 ## Performance Metrics
 
@@ -52,6 +46,7 @@ Progress: [░░░░░░░░░░] 0%
 - Trend: -
 
 *Updated after each plan completion*
+| Phase 01-vendor-sync P03 | 1 | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -65,6 +60,8 @@ Recent decisions affecting current work:
 - Project init: Smart recycler triggers at queue depth < 3 AND 48hr since last publish
 - Project init: Featured Review posts use sharp (consistent with celebration/promo image pattern)
 - Project init: GMB OAuth from FEAT-020 reused for Reputation Manager (no new auth flow)
+- [Phase 01-vendor-sync]: pdf_sync campaigns bypass AI entirely — caption_body used verbatim with [SALON NAME] replacement
+- [Phase 01-vendor-sync]: Both source and caption_body must be truthy for PDF path — guards against malformed rows
 
 ### Pending Todos
 
@@ -85,6 +82,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-19T17:17:28Z
-Stopped at: Completed quick-260319-i8s-PLAN.md
-Resume file: .planning/phases/01-vendor-sync/01-CONTEXT.md
+Last session: 2026-03-19T22:15:36.584Z
+Stopped at: Completed 01-vendor-sync plan 03 (PDF caption bypass in vendorScheduler)
+Resume file: None
