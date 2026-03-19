@@ -64,10 +64,11 @@ export async function publishToFacebook(
     `🚀 [Facebook] Posting to pageId=${pageId} hasImage=${!!imageUrl} dbToken=${!!pageOrSalon?.facebook_page_token}`
   );
 
-  // Attempt photo post first
+  // Attempt photo post first (URL-based)
   if (imageUrl && typeof imageUrl === "string") {
+    console.log("📤 [Facebook] Attempting photo post with URL…");
+    let urlMsg = null;
     try {
-      console.log("📤 [Facebook] Attempting photo post with URL…");
       const res = await fetch(endpointPhoto, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -81,22 +82,61 @@ export async function publishToFacebook(
       const data = await res.json();
 
       if (!res.ok || data.error) {
-        const msg = data?.error?.message || "Unknown FB photo error";
-        console.warn("⚠️ [Facebook] Photo upload failed:", msg);
+        urlMsg = data?.error?.message || "Unknown FB photo error";
+        console.warn("⚠️ [Facebook] Photo URL upload failed:", urlMsg, "| URL:", imageUrl);
       } else {
         console.log("✅ [Facebook] Photo post success:", data);
         return data;
       }
     } catch (err) {
-      console.warn(
-        "⚠️ [Facebook] Photo upload threw error, falling back to feed:",
-        err.message
-      );
+      urlMsg = err.message;
+      console.warn("⚠️ [Facebook] Photo URL upload threw:", urlMsg);
     }
+
+    // URL-based upload failed — try binary upload for self-hosted images.
+    // This handles cases where Facebook's CDN cannot reach our server URL.
+    const selfBase = (process.env.PUBLIC_BASE_URL || "").replace(/\/$/, "");
+    if (selfBase && imageUrl.startsWith(selfBase)) {
+      console.log("📤 [Facebook] Attempting binary upload for self-hosted image…");
+      try {
+        const imgRes = await fetch(imageUrl);
+        if (!imgRes.ok) throw new Error(`Image fetch failed: ${imgRes.status}`);
+        const imgBuffer = Buffer.from(await imgRes.arrayBuffer());
+        const ext = imageUrl.split(".").pop()?.split("?")[0]?.toLowerCase() || "jpg";
+        const mimeType = ext === "png" ? "image/png" : ext === "gif" ? "image/gif" : "image/jpeg";
+
+        const formData = new FormData();
+        formData.append("source", new Blob([imgBuffer], { type: mimeType }), `image.${ext}`);
+        formData.append("caption", safeCaption);
+        formData.append("access_token", token);
+
+        const binaryRes = await fetch(endpointPhoto, { method: "POST", body: formData });
+        const binaryData = await binaryRes.json();
+
+        if (!binaryRes.ok || binaryData.error) {
+          const binaryMsg = binaryData?.error?.message || "Unknown binary upload error";
+          console.error("❌ [Facebook] Binary upload also failed:", binaryMsg);
+          throw new Error(`Facebook photo upload failed — URL: ${urlMsg} | binary: ${binaryMsg}`);
+        }
+
+        console.log("✅ [Facebook] Binary photo upload success:", binaryData);
+        return binaryData;
+      } catch (binaryErr) {
+        // Re-throw combined error — never fall back to text-only when an image was expected
+        const msg = binaryErr.message.startsWith("Facebook photo upload failed")
+          ? binaryErr.message
+          : `Facebook photo upload failed — URL: ${urlMsg} | binary: ${binaryErr.message}`;
+        console.error("❌ [Facebook]", msg);
+        throw new Error(msg);
+      }
+    }
+
+    // External image URL that Facebook couldn't fetch — throw so the post retries
+    throw new Error(`Facebook photo upload failed: ${urlMsg}`);
   }
 
-  // Fallback to text-only post
-  console.log("ℹ️ [Facebook] Falling back to text-only feed post…");
+  // No image provided — text-only feed post
+  console.log("📝 [Facebook] No image provided — posting text-only to feed…");
   const feedRes = await fetch(endpointFeed, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
