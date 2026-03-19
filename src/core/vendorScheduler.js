@@ -98,7 +98,6 @@ Brand: ${campaign.vendor_name}
 Campaign: ${campaign.campaign_name}
 Product: ${campaign.product_name || campaign.campaign_name}
 Description: ${campaign.product_description || ""}
-${campaign.tone_direction ? `Brand tone direction: ${campaign.tone_direction}` : ""}
 ${campaign.cta_instructions ? `CTA instructions: ${campaign.cta_instructions}` : ""}
 ${campaign.service_pairing_notes ? `Service pairing notes: ${campaign.service_pairing_notes}` : ""}
 ${brandCaption ? `\nBrand-provided caption (use as messaging reference — key product claims, language, and tone — but rewrite entirely in the salon's voice):\n${brandCaption}` : ""}
