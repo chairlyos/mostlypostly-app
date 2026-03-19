@@ -63,9 +63,17 @@ router.get("/", requireAuth, (req, res) => {
   `).all(salon_id);
   const vendorSettingsMap = Object.fromEntries(vendorSettings.map(s => [s.vendor_name, s]));
 
+  // Month count per campaign for this salon
+  const thisMonth = new Date().toISOString().slice(0, 7);
+
   // Group campaigns by vendor
   const vendorMap = {};
   for (const c of campaigns) {
+    const { count: monthCount } = db.prepare(`
+      SELECT COUNT(*) AS count FROM vendor_post_log
+      WHERE salon_id = ? AND campaign_id = ? AND posted_month = ?
+    `).get(salon_id, c.id, thisMonth);
+    c.monthCount = monthCount;
     if (!vendorMap[c.vendor_name]) vendorMap[c.vendor_name] = [];
     vendorMap[c.vendor_name].push(c);
   }
@@ -133,8 +141,10 @@ router.get("/", requireAuth, (req, res) => {
 
       const campaignPreviews = nonExpired.slice(0, 5).map(c => {
         const tags = parseHashtags(c.hashtags).slice(0, 4);
+        const cap = c.frequency_cap || 4;
+        const atCap = c.monthCount >= cap;
         return `
-          <div class="rounded-xl border border-mpBorder bg-mpBg p-3 flex gap-3 items-start">
+          <div class="rounded-xl border border-mpBorder bg-mpBg p-3 flex gap-3 items-start" data-campaign-wrapper>
             ${c.photo_url
               ? `<img src="${safe(c.photo_url)}" class="w-14 h-14 object-cover rounded-lg border border-mpBorder flex-shrink-0" onerror="this.style.display='none'" />`
               : `<div class="w-14 h-14 rounded-lg border border-mpBorder bg-white flex items-center justify-center text-mpMuted text-xl flex-shrink-0">🏷️</div>`}
@@ -144,8 +154,23 @@ router.get("/", requireAuth, (req, res) => {
               ${tags.length ? `<div class="mt-1.5 flex flex-wrap gap-1">${tags.map(t => `<span class="text-[10px] bg-white border border-mpBorder rounded-full px-2 py-0.5 text-mpMuted">${safe(t)}</span>`).join("")}</div>` : ""}
               <p class="text-[10px] text-mpMuted mt-1">
                 ${c.cta_instructions ? `CTA: ${safe(c.cta_instructions.slice(0, 60))}` : ""}
-                ${c.expires_at ? ` · Expires ${safe(c.expires_at)}` : ""}
               </p>
+              <div class="text-xs text-gray-500 mt-2 flex gap-4 flex-wrap">
+                ${c.product_hashtag ? `<span>${safe(c.product_hashtag)}</span>` : ""}
+                ${c.expires_at ? `<span>Expires: ${safe(c.expires_at)}</span>` : ""}
+              </div>
+              <div class="flex gap-2 mt-3" data-campaign-id="${safe(c.id)}">
+                <button
+                  class="add-to-queue-btn px-4 py-2 text-sm rounded-lg font-medium ${atCap ? "bg-gray-200 text-gray-400 cursor-not-allowed" : "bg-blue-600 text-white hover:bg-blue-700"}"
+                  data-campaign-id="${safe(c.id)}"
+                  data-cap="${cap}"
+                  ${atCap ? "disabled" : ""}>
+                  ${atCap ? "Monthly cap reached" : "Add to Queue"}
+                </button>
+                ${canRenew ? `
+                <button class="reset-campaign-btn px-4 py-2 text-sm border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50"
+                  data-campaign-id="${safe(c.id)}">Reset</button>` : ""}
+              </div>
             </div>
           </div>`;
       }).join("");
@@ -190,7 +215,7 @@ router.get("/", requireAuth, (req, res) => {
           <div class="border-t border-mpBorder px-5 py-4">
             <details class="vendor-accordion">
               <summary class="text-xs font-semibold text-mpMuted hover:text-mpCharcoal cursor-pointer select-none mb-3">
-                ▶ Preview content
+                ▶ Preview content <span class="count-pill ml-2 text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">${nonExpired.reduce((s, c) => s + (c.monthCount || 0), 0)}/${nonExpired.reduce((s, c) => s + (c.frequency_cap || 4), 0)} this month</span>
               </summary>
               <div class="space-y-2">
                 ${campaignPreviews}
@@ -311,6 +336,57 @@ router.get("/", requireAuth, (req, res) => {
       </ul>
     </div>` : ""}
 
+    <script>
+document.querySelectorAll('.add-to-queue-btn').forEach(function(btn) {
+  btn.addEventListener('click', async function() {
+    if (btn.disabled) return;
+    const campaignId = btn.dataset.campaignId;
+    const cap = parseInt(btn.dataset.cap, 10);
+    btn.textContent = 'Adding\u2026';
+    btn.disabled = true;
+    try {
+      const res = await fetch('/manager/vendors/add-to-queue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ campaign_id: campaignId })
+      });
+      const data = await res.json();
+      if (data.success) {
+        btn.textContent = 'Added \u2713';
+        const wrapper = btn.closest('[data-campaign-wrapper]') || btn.parentElement.closest('[data-campaign-wrapper]');
+        if (wrapper) {
+          const pill = wrapper.querySelector('.count-pill');
+          if (pill) pill.textContent = data.count + '/' + data.cap + ' this month';
+        }
+        if (data.count >= data.cap) {
+          btn.textContent = 'Monthly cap reached';
+          btn.className = btn.className.replace('bg-blue-600 text-white hover:bg-blue-700', 'bg-gray-200 text-gray-400 cursor-not-allowed');
+        }
+      } else {
+        btn.textContent = 'Error \u2014 try again';
+        btn.disabled = false;
+      }
+    } catch (e) {
+      btn.textContent = 'Error \u2014 try again';
+      btn.disabled = false;
+    }
+  });
+});
+
+document.querySelectorAll('.reset-campaign-btn').forEach(function(btn) {
+  btn.addEventListener('click', async function() {
+    if (!confirm('Reset this month\'s post count for this campaign?')) return;
+    const res = await fetch('/manager/vendors/reset-campaign', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ campaign_id: btn.dataset.campaignId })
+    });
+    const data = await res.json();
+    if (data.success) location.reload();
+  });
+});
+</script>
+
   `;
 
   res.send(pageShell({ title: "Vendor Brands", body, salon_id, current: "vendors" }));
@@ -412,6 +488,83 @@ router.post("/renew-campaign", requireAuth, (req, res) => {
   db.prepare(`DELETE FROM vendor_post_log WHERE campaign_id = ? AND posted_month = ?`).run(campaign_id, thisMonth);
 
   res.redirect(`/manager/vendors?renewed=${encodeURIComponent(campaign.campaign_name)}`);
+});
+
+// ── POST /add-to-queue ────────────────────────────────────────────────────────
+router.post("/add-to-queue", requireAuth, async (req, res) => {
+  const salonId = req.manager.salon_id;
+  const { campaign_id } = req.body;
+  if (!campaign_id) return res.json({ success: false, error: "Missing campaign_id" });
+
+  const campaign = db.prepare(`SELECT * FROM vendor_campaigns WHERE id = ?`).get(campaign_id);
+  if (!campaign) return res.json({ success: false, error: "Campaign not found" });
+
+  const thisMonth = new Date().toISOString().slice(0, 7);
+  const cap = campaign.frequency_cap || 4;
+  const { count: monthCount } = db.prepare(`
+    SELECT COUNT(*) AS count FROM vendor_post_log
+    WHERE salon_id = ? AND campaign_id = ? AND posted_month = ?
+  `).get(salonId, campaign_id, thisMonth);
+
+  if (monthCount >= cap) return res.json({ success: false, error: "Monthly cap reached" });
+
+  const salon = db.prepare(`SELECT * FROM salons WHERE slug = ?`).get(salonId);
+  const feed = db.prepare(`SELECT affiliate_url FROM salon_vendor_feeds WHERE salon_id = ? AND vendor_name = ?`).get(salonId, campaign.vendor_name);
+
+  const { generateVendorCaption, buildVendorHashtagBlock } = await import("../core/vendorScheduler.js");
+
+  const caption = await generateVendorCaption({ campaign, salon, affiliateUrl: feed?.affiliate_url || null });
+  if (!caption) return res.json({ success: false, error: "Caption generation failed" });
+
+  const brandCfg = db.prepare(`SELECT brand_hashtags FROM vendor_brands WHERE vendor_name = ?`).get(campaign.vendor_name);
+  const brandHashtags = (() => { try { return JSON.parse(brandCfg?.brand_hashtags || "[]"); } catch { return []; } })();
+  const salonTags = (() => { try { return JSON.parse(salon.default_hashtags || "[]"); } catch { return []; } })();
+  const lockedBlock = buildVendorHashtagBlock({ salonHashtags: salonTags, brandHashtags, productHashtag: campaign.product_hashtag || null });
+  const finalCaption = caption + (lockedBlock ? `\n\n${lockedBlock}` : "");
+
+  const postId = crypto.randomUUID();
+  const now = new Date().toISOString();
+  const { maxnum } = db.prepare(`SELECT MAX(salon_post_number) AS maxnum FROM posts WHERE salon_id = ?`).get(salonId) || {};
+
+  db.prepare(`
+    INSERT INTO posts (id, salon_id, stylist_name, image_url, base_caption, final_caption, post_type, status, vendor_campaign_id, salon_post_number, created_at, updated_at)
+    VALUES (@id, @salon_id, @stylist_name, @image_url, @base_caption, @final_caption, @post_type, @status, @vendor_campaign_id, @salon_post_number, @created_at, @updated_at)
+  `).run({
+    id: postId, salon_id: salonId,
+    stylist_name: `${campaign.vendor_name} (Campaign)`,
+    image_url: campaign.photo_url || null,
+    base_caption: caption, final_caption: finalCaption,
+    post_type: "standard_post", status: "manager_approved",
+    vendor_campaign_id: campaign_id,
+    salon_post_number: (maxnum || 0) + 1,
+    created_at: now, updated_at: now,
+  });
+
+  db.prepare(`
+    INSERT INTO vendor_post_log (id, salon_id, campaign_id, post_id, posted_month, created_at)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(crypto.randomUUID(), salonId, campaign_id, postId, thisMonth, now);
+
+  try {
+    const { enqueuePost } = await import("../scheduler.js");
+    const postRow = db.prepare(`SELECT * FROM posts WHERE id = ?`).get(postId);
+    if (postRow) enqueuePost(postRow);
+  } catch (err) {
+    console.warn("[VendorFeeds] enqueuePost failed:", err.message);
+  }
+
+  return res.json({ success: true, count: monthCount + 1, cap });
+});
+
+// ── POST /reset-campaign ──────────────────────────────────────────────────────
+router.post("/reset-campaign", requireAuth, (req, res) => {
+  const salonId = req.manager.salon_id;
+  const { campaign_id } = req.body;
+  if (!campaign_id) return res.json({ success: false, error: "Missing campaign_id" });
+  const thisMonth = new Date().toISOString().slice(0, 7);
+  db.prepare(`DELETE FROM vendor_post_log WHERE salon_id = ? AND campaign_id = ? AND posted_month = ?`)
+    .run(salonId, campaign_id, thisMonth);
+  return res.json({ success: true });
 });
 
 export default router;
