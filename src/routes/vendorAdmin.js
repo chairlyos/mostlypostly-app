@@ -2008,29 +2008,42 @@ router.get("/campaign/:id/edit", requireSecret, requirePin, (req, res) => {
   </form>
 </div>
 <script>
-function aiGen(btn) {
-  var productName = document.querySelector('[name="product_name"]').value.trim();
-  var vendorName  = ${JSON.stringify(s(campaign.vendor_name))};
+async function aiGen(btn) {
+  var vendorName = ${JSON.stringify(s(campaign.vendor_name))};
+  var prodEl = document.querySelector('[name="product_name"]');
+  if (!prodEl) { alert('Could not find product name field. Please refresh and try again.'); return; }
+  var productName = prodEl.value.trim();
   if (!productName) { alert('Enter a product name first.'); return; }
-  var csrfToken = document.querySelector('meta[name="csrf-token"]');
-  csrfToken = csrfToken ? csrfToken.content : '';
+  var target = document.getElementById('desc-area');
+  if (!target) { alert('Could not find description field. Please refresh and try again.'); return; }
+  if (target.value.trim()) {
+    if (!confirm('Description already has content. Replace it with AI-generated text?')) return;
+  }
+  var origText = btn.textContent;
   btn.textContent = '⏳ Generating…';
   btn.disabled = true;
-  fetch('/internal/vendors/campaign/ai-description${qs(req)}', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
-    body: JSON.stringify({ vendor_name: vendorName, product_name: productName })
-  })
-  .then(function(r) { return r.json(); })
-  .then(function(data) {
+  try {
+    var secret = new URLSearchParams(window.location.search).get('secret') || '';
+    var resp = await fetch('/internal/vendors/campaign/ai-description?secret=' + encodeURIComponent(secret), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.content || ''
+      },
+      body: JSON.stringify({ vendor_name: vendorName, product_name: productName })
+    });
+    var data = await resp.json();
     if (data.description) {
-      document.getElementById('desc-area').value = data.description;
+      target.value = data.description;
     } else {
-      alert('AI generation failed: ' + (data.error || 'Unknown error'));
+      alert('Could not generate description: ' + (data.error || 'Unknown error'));
     }
-  })
-  .catch(function(err) { alert('Request failed: ' + err.message); })
-  .finally(function() { btn.textContent = '✨ AI Generate'; btn.disabled = false; });
+  } catch (err) {
+    alert('Error: ' + err.message);
+  } finally {
+    btn.textContent = origText;
+    btn.disabled = false;
+  }
 }
 </script>
 </body></html>`);
