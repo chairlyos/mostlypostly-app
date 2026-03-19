@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import { db } from '../../db.js';
 
 const BASE_URL = () => (process.env.PUBLIC_BASE_URL || 'https://app.mostlypostly.com').replace(/\/$/, '');
+const SHORT_BASE = () => (process.env.SHORT_URL_BASE || BASE_URL()).replace(/\/$/, '');
 
 function randomToken() {
   return crypto.randomBytes(6).toString('base64url').slice(0, 8);
@@ -19,7 +20,7 @@ export function buildTrackingToken({ salonId, postId = null, clickType, vendorNa
 }
 
 export function buildShortUrl(token) {
-  return `${BASE_URL()}/t/${token}`;
+  return `${SHORT_BASE()}/t/${token}`;
 }
 
 export function buildBioUrl(salonSlug) {
