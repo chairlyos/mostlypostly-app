@@ -176,9 +176,13 @@ async function processSalon(salon, thisMonth) {
   let created = 0;
 
   // 2. Get enabled vendor feeds for this salon (Pro plan is the gate)
+  //    JOIN vendor_brands to get platform-level frequency controls.
   const enabledVendors = db.prepare(`
-    SELECT f.vendor_name, f.affiliate_url, f.category_filters
+    SELECT f.vendor_name, f.affiliate_url, f.category_filters,
+           COALESCE(b.min_gap_days, 3) AS min_gap_days,
+           COALESCE(b.platform_max_cap, 6) AS platform_max_cap
     FROM salon_vendor_feeds f
+    LEFT JOIN vendor_brands b ON b.vendor_name = f.vendor_name
     WHERE f.salon_id = ?
       AND f.enabled = 1
   `).all(salonId);
@@ -210,7 +214,7 @@ async function processSalon(salon, thisMonth) {
 
     for (const campaign of campaigns) {
       try {
-        const didCreate = await processCampaign(campaign, salon, thisMonth, affiliateUrl);
+        const didCreate = await processCampaign(campaign, salon, thisMonth, affiliateUrl, vendorName, vendor.min_gap_days);
         if (didCreate) created++;
       } catch (err) {
         log.warn(`Error processing campaign ${campaign.id} for salon ${salonId}: ${err.message}`);
@@ -221,11 +225,33 @@ async function processSalon(salon, thisMonth) {
   return created;
 }
 
-async function processCampaign(campaign, salon, thisMonth, affiliateUrl) {
+async function processCampaign(campaign, salon, thisMonth, affiliateUrl, vendorName, minGapDays) {
   const salonId = salon.slug;
 
-  // 4. Check monthly post count against frequency_cap
-  const cap = campaign.frequency_cap || 4;
+  // 4. Check minimum gap between vendor posts for this brand (platform floor)
+  const effectiveMinGap = minGapDays ?? 3;
+  const lastVendorPost = db.prepare(`
+    SELECT MAX(scheduled_for) AS last_vendor_post
+    FROM posts
+    WHERE salon_id = ?
+      AND vendor_campaign_id IN (
+        SELECT id FROM vendor_campaigns WHERE vendor_name = ?
+      )
+      AND status IN ('manager_pending', 'manager_approved', 'published')
+  `).get(salonId, vendorName || campaign.vendor_name);
+
+  if (lastVendorPost?.last_vendor_post) {
+    const lastMs = new Date(lastVendorPost.last_vendor_post).getTime();
+    const nowMs  = Date.now();
+    const daysSince = (nowMs - lastMs) / (1000 * 60 * 60 * 24);
+    if (daysSince < effectiveMinGap) {
+      log.info(`  Salon ${salonId} / campaign ${campaign.id}: min-gap not met (${daysSince.toFixed(1)} days < ${effectiveMinGap} required) — skipping`);
+      return false;
+    }
+  }
+
+  // 5. Check monthly post count against frequency_cap
+  const cap = campaign.frequency_cap || 3;
   const { count: monthCount } = db.prepare(`
     SELECT COUNT(*) AS count
     FROM vendor_post_log
@@ -237,7 +263,7 @@ async function processCampaign(campaign, salon, thisMonth, affiliateUrl) {
     return false;
   }
 
-  // 5. Make sure we haven't already scheduled a pending/approved post from this
+  // 6. Make sure we haven't already scheduled a pending/approved post from this
   //    campaign this month (avoid duplicating on repeated scheduler runs)
   const existing = db.prepare(`
     SELECT COUNT(*) AS count
@@ -253,7 +279,7 @@ async function processCampaign(campaign, salon, thisMonth, affiliateUrl) {
     return false;
   }
 
-  // 6. Require a photo — both FB and IG need an image URL
+  // 7. Require a photo — both FB and IG need an image URL
   if (!campaign.photo_url) {
     log.warn(`  Skipping campaign ${campaign.id} ("${campaign.campaign_name}") — no photo_url set`);
     return false;
@@ -292,13 +318,13 @@ async function processCampaign(campaign, salon, thisMonth, affiliateUrl) {
     productHashtag: campaign.product_hashtag || null,
   });
 
-  // 7. Compute next salon post number
+  // 8. Compute next salon post number
   const { maxnum } = db.prepare(
     `SELECT MAX(salon_post_number) AS maxnum FROM posts WHERE salon_id = ?`
   ).get(salonId) || {};
   const salon_post_number = (maxnum || 0) + 1;
 
-  // 8. Build the post row
+  // 9. Build the post row
   const postId = crypto.randomUUID();
   const now    = new Date().toISOString();
   const status = salon.require_manager_approval ? "manager_pending" : "manager_approved";
@@ -361,7 +387,7 @@ async function processCampaign(campaign, salon, thisMonth, affiliateUrl) {
     updated_at:          now,
   });
 
-  // 9. Log to vendor_post_log
+  // 10. Log to vendor_post_log
   db.prepare(`
     INSERT INTO vendor_post_log (id, salon_id, campaign_id, post_id, posted_month, created_at)
     VALUES (@id, @salon_id, @campaign_id, @post_id, @posted_month, @created_at)
@@ -374,7 +400,7 @@ async function processCampaign(campaign, salon, thisMonth, affiliateUrl) {
     created_at:   now,
   });
 
-  // 10. If auto-enqueue (no manager approval required), schedule it
+  // 11. If auto-enqueue (no manager approval required), schedule it
   if (status === "manager_approved") {
     try {
       const postRow = db.prepare(`SELECT * FROM posts WHERE id = ?`).get(postId);

@@ -636,7 +636,7 @@ function insertCampaigns(campaigns, config) {
     const campaign_name = (campaign.campaign_name || '').trim();
     const release_date = (campaign.release_date || '').trim();
 
-    // Compute expires_at: 60 days from release_date if parseable, else null
+    // Compute expires_at: 60 days from release_date if parseable, else 30 days from today
     let expires_at = null;
     try {
       const releaseMs = new Date(release_date).getTime();
@@ -645,6 +645,10 @@ function insertCampaigns(campaigns, config) {
         expires_at = expiry.toISOString().slice(0, 10);
       }
     } catch (_) { /* leave null */ }
+    // Auto-expiry fallback: if no expiry computed, default to 30 days from today
+    if (!expires_at) {
+      expires_at = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    }
 
     const campaignData = {
       id: crypto.randomUUID(),
@@ -655,7 +659,7 @@ function insertCampaigns(campaigns, config) {
       product_hashtag: campaign.product_hashtag || null,
       photo_url: campaign.localImagePath || null,
       expires_at,
-      frequency_cap: 4,
+      frequency_cap: 3,
       created_at: new Date().toISOString(),
     };
 
