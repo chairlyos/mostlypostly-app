@@ -303,6 +303,9 @@ router.get("/", requireAuth, (req, res) => {
     },
   };
 
+  // Compute Instagram bio link URL
+  const bioUrl = `${(process.env.PUBLIC_BASE_URL || 'https://app.mostlypostly.com').replace(/\/$/, '')}/t/${salonRow.slug}/book`;
+
   // Build Admin Page HTML
   const body = `
     ${req.query.notice ? `<div class="rounded-xl border border-green-200 bg-green-50 px-4 py-3 mb-4 text-xs text-green-800 font-medium">${req.query.notice}</div>` : ""}
@@ -396,6 +399,24 @@ router.get("/", requireAuth, (req, res) => {
                 ? `<a href="${info.booking_url}" target="_blank" class="underline text-blue-400">Visit</a>`
                 : "Not set"
             }</dd>
+          </div>
+
+          <div class="flex justify-between items-center">
+            <dt class="text-mpMuted">Avg Ticket Value</dt>
+            <dd>$${salonRow.avg_ticket_value || 95}</dd>
+          </div>
+
+          <div class="flex flex-col gap-1 mt-2">
+            <dt class="text-mpMuted mb-1">Instagram Bio Link</dt>
+            <dd class="flex items-center gap-2">
+              <input type="text" readonly value="${bioUrl}"
+                id="bioLinkInput"
+                class="border border-gray-200 bg-gray-50 rounded-lg px-3 py-2 text-xs flex-1 font-mono" />
+              <button type="button"
+                onclick="navigator.clipboard.writeText(document.getElementById('bioLinkInput').value).then(() => { this.textContent='Copied!'; setTimeout(() => this.textContent='Copy', 2000); })"
+                class="px-3 py-2 text-xs bg-mpCharcoal text-white rounded-lg hover:bg-mpCharcoalDark whitespace-nowrap">Copy</button>
+            </dd>
+            <p class="text-[10px] text-mpMuted">Paste this into your Instagram bio to track booking clicks.</p>
           </div>
 
           <div class="flex justify-between"><dt class="text-mpMuted">Tone Profile</dt><dd>${
@@ -1203,6 +1224,16 @@ router.get("/edit/business-info", requireAuth, (req, res) => {
           <input name="booking_url" value="${row.booking_url || ""}" class="${inputCls}" />
         </div>
         <div>
+          <label class="text-xs font-semibold text-mpMuted">Avg Ticket Value</label>
+          <div class="flex items-center gap-2 mt-1">
+            <span class="text-gray-500 text-sm">$</span>
+            <input type="number" name="avg_ticket_value"
+              value="${row.avg_ticket_value || 95}" min="1"
+              class="border border-mpBorder bg-mpBg rounded-lg px-3 py-2 text-sm text-mpCharcoal focus:border-mpAccent focus:outline-none focus:ring-2 focus:ring-mpAccent/20 w-28" />
+          </div>
+          <p class="text-[11px] text-mpMuted mt-1">Used to estimate booking revenue from link clicks.</p>
+        </div>
+        <div>
           <label class="text-xs font-semibold text-mpMuted">Industry</label>
           <select name="industry" class="${inputCls}">
             ${industryOptions.map(o => `<option${row.industry === o ? " selected" : ""}>${o}</option>`).join("")}
@@ -1327,6 +1358,8 @@ router.post("/update-salon-info", requireAuth, (req, res) => {
     custom_tags_raw
   } = req.body;
 
+  const avg_ticket_value = parseInt(req.body.avg_ticket_value, 10) || 95;
+
   if (!salon_id) {
     return res.status(400).send("Missing salon_id");
   }
@@ -1365,6 +1398,7 @@ router.post("/update-salon-info", requireAuth, (req, res) => {
           tone             = COALESCE(?, tone),
           timezone         = COALESCE(?, timezone),
           default_hashtags = COALESCE(?, default_hashtags),
+          avg_ticket_value = ?,
           updated_at       = datetime('now')
         WHERE slug = ?
     `).run(
@@ -1379,6 +1413,7 @@ router.post("/update-salon-info", requireAuth, (req, res) => {
       tone_profile || null,
       timezone || null,
       hashtagsValue,
+      avg_ticket_value,
       salon_id
     );
 
