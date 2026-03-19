@@ -323,9 +323,9 @@ router.get("/", requireSecret, requirePin, (req, res) => {
     const allowRenewal = cfg.allow_client_renewal !== 0;
     const vendorKey = safe(vendor.replace(/\s+/g, "_"));
 
-    const catOptions = categories.length
-      ? categories.map(cat => `<option value="${safe(cat)}">${safe(cat)}</option>`).join("")
-      : `<option value="Standard">Standard</option><option value="Promotion">Promotion</option>`;
+    const CANONICAL_CATS = ['Standard', 'Promotion', 'Color', 'Treatment', 'Styling', 'Care'];
+    const mergedCats = [...new Set([...CANONICAL_CATS, ...categories])];
+    const catOptions = mergedCats.map(cat => `<option value="${safe(cat)}">${safe(cat)}</option>`).join("");
 
     const campaignRows = items.map(c => {
       const isExpired = c.expires_at && c.expires_at < today;
@@ -371,58 +371,14 @@ router.get("/", requireSecret, requirePin, (req, res) => {
       </div>`;
     }).join("");
 
+    const inlineFormId = `inline-desc-${vendorKey}`;
+    const inlineProdId = `inline-prod-${vendorKey}`;
     return `
   <div class="mb-8">
     <div class="flex items-center justify-between mb-3">
       <h3 class="font-bold text-gray-900">${safe(vendor)}
         <span class="ml-2 text-xs font-normal text-gray-400">${items.length} campaign${items.length !== 1 ? "s" : ""}</span>
       </h3>
-    </div>
-
-    <!-- Brand Config Card -->
-    <div class="border rounded-xl bg-white p-4 mb-4">
-      <p class="text-xs font-bold text-gray-700 uppercase tracking-wide mb-3">Brand Config</p>
-      <form method="POST" action="/internal/vendors/brand-config${qs(req)}" class="space-y-3">
-        <input type="hidden" name="vendor_name" value="${safe(vendor)}" />
-        <div class="grid grid-cols-2 gap-2">
-          <div>
-            <label class="text-xs text-gray-500 block mb-1">Brand Hashtag 1</label>
-            <input type="text" name="brand_hashtags[]" value="${safe(brandHashtags[0] || "")}"
-                   placeholder="#BrandTag" maxlength="60"
-                   class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm" />
-          </div>
-          <div>
-            <label class="text-xs text-gray-500 block mb-1">Brand Hashtag 2</label>
-            <input type="text" name="brand_hashtags[]" value="${safe(brandHashtags[1] || "")}"
-                   placeholder="#BrandTag" maxlength="60"
-                   class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm" />
-          </div>
-        </div>
-        <div>
-          <label class="text-xs text-gray-500 block mb-1">Campaign Categories (comma-separated)</label>
-          <input type="text" name="categories" value="${safe(categories.join(", "))}"
-                 placeholder="Color, Standard, Promotion"
-                 class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm" />
-          ${categories.length
-            ? `<div class="mt-1.5 flex flex-wrap gap-1">${categories.map(c => `<span class="text-[11px] bg-gray-100 text-gray-600 rounded-full px-2 py-0.5">${safe(c)}</span>`).join("")}</div>`
-            : ""}
-        </div>
-        <div class="flex items-center gap-3">
-          <span class="text-xs text-gray-600 font-medium">Allow client-side renewal</span>
-          <label class="relative inline-flex items-center cursor-pointer">
-            <input type="checkbox" name="allow_client_renewal" value="1" ${allowRenewal ? "checked" : ""}
-                   class="sr-only peer" />
-            <div class="w-9 h-5 bg-gray-200 peer-checked:bg-blue-600 rounded-full transition-colors"></div>
-            <div class="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform peer-checked:translate-x-4"></div>
-          </label>
-        </div>
-        <div class="flex justify-end">
-          <button type="submit"
-                  class="text-xs bg-gray-900 text-white rounded-lg px-4 py-1.5 font-semibold hover:bg-gray-700">
-            Save Brand Config
-          </button>
-        </div>
-      </form>
     </div>
 
     <!-- Campaign Rows -->
@@ -436,7 +392,7 @@ router.get("/", requireSecret, requirePin, (req, res) => {
         </summary>
         <div class="mt-3 border rounded-xl bg-gray-50 p-4">
         <p class="text-xs font-bold text-gray-700 mb-3">New Campaign &mdash; ${safe(vendor)}</p>
-        <form method="POST" action="/internal/vendors/campaign/add${qs(req)}" class="space-y-3">
+        <form method="POST" action="/internal/vendors/campaign/add${qs(req)}" enctype="multipart/form-data" class="space-y-3">
           <input type="hidden" name="vendor_name" value="${safe(vendor)}" />
           <div class="grid grid-cols-2 gap-3">
             <div>
@@ -453,7 +409,7 @@ router.get("/", requireSecret, requirePin, (req, res) => {
             </div>
             <div>
               <label class="text-xs text-gray-500 block mb-1">Product Name *</label>
-              <input type="text" name="product_name" required placeholder="Full Spectrum Color"
+              <input type="text" id="${inlineProdId}" name="product_name" required placeholder="Full Spectrum Color"
                      class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white" />
             </div>
             <div>
@@ -462,14 +418,26 @@ router.get("/", requireSecret, requirePin, (req, res) => {
                      class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white" />
             </div>
             <div class="col-span-2">
-              <label class="text-xs text-gray-500 block mb-1">Product Description</label>
-              <textarea name="product_description" rows="2" placeholder="1-2 sentence description"
+              <div class="flex items-center justify-between mb-1">
+                <label class="text-xs text-gray-500">Product Description *</label>
+                <button type="button"
+                        onclick="aiGenerateDesc(this, '${safe(vendor)}', document.getElementById('${inlineProdId}').value, '${inlineFormId}')"
+                        class="text-xs text-purple-600 hover:text-purple-800 font-medium flex items-center gap-1">
+                  &#10024; AI Generate
+                </button>
+              </div>
+              <textarea id="${inlineFormId}" name="product_description" rows="2" required placeholder="1-2 sentence description"
                         class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white"></textarea>
             </div>
             <div class="col-span-2">
-              <label class="text-xs text-gray-500 block mb-1">Photo URL</label>
-              <input type="text" name="photo_url" placeholder="https://..."
-                     class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white" />
+              <label class="text-xs text-gray-500 block mb-1">Photo *</label>
+              <div class="flex gap-2 items-center">
+                <input type="text" name="photo_url" placeholder="https://... (or upload a file)"
+                       class="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white" />
+                <input type="file" name="photo_file" accept="image/*"
+                       class="text-xs text-gray-600 file:mr-2 file:rounded file:border-0 file:bg-gray-100 file:px-2 file:py-1 file:text-xs file:font-medium" />
+              </div>
+              <p class="text-[11px] text-gray-400 mt-0.5">Provide a URL or upload an image file. Uploaded file takes priority.</p>
             </div>
             <div>
               <label class="text-xs text-gray-500 block mb-1">Tone Direction</label>
@@ -523,6 +491,12 @@ router.get("/", requireSecret, requirePin, (req, res) => {
     .stat-card { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:16px 20px; }
     .stat-val  { font-size:28px; font-weight:800; color:#111827; line-height:1; }
     .stat-lbl  { font-size:12px; color:#6b7280; margin-top:4px; }
+    .tab-section { display:none; }
+    .tab-section.active { display:block; }
+    .tab-btn { padding:10px 18px; font-size:13px; font-weight:500; color:#6b7280; border-bottom:2px solid transparent; background:none; border-top:none; border-left:none; border-right:none; cursor:pointer; white-space:nowrap; }
+    .tab-btn:hover { color:#111827; }
+    .tab-btn.active { color:#111827; border-bottom-color:#111827; font-weight:600; }
+    .badge { display:inline-flex; align-items:center; border-radius:9999px; padding:1px 7px; font-size:11px; font-weight:700; }
   </style>
 </head>
 <body class="bg-gray-50 text-gray-900 min-h-screen">
@@ -539,21 +513,66 @@ router.get("/", requireSecret, requirePin, (req, res) => {
     </a>
   </div>
 
-  <div class="max-w-5xl mx-auto px-8 py-8 space-y-8">
+  <!-- Tab Nav -->
+  <div class="border-b bg-white sticky top-0 z-10 shadow-sm">
+    <div class="max-w-5xl mx-auto px-8 flex gap-0 overflow-x-auto">
+      <button class="tab-btn active" onclick="showTab('overview')" data-tab="overview">Overview</button>
+      <button class="tab-btn" onclick="showTab('brands')" data-tab="brands">
+        Brands &amp; Campaigns
+        <span class="ml-1 badge bg-purple-100 text-purple-700">${totalCampaigns}</span>
+      </button>
+      <button class="tab-btn" onclick="showTab('salons')" data-tab="salons">
+        Salons
+        <span class="ml-1 badge bg-gray-100 text-gray-600">${totalSalons}</span>
+      </button>
+      <button class="tab-btn" onclick="showTab('support')" data-tab="support">
+        Support
+        ${openIssueCount + openRequestCount > 0 ? `<span class="ml-1 badge bg-red-100 text-red-700">${openIssueCount + openRequestCount}</span>` : ""}
+      </button>
+      <button class="tab-btn" onclick="showTab('approvals')" data-tab="approvals">
+        Approvals
+        ${pendingCount > 0 ? `<span class="ml-1 badge bg-yellow-100 text-yellow-700">${pendingCount}</span>` : ""}
+      </button>
+    </div>
+  </div>
+
+  <div class="max-w-5xl mx-auto px-8 py-8">
 
     ${flashBanner}
 
-    <!-- Stats -->
-    <div class="grid grid-cols-2 sm:grid-cols-6 gap-3">
-      <div class="stat-card"><div class="stat-val">${totalSalons}</div><div class="stat-lbl">Total Accounts</div></div>
-      <div class="stat-card"><div class="stat-val text-green-600">${active}</div><div class="stat-lbl">Active</div></div>
-      <div class="stat-card"><div class="stat-val text-blue-600">${trialing}</div><div class="stat-lbl">Trialing</div></div>
-      <div class="stat-card"><div class="stat-val text-red-500">${canceled}</div><div class="stat-lbl">Canceled</div></div>
-      <div class="stat-card"><div class="stat-val text-purple-600">${totalCampaigns}</div><div class="stat-lbl">Vendor Campaigns</div></div>
-      <div class="stat-card"><div class="stat-val ${pendingCount > 0 ? "text-yellow-500" : "text-gray-400"}">${pendingCount}</div><div class="stat-lbl">Pending Approvals</div></div>
-      <div class="stat-card"><div class="stat-val ${openIssueCount > 0 ? "text-red-500" : "text-gray-400"}">${openIssueCount}</div><div class="stat-lbl">Open Issues</div></div>
-      <div class="stat-card"><div class="stat-val ${openRequestCount > 0 ? "text-indigo-600" : "text-gray-400"}">${openRequestCount}</div><div class="stat-lbl">Feature Requests</div></div>
+    <!-- ═══ OVERVIEW TAB ══════════════════════════════════════════════════════ -->
+    <div id="tab-overview" class="tab-section active space-y-6">
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div class="stat-card cursor-pointer hover:border-gray-300" onclick="showTab('salons')">
+          <div class="stat-val">${totalSalons}</div><div class="stat-lbl">Total Accounts</div></div>
+        <div class="stat-card">
+          <div class="stat-val text-green-600">${active}</div><div class="stat-lbl">Active</div></div>
+        <div class="stat-card">
+          <div class="stat-val text-blue-600">${trialing}</div><div class="stat-lbl">Trialing</div></div>
+        <div class="stat-card">
+          <div class="stat-val text-red-500">${canceled}</div><div class="stat-lbl">Canceled</div></div>
+        <div class="stat-card cursor-pointer hover:border-gray-300" onclick="showTab('brands')">
+          <div class="stat-val text-purple-600">${totalCampaigns}</div><div class="stat-lbl">Vendor Campaigns</div></div>
+        <div class="stat-card cursor-pointer hover:border-gray-300" onclick="showTab('approvals')">
+          <div class="stat-val ${pendingCount > 0 ? "text-yellow-500" : "text-gray-400"}">${pendingCount}</div><div class="stat-lbl">Pending Approvals</div></div>
+        <div class="stat-card cursor-pointer hover:border-gray-300" onclick="showTab('support')">
+          <div class="stat-val ${openIssueCount > 0 ? "text-red-500" : "text-gray-400"}">${openIssueCount}</div><div class="stat-lbl">Open Issues</div></div>
+        <div class="stat-card cursor-pointer hover:border-gray-300" onclick="showTab('support')">
+          <div class="stat-val ${openRequestCount > 0 ? "text-indigo-600" : "text-gray-400"}">${openRequestCount}</div><div class="stat-lbl">Feature Requests</div></div>
+      </div>
+      <div class="rounded-xl bg-white border p-5 text-sm text-gray-600 space-y-2">
+        <p class="font-semibold text-gray-800">Quick actions</p>
+        <div class="flex flex-wrap gap-3">
+          <button onclick="showTab('brands')" class="px-4 py-2 bg-gray-900 text-white rounded-lg text-xs font-semibold hover:bg-gray-700">Manage Brands &amp; Campaigns</button>
+          <button onclick="showTab('salons')" class="px-4 py-2 border rounded-lg text-xs font-semibold hover:bg-gray-50">Manage Salons</button>
+          ${pendingCount > 0 ? `<button onclick="showTab('approvals')" class="px-4 py-2 bg-yellow-500 text-white rounded-lg text-xs font-semibold hover:bg-yellow-600">${pendingCount} Pending Approval${pendingCount !== 1 ? "s" : ""}</button>` : ""}
+          ${openIssueCount > 0 ? `<button onclick="showTab('support')" class="px-4 py-2 bg-red-500 text-white rounded-lg text-xs font-semibold hover:bg-red-600">${openIssueCount} Open Issue${openIssueCount !== 1 ? "s" : ""}</button>` : ""}
+        </div>
+      </div>
     </div>
+
+    <!-- ═══ BRANDS & CAMPAIGNS TAB ═════════════════════════════════════════════ -->
+    <div id="tab-brands" class="tab-section space-y-8">
 
     <!-- Vendor Brands -->
     <div class="border rounded-2xl bg-white p-6">
@@ -574,8 +593,16 @@ router.get("/", requireSecret, requirePin, (req, res) => {
               <td class="p-2 border">${b.campaign_count}</td>
               <td class="p-2 border">$${b.product_value || 45}</td>
               <td class="p-2 border">
-                <a href="/internal/vendors/brands/${encodeURIComponent(b.vendor_name)}${qs(req)}"
-                   class="text-blue-600 underline">View Campaigns &rarr;</a>
+                <div class="flex items-center gap-3">
+                  <a href="/internal/vendors/brands/${encodeURIComponent(b.vendor_name)}${qs(req)}"
+                     class="text-blue-600 underline text-xs">View &rarr;</a>
+                  <a href="/internal/vendors/brands/${encodeURIComponent(b.vendor_name)}/edit${qs(req)}"
+                     class="text-xs text-gray-500 hover:text-gray-700 font-medium">Edit</a>
+                  <form method="POST" action="/internal/vendors/brands/${encodeURIComponent(b.vendor_name)}/delete${qs(req)}"
+                        onsubmit="return confirm('Delete brand ${safe(b.vendor_name)} and all its campaigns? This cannot be undone.')" class="inline">
+                    <button type="submit" class="text-xs text-red-400 hover:text-red-600">Delete</button>
+                  </form>
+                </div>
               </td>
             </tr>
           `).join("")}
@@ -603,6 +630,11 @@ router.get("/", requireSecret, requirePin, (req, res) => {
         <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded text-sm">Add Brand</button>
       </form>
     </div>
+
+    </div><!-- /tab-brands -->
+
+    <!-- ═══ SUPPORT TAB ═══════════════════════════════════════════════════════ -->
+    <div id="tab-support" class="tab-section space-y-8">
 
     <!-- Platform Issues -->
     <div class="border rounded-2xl bg-white overflow-hidden">
@@ -703,6 +735,11 @@ router.get("/", requireSecret, requirePin, (req, res) => {
         </tbody>
       </table>`}
     </div>
+
+    </div><!-- /tab-support -->
+
+    <!-- ═══ APPROVALS TAB ════════════════════════════════════════════════════ -->
+    <div id="tab-approvals" class="tab-section space-y-8">
 
     <!-- Vendor Approvals -->
     <div class="border rounded-2xl bg-white overflow-hidden">
@@ -805,6 +842,10 @@ router.get("/", requireSecret, requirePin, (req, res) => {
            </div>`}
     </div>
 
+    </div><!-- /tab-approvals -->
+
+    <!-- ═══ SALONS TAB ════════════════════════════════════════════════════════ -->
+    <div id="tab-salons" class="tab-section space-y-8">
     <!-- Account Management -->
     <div class="border rounded-2xl bg-white overflow-hidden">
       <div class="px-6 py-4 border-b flex items-center justify-between">
@@ -869,6 +910,11 @@ router.get("/", requireSecret, requirePin, (req, res) => {
         </table>
       </div>
     </div>
+
+    </div><!-- /tab-salons -->
+
+    <!-- ═══ BRANDS CAMPAIGNS (2nd brands section: CSV + Campaigns) ════════════ -->
+    <div id="tab-brands-campaigns" class="tab-section space-y-8">
 
     <!-- Vendor CSV Upload -->
     <div class="border rounded-2xl bg-white p-6">
@@ -998,10 +1044,36 @@ router.get("/", requireSecret, requirePin, (req, res) => {
         : vendorBlocks}
     </div>
 
-  </div>
+    </div><!-- /tab-brands-campaigns -->
+
+  </div><!-- /max-w-5xl -->
 
 <script>
+// Tab navigation — "brands" shows both tab-brands AND tab-brands-campaigns
+var TAB_MAP = {
+  overview: ['tab-overview'],
+  brands:   ['tab-brands', 'tab-brands-campaigns'],
+  salons:   ['tab-salons'],
+  support:  ['tab-support'],
+  approvals:['tab-approvals'],
+};
+
+function showTab(name) {
+  var active = TAB_MAP[name] || ['tab-' + name];
+  document.querySelectorAll('.tab-section').forEach(function(s) {
+    s.classList.toggle('active', active.includes(s.id));
+  });
+  document.querySelectorAll('.tab-btn').forEach(function(b) {
+    b.classList.toggle('active', b.dataset.tab === name);
+  });
+  sessionStorage.setItem('console-tab', name);
+}
+
+// Restore tab from session (e.g. after form submit redirect)
 (function() {
+  var saved = sessionStorage.getItem('console-tab') || 'overview';
+  showTab(saved);
+
   var form = document.getElementById('top-add-campaign-form');
   var btnOpen = document.getElementById('btn-add-campaign');
   var btnCancel = document.getElementById('btn-cancel-add-campaign');
@@ -1040,7 +1112,10 @@ async function aiGenerateDesc(btn, vendorName, productName, targetId) {
     var secret = new URLSearchParams(window.location.search).get('secret') || '';
     var resp = await fetch('/internal/vendors/campaign/ai-description?secret=' + encodeURIComponent(secret), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.content || ''
+      },
       body: JSON.stringify({ vendor_name: vendorName, product_name: productName })
     });
     var data = await resp.json();
@@ -1275,14 +1350,35 @@ router.post("/brand-config", requireSecret, requirePin, (req, res) => {
   const dedupedCats = [...new Set(cats)];
   const allowRenewal = req.body.allow_client_renewal === "1" ? 1 : 0;
 
-  db.prepare(`
-    INSERT INTO vendor_brands (vendor_name, brand_hashtags, categories, allow_client_renewal)
-    VALUES (?, ?, ?, ?)
-    ON CONFLICT(vendor_name) DO UPDATE SET
-      brand_hashtags       = excluded.brand_hashtags,
-      categories           = excluded.categories,
-      allow_client_renewal = excluded.allow_client_renewal
-  `).run(vendor_name, JSON.stringify(brandHashtags), JSON.stringify(dedupedCats), allowRenewal);
+  // Also save product_value if provided
+  const product_value = parseInt(req.body.product_value, 10) || null;
+
+  if (product_value) {
+    db.prepare(`
+      INSERT INTO vendor_brands (vendor_name, brand_hashtags, categories, allow_client_renewal, product_value)
+      VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(vendor_name) DO UPDATE SET
+        brand_hashtags       = excluded.brand_hashtags,
+        categories           = excluded.categories,
+        allow_client_renewal = excluded.allow_client_renewal,
+        product_value        = excluded.product_value
+    `).run(vendor_name, JSON.stringify(brandHashtags), JSON.stringify(dedupedCats), allowRenewal, product_value);
+  } else {
+    db.prepare(`
+      INSERT INTO vendor_brands (vendor_name, brand_hashtags, categories, allow_client_renewal)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(vendor_name) DO UPDATE SET
+        brand_hashtags       = excluded.brand_hashtags,
+        categories           = excluded.categories,
+        allow_client_renewal = excluded.allow_client_renewal
+    `).run(vendor_name, JSON.stringify(brandHashtags), JSON.stringify(dedupedCats), allowRenewal);
+  }
+
+  // Redirect back to brand page if we came from the edit page
+  const referer = req.get('referer') || '';
+  if (referer.includes('/brands/') && referer.includes('/edit')) {
+    return res.redirect(`/internal/vendors/brands/${encodeURIComponent(vendor_name)}${qs(req)}&saved=1`);
+  }
 
   res.redirect(`/internal/vendors${qs(req)}&saved=1`);
 });
@@ -1443,6 +1539,94 @@ router.post("/brands/create", requireSecret, requirePin, (req, res) => {
   db.prepare(`INSERT OR IGNORE INTO vendor_brands (vendor_name, product_value, brand_hashtags) VALUES (?, ?, ?)`)
     .run(vendor_name.trim(), parseInt(product_value, 10) || 45, JSON.stringify(tags));
   return res.redirect(`/internal/vendors/brands/${encodeURIComponent(vendor_name.trim())}${qs(req)}`);
+});
+
+// ── POST /brands/:name/delete — Delete a brand and all its campaigns ──────────
+router.post("/brands/:name/delete", requireSecret, requirePin, (req, res) => {
+  const { name } = req.params;
+  db.prepare(`DELETE FROM vendor_campaigns WHERE vendor_name = ?`).run(name);
+  db.prepare(`DELETE FROM vendor_brands WHERE vendor_name = ?`).run(name);
+  db.prepare(`DELETE FROM salon_vendor_feeds WHERE vendor_name = ?`).run(name);
+  db.prepare(`DELETE FROM salon_vendor_approvals WHERE vendor_name = ?`).run(name);
+  console.log(`[platformConsole] Deleted brand: ${name}`);
+  res.redirect(`/internal/vendors${qs(req)}&brands_tab=1`);
+});
+
+// ── GET /brands/:name/edit — Edit brand config page ───────────────────────────
+router.get("/brands/:name/edit", requireSecret, requirePin, (req, res) => {
+  const { name } = req.params;
+  const brand = db.prepare(`SELECT * FROM vendor_brands WHERE vendor_name = ?`).get(name);
+  if (!brand) return res.status(404).send("Brand not found");
+
+  const safe = s => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  const brandHashtags = (() => { try { return JSON.parse(brand.brand_hashtags || "[]"); } catch { return []; } })();
+  const categories = (() => { try { return JSON.parse(brand.categories || "[]"); } catch { return []; } })();
+
+  res.send(`<!DOCTYPE html>
+<html lang="en"><head>
+  <meta charset="UTF-8"/><title>Edit Brand — Platform Console</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }</style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <div class="border-b bg-white px-8 py-4 flex items-center gap-4">
+    <a href="/internal/vendors/brands/${encodeURIComponent(name)}${qs(req)}" class="text-sm text-blue-600 hover:underline">&larr; ${safe(name)}</a>
+    <h1 class="text-lg font-bold">Edit Brand Config</h1>
+  </div>
+  <div class="max-w-2xl mx-auto px-8 py-8">
+    <div class="border rounded-2xl bg-white p-6 space-y-4">
+      <form method="POST" action="/internal/vendors/brand-config${qs(req)}" class="space-y-4">
+        <input type="hidden" name="vendor_name" value="${safe(brand.vendor_name)}" />
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">Brand Hashtag 1</label>
+            <input type="text" name="brand_hashtags[]" value="${safe(brandHashtags[0] || "")}"
+                   placeholder="#BrandTag" maxlength="60"
+                   class="w-full border rounded-lg px-3 py-2 text-sm" />
+          </div>
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">Brand Hashtag 2</label>
+            <input type="text" name="brand_hashtags[]" value="${safe(brandHashtags[1] || "")}"
+                   placeholder="#BrandTag" maxlength="60"
+                   class="w-full border rounded-lg px-3 py-2 text-sm" />
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs text-gray-500 mb-1">Product Value ($) — used for ROI calculations</label>
+          <input type="number" name="product_value" value="${safe(brand.product_value || 45)}" min="1"
+                 class="w-full border rounded-lg px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label class="block text-xs text-gray-500 mb-1">Campaign Categories (comma-separated)</label>
+          <input type="text" name="categories" value="${safe(categories.join(", "))}"
+                 placeholder="Color, Standard, Promotion"
+                 class="w-full border rounded-lg px-3 py-2 text-sm" />
+          <p class="text-[11px] text-gray-400 mt-1">Shown as checkboxes in the salon's vendor settings. Leave empty to show all categories.</p>
+        </div>
+        <div class="flex items-center gap-3">
+          <span class="text-xs text-gray-600 font-medium">Allow client-side renewal</span>
+          <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" name="allow_client_renewal" value="1" ${brand.allow_client_renewal !== 0 ? "checked" : ""}
+                   class="sr-only peer" />
+            <div class="w-9 h-5 bg-gray-200 peer-checked:bg-blue-600 rounded-full transition-colors"></div>
+            <div class="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform peer-checked:translate-x-4"></div>
+          </label>
+        </div>
+        <div class="flex justify-end">
+          <button type="submit" class="bg-gray-900 text-white rounded-lg px-5 py-2 text-sm font-semibold hover:bg-gray-700">
+            Save Brand Config
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</body></html>`);
+});
+
+// ── POST /brands/config — Update brand config (redirect back to edit page) ────
+router.post("/brands/:name/update-config", requireSecret, requirePin, (req, res) => {
+  res.redirect(`/internal/vendors/brand-config${qs(req)}`);
 });
 
 // ── GET /brands/:name — Brand detail page ────────────────────────────────────
@@ -1661,7 +1845,10 @@ async function aiGenerateDescBrand(btn, vendorName, productName, targetId) {
     var secret = new URLSearchParams(window.location.search).get('secret') || '';
     var resp = await fetch('/internal/vendors/campaign/ai-description?secret=' + encodeURIComponent(secret), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.content || ''
+      },
       body: JSON.stringify({ vendor_name: vendorName, product_name: productName })
     });
     var data = await resp.json();

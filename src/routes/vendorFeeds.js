@@ -129,13 +129,15 @@ router.get("/", requireAuth, (req, res) => {
       // Task 3: brand config and vendor settings per vendor
       const brandCfg      = brandConfigMap[vendorName] || {};
       const vendorSetting = vendorSettingsMap[vendorName] || {};
-      // Pull categories from ALL campaigns for this vendor (not just active ones) so checkboxes reflect the full category set
-      const allBrandCampaigns = db.prepare(`
+      // Canonical category set merged with any DB-specific categories for this vendor
+      const CANONICAL_CATEGORIES = ['Standard', 'Promotion', 'Color', 'Treatment', 'Styling', 'Care'];
+      const dbCategoryRows = db.prepare(`
         SELECT DISTINCT category FROM vendor_campaigns
         WHERE vendor_name = ? AND category IS NOT NULL AND category != ''
         ORDER BY category
       `).all(vendorName);
-      const brandCategories = allBrandCampaigns.map(r => r.category);
+      const dbCategories = dbCategoryRows.map(r => r.category);
+      const brandCategories = [...new Set([...CANONICAL_CATEGORIES, ...dbCategories])];
       const activeFilters   = (() => { try { return JSON.parse(vendorSetting.category_filters || "[]"); } catch { return []; } })();
       const canRenew        = brandCfg.allow_client_renewal !== 0;
       const vKey            = safe(vendorName.replace(/\s+/g, "_"));
@@ -352,7 +354,10 @@ document.querySelectorAll('.add-to-queue-btn').forEach(function(btn) {
     try {
       const res = await fetch('/manager/vendors/add-to-queue', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.content || ''
+        },
         body: JSON.stringify({ campaign_id: campaignId })
       });
       const data = await res.json();
@@ -383,7 +388,10 @@ document.querySelectorAll('.reset-campaign-btn').forEach(function(btn) {
     if (!confirm('Reset this month\'s post count for this campaign?')) return;
     const res = await fetch('/manager/vendors/reset-campaign', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.content || ''
+      },
       body: JSON.stringify({ campaign_id: btn.dataset.campaignId })
     });
     const data = await res.json();
