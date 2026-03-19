@@ -509,7 +509,11 @@ router.post("/add-to-queue", requireAuth, async (req, res) => {
   if (monthCount >= cap) return res.json({ success: false, error: "Monthly cap reached" });
 
   const salon = db.prepare(`SELECT * FROM salons WHERE slug = ?`).get(salonId);
+  const isPro = ['pro'].includes(salon?.plan);
+  if (!isPro) return res.json({ success: false, error: 'Pro plan required' });
+
   const feed = db.prepare(`SELECT affiliate_url FROM salon_vendor_feeds WHERE salon_id = ? AND vendor_name = ?`).get(salonId, campaign.vendor_name);
+  if (!feed) return res.json({ success: false, error: 'Vendor feed not enabled' });
 
   const { generateVendorCaption, buildVendorHashtagBlock } = await import("../core/vendorScheduler.js");
 
