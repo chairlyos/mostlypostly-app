@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 01-05-PLAN.md
-last_updated: "2026-03-19T22:23:09.886Z"
+stopped_at: Completed 01-04-PLAN.md
+last_updated: "2026-03-19T22:24:41.443Z"
 progress:
   total_phases: 4
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 5
-  completed_plans: 4
+  completed_plans: 5
 ---
 
 # Project State
@@ -50,6 +50,7 @@ Plan: 3 of 5
 | Phase 01-vendor-sync P01 | 2 | 2 tasks | 6 files |
 | Phase 01-vendor-sync P02 | 3 | 2 tasks | 4 files |
 | Phase 01-vendor-sync P05 | 525558 | 1 tasks | 1 files |
+| Phase 01-vendor-sync P04 | 2 | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -72,6 +73,8 @@ Recent decisions affecting current work:
 - [Phase 01-vendor-sync]: product_value column added to vendor_brands in migration 045 — was in CLAUDE.md but had no migration
 - [Phase 01-vendor-sync]: UNIQUE index on (vendor_name, campaign_name, release_date) — NULLs distinct in SQLite UNIQUE, acceptable since Wave 1 will always set release_date
 - [Phase 01-vendor-sync]: vendorSyncRanToday guard resets on restart — acceptable since runVendorSync is idempotent (INSERT OR IGNORE)
+- [Phase 01-vendor-sync]: Sync route fires async (fire-and-forget) — operator refreshes page to see result via last_sync_at
+- [Phase 01-vendor-sync]: syncVendor() uses fetch() JS not form POST — allows button state feedback without page reload
 
 ### Pending Todos
 
@@ -92,6 +95,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-19T22:23:09.885Z
-Stopped at: Completed 01-05-PLAN.md
+Last session: 2026-03-19T22:24:41.441Z
+Stopped at: Completed 01-04-PLAN.md
 Resume file: None

@@ -6,7 +6,7 @@ This milestone extends the MostlyPostly content engine with four capabilities: a
 
 ## Phases
 
-- [ ] **Phase 1: Vendor Sync** - Nightly automated ingestion of Aveda brand assets into the vendor campaign library
+- [x] **Phase 1: Vendor Sync** - Nightly automated ingestion of Aveda brand assets into the vendor campaign library (completed 2026-03-19)
 - [ ] **Phase 2: Content Engine** - Smart content recycler and intelligent cadence scheduler that keep the queue balanced and non-empty
 - [ ] **Phase 3: Reels & Video** - Detect, download, and publish Instagram/Facebook Reels from stylist MMS video with same approval flow
 - [ ] **Phase 4: Reputation Manager** - Pull Google reviews, generate AI replies, surface Featured Review posts, and expose a Reputation portal tab
@@ -22,7 +22,7 @@ This milestone extends the MostlyPostly content engine with four capabilities: a
   2. Nightly sync runs automatically and new vendor campaigns appear in the salon's vendor feed without any manual upload
   3. Platform Console operator can add a second vendor brand by providing only a config block and three env vars — no code changes to existing sync logic
   4. Scraped campaigns have AI-generated captions, normalized product names, and fetched descriptions stored in vendor_campaigns ready for scheduler pickup
-**Plans:** 3/5 plans executed
+**Plans:** 5/5 plans complete
 
 Plans:
 - [ ] 01-01-PLAN.md — Test infrastructure (vitest config) + DB migration 045 (sync columns)
@@ -71,7 +71,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Vendor Sync | 3/5 | In Progress|  |
+| 1. Vendor Sync | 5/5 | Complete   | 2026-03-19 |
 | 2. Content Engine | 0/TBD | Not started | - |
 | 3. Reels & Video | 0/TBD | Not started | - |
 | 4. Reputation Manager | 0/TBD | Not started | - |
