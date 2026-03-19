@@ -22,7 +22,14 @@ This milestone extends the MostlyPostly content engine with four capabilities: a
   2. Nightly sync runs automatically and new vendor campaigns appear in the salon's vendor feed without any manual upload
   3. Platform Console operator can add a second vendor brand by providing only a config block and three env vars — no code changes to existing sync logic
   4. Scraped campaigns have AI-generated captions, normalized product names, and fetched descriptions stored in vendor_campaigns ready for scheduler pickup
-**Plans**: TBD
+**Plans:** 5 plans
+
+Plans:
+- [ ] 01-01-PLAN.md — Test infrastructure (vitest config) + DB migration 045 (sync columns)
+- [ ] 01-02-PLAN.md — Core sync pipeline (vendorSync.js + vendorConfigs.js)
+- [ ] 01-03-PLAN.md — vendorScheduler.js [SALON NAME] replacement for pdf_sync campaigns
+- [ ] 01-04-PLAN.md — Platform Console Sync Now button + status display
+- [ ] 01-05-PLAN.md — Nightly cron wiring in scheduler.js
 
 ### Phase 2: Content Engine
 **Goal**: Salons always have a balanced, non-empty post queue — the scheduler intelligently picks content types and auto-recycles top posts when the queue runs low
@@ -64,7 +71,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Vendor Sync | 0/TBD | Not started | - |
+| 1. Vendor Sync | 0/5 | Planning complete | - |
 | 2. Content Engine | 0/TBD | Not started | - |
 | 3. Reels & Video | 0/TBD | Not started | - |
 | 4. Reputation Manager | 0/TBD | Not started | - |
