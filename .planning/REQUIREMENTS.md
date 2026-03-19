@@ -7,10 +7,10 @@
 
 ### Vendor Sync (FEAT-031)
 
-- [ ] **VSYNC-01**: System can authenticate to Aveda brand portal using stored credentials via Playwright automation
-- [ ] **VSYNC-02**: System scrapes social-tagged asset cards from the past 30 days on the Aveda portal
+- [x] **VSYNC-01**: System can authenticate to Aveda brand portal using stored credentials via Playwright automation
+- [x] **VSYNC-02**: System scrapes social-tagged asset cards from the past 30 days on the Aveda portal
 - [x] **VSYNC-03**: System deduplicates scraped assets against existing vendor_campaigns (by image URL or product name) and skips existing entries
-- [ ] **VSYNC-04**: System downloads new vendor images to public/uploads/vendor/aveda/
+- [x] **VSYNC-04**: System downloads new vendor images to public/uploads/vendor/aveda/
 - [x] **VSYNC-05**: System extracts and normalizes product names from asset cards using GPT-4o-mini
 - [x] **VSYNC-06**: System fetches product descriptions from aveda.com product pages (with fallback to brand site search)
 - [x] **VSYNC-07**: System generates FB/IG-ready captions in Aveda brand voice using GPT-4o

@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 01-01-PLAN.md
-last_updated: "2026-03-19T22:16:36.875Z"
+stopped_at: Completed 01-02-PLAN.md
+last_updated: "2026-03-19T22:20:31.922Z"
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 5
-  completed_plans: 2
+  completed_plans: 3
 ---
 
 # Project State
@@ -24,15 +24,15 @@ See: .planning/PROJECT.md (updated 2026-03-19)
 ## Current Position
 
 Phase: 01 (vendor-sync) — EXECUTING
-Plan: 1 of 5
+Plan: 3 of 5
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 0
-- Average duration: -
-- Total execution time: 0 hours
+- Total plans completed: 2
+- Average duration: 3 min
+- Total execution time: 0.1 hours
 
 **By Phase:**
 
@@ -48,6 +48,7 @@ Plan: 1 of 5
 *Updated after each plan completion*
 | Phase 01-vendor-sync P03 | 1 | 1 tasks | 1 files |
 | Phase 01-vendor-sync P01 | 2 | 2 tasks | 6 files |
+| Phase 01-vendor-sync P02 | 3 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -61,6 +62,10 @@ Recent decisions affecting current work:
 - Project init: Smart recycler triggers at queue depth < 3 AND 48hr since last publish
 - Project init: Featured Review posts use sharp (consistent with celebration/promo image pattern)
 - Project init: GMB OAuth from FEAT-020 reused for Reputation Manager (no new auth flow)
+- [Phase 01-vendor-sync Plan 02]: getBrowser singleton reused from puppeteerRenderer.js — never launch second Chrome on Render
+- [Phase 01-vendor-sync Plan 02]: pdfjs-dist (legacy ESM) chosen for PDF annotation extraction; pdf-parse cannot extract hyperlinks
+- [Phase 01-vendor-sync Plan 02]: imageDownloadStrategy='auto' — HEAD check first, Puppeteer fallback for auth-protected images
+- [Phase 01-vendor-sync Plan 02]: CDP download + file-system polling dual strategy for --single-process Chrome compatibility
 - [Phase 01-vendor-sync]: pdf_sync campaigns bypass AI entirely — caption_body used verbatim with [SALON NAME] replacement
 - [Phase 01-vendor-sync]: Both source and caption_body must be truthy for PDF path — guards against malformed rows
 - [Phase 01-vendor-sync]: product_value column added to vendor_brands in migration 045 — was in CLAUDE.md but had no migration
@@ -85,6 +90,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-19T22:16:36.873Z
-Stopped at: Completed 01-01-PLAN.md
+Last session: 2026-03-19T22:18:39Z
+Stopped at: Completed 01-02-PLAN.md
 Resume file: None
