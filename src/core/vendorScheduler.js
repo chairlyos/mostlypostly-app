@@ -11,6 +11,8 @@
 import crypto from "crypto";
 import { db } from "../../db.js";
 import { enqueuePost } from "../scheduler.js";
+import { appendUtm, slugify } from './utm.js';
+import { buildTrackingToken, buildShortUrl } from './trackingUrl.js';
 
 const tag = "[VendorScheduler]";
 const log = {
@@ -60,7 +62,7 @@ export function buildVendorHashtagBlock({ salonHashtags, brandHashtags, productH
 // OpenAI caption generation for vendor posts
 // =====================================================
 
-async function generateVendorCaption({ campaign, salon, affiliateUrl }) {
+export async function generateVendorCaption({ campaign, salon, affiliateUrl }) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     log.warn("Missing OPENAI_API_KEY — skipping vendor caption generation");
@@ -299,6 +301,31 @@ async function processCampaign(campaign, salon, thisMonth, affiliateUrl) {
   const now    = new Date().toISOString();
   const status = salon.require_manager_approval ? "manager_pending" : "manager_approved";
 
+  // Replace raw affiliate URL in caption with tracking short URL
+  let trackedCaption = finalCaption;
+  if (affiliateUrl && finalCaption.includes(affiliateUrl)) {
+    const utmContent = `vendor_${slugify(campaign.vendor_name)}`;
+    const destination = appendUtm(affiliateUrl, {
+      source: 'mostlypostly',
+      medium: 'social',
+      campaign: salonId,
+      content: utmContent,
+    });
+    try {
+      const token = buildTrackingToken({
+        salonId,
+        postId,
+        clickType: 'vendor',
+        vendorName: campaign.vendor_name,
+        utmContent,
+        destination,
+      });
+      trackedCaption = finalCaption.replace(affiliateUrl, buildShortUrl(token));
+    } catch (err) {
+      log.warn(`  UTM token creation failed for campaign ${campaign.id}: ${err.message}`);
+    }
+  }
+
   db.prepare(`
     INSERT INTO posts (
       id, salon_id, stylist_name, image_url,
@@ -318,8 +345,8 @@ async function processCampaign(campaign, salon, thisMonth, affiliateUrl) {
     salon_id:            salonId,
     stylist_name:        `${campaign.vendor_name} (Campaign)`,
     image_url:           campaign.photo_url || null,
-    base_caption:        caption,        // AI text only, no hashtags
-    final_caption:       finalCaption,   // AI text + locked hashtag block
+    base_caption:        caption,          // AI text only, no hashtags
+    final_caption:       trackedCaption,  // AI text + locked hashtag block + tracked URL
     post_type:           "standard_post",
     status,
     vendor_campaign_id:  campaign.id,
