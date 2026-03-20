@@ -558,7 +558,7 @@ router.get("/edit/:id", requireAuth, (req, res) => {
 // ── POST /edit/:id ────────────────────────────────────────────────────────────
 router.post("/edit/:id", requireAuth, photoUpload.single("photo"), (req, res) => {
   const salon_id = req.manager.salon_id;
-  const { first_name, last_name, phone, instagram_handle, tone_variant,
+  const { first_name, last_name, phone, instagram_handle, tiktok_handle, tone_variant,
           birthday_mmdd, hire_date, bio, profile_url, celebrations_enabled,
           auto_approve, ig_collab } = req.body;
 
@@ -577,7 +577,7 @@ router.post("/edit/:id", requireAuth, photoUpload.single("photo"), (req, res) =>
   db.prepare(`
     UPDATE stylists SET
       name = ?, first_name = ?, last_name = ?, phone = ?,
-      instagram_handle = ?, tone_variant = ?,
+      instagram_handle = ?, tiktok_handle = ?, tone_variant = ?,
       birthday_mmdd = ?, hire_date = ?,
       specialties = ?, bio = ?, profile_url = ?,
       photo_url = ?, celebrations_enabled = ?, auto_approve = ?,
@@ -585,7 +585,9 @@ router.post("/edit/:id", requireAuth, photoUpload.single("photo"), (req, res) =>
     WHERE id = ? AND salon_id = ?
   `).run(
     name, first_name || null, last_name || null, normalizePhone(phone),
-    instagram_handle || null, tone_variant || null,
+    instagram_handle || null,
+    tiktok_handle ? tiktok_handle.replace(/^@+/, '').trim() || null : null,
+    tone_variant || null,
     normalizeBirthday(birthday_mmdd), hire_date || null,
     specialties, bio || null, profile_url || null,
     photo_url, celebrations_enabled === "1" ? 1 : 0,
@@ -953,6 +955,7 @@ function buildStylistForm({ salon_id, salonTone, stylist, isEdit }) {
 
         ${fieldRow("Phone Number", "phone", "tel", s.phone || "", "Include country code, e.g. +13175550100")}
         ${fieldRow("Instagram Handle", "instagram_handle", "text", s.instagram_handle || "", "Without @")}
+        ${fieldRow("TikTok Handle", "tiktok_handle", "text", s.tiktok_handle || "", "Without @")}
 
         <!-- Tone Variant -->
         <div>
