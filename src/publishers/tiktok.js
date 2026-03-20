@@ -81,8 +81,6 @@ export async function publishPhotoToTikTok(salon, imageUrls, caption) {
     post_info: {
       title:           safeCaption,
       privacy_level:   privacyLevel,
-      disable_duet:    creatorInfo.duet_disabled    ?? false,
-      disable_stitch:  creatorInfo.stitch_disabled  ?? false,
       disable_comment: creatorInfo.comment_disabled ?? false,
       auto_add_music:  true,
     },
