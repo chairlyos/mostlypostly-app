@@ -21,6 +21,14 @@ const RULES = [
   { match: /IG story/i,
     text: "Instagram story post failed. Check your Instagram connection in Admin → Integrations." },
 
+  // Reel-specific errors (REEL-08)
+  { match: /IG Reel container create failed|IG Reel/i,
+    text: "Instagram couldn't start the Reel upload. Check that your Instagram Business account is still connected." },
+  { match: /FB Reel init failed|FB Reel upload failed|FB Reel publish failed/i,
+    text: "Facebook Reel failed to publish. Check your Facebook connection in Admin \u2192 Integrations." },
+  { match: /TikTok publishing not yet available/i,
+    text: "TikTok publishing is coming soon \u2014 not yet available." },
+
   // Rate limits
   { match: /rate limit|too many calls|spam/i,
     text: "Posted too frequently. Facebook/Instagram rate limit reached — will retry later." },

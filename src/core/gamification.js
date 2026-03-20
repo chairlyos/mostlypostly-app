@@ -19,6 +19,7 @@ export const DEFAULT_POINTS = {
   celebration:        5,
   product_education: 10,
   vendor_promotion:   5,
+  reel:              20,
 };
 
 // Map DB post_type values (may have underscores or spaces) to canonical keys
