@@ -154,7 +154,7 @@ export default function twilioRoute(drafts, _lookupStylist, generateCaption) {
     try {
       // --- JOIN FLOW ---
       if (upperInit.startsWith("JOIN")) {
-        await handleJoinCommand(from, lookupStylist, text, (msg, buttons = []) => sendViaRcs(from, msg, buttons));
+        await handleJoinCommand(from, _lookupStylist, text, (msg, buttons = []) => sendViaRcs(from, msg, buttons));
         return;
       }
       if (joinSessions.has(from)) {
