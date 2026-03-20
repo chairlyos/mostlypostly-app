@@ -51,9 +51,9 @@
 - [ ] **REEL-05**: Post is created in DB with post_type=reel and enters standard approval queue
 - [ ] **REEL-06**: Instagram Reels publisher handles container creation, status polling, and publish (three-step API)
 - [ ] **REEL-07**: Facebook Reels publisher handles upload + publish independently from Instagram
-- [ ] **REEL-08**: Reel post failures integrate with existing FEAT-033 error flow
-- [ ] **REEL-09**: Analytics and leaderboard track reel post_type (20 pts vs 10 for standard)
-- [ ] **REEL-10**: TikTok Developer app submitted in parallel; tiktok.js publisher stub created
+- [x] **REEL-08**: Reel post failures integrate with existing FEAT-033 error flow
+- [x] **REEL-09**: Analytics and leaderboard track reel post_type (20 pts vs 10 for standard)
+- [x] **REEL-10**: TikTok Developer app submitted in parallel; tiktok.js publisher stub created
 
 ### Reputation Manager (FEAT-026)
 
