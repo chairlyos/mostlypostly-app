@@ -1291,6 +1291,9 @@ router.get("/edit/manager-rules", requireAuth, (req, res) => {
   const selectCls = "w-full mt-1 border border-mpBorder bg-mpBg rounded-lg px-3 py-2 text-sm text-mpCharcoal focus:border-mpAccent focus:outline-none focus:ring-2 focus:ring-mpAccent/20";
   const sel = (val) => val ? ' selected' : '';
 
+  const salonPlan = row.plan || 'trial';
+  const showCaptionRefresh = ['growth', 'pro'].includes(salonPlan);
+
   const body = `
     <div class="max-w-lg mx-auto">
       <div class="mb-6 flex items-center gap-3">
@@ -1328,6 +1331,24 @@ router.get("/edit/manager-rules", requireAuth, (req, res) => {
             <option value="1"${sel(row.notify_on_denial)}>Enabled</option>
           </select>
         </div>
+        <div>
+          <label class="text-xs font-semibold text-mpMuted">Auto-Recycle</label>
+          <p class="text-[11px] text-mpMuted mb-1">Automatically requeue top-performing posts when your queue runs low.</p>
+          <select name="auto_recycle" class="${selectCls}">
+            <option value="0"${sel(!row.auto_recycle)}>Disabled</option>
+            <option value="1"${sel(row.auto_recycle)}>Enabled</option>
+          </select>
+        </div>
+        ${showCaptionRefresh ? `
+        <div>
+          <label class="text-xs font-semibold text-mpMuted">Caption Refresh on Recycle</label>
+          <p class="text-[11px] text-mpMuted mb-1">When enabled, recycled posts get a fresh AI-written caption. Growth and Pro plans only.</p>
+          <select name="caption_refresh_on_recycle" class="${selectCls}">
+            <option value="0"${sel(!row.caption_refresh_on_recycle)}>Disabled — use original caption</option>
+            <option value="1"${sel(row.caption_refresh_on_recycle)}>Enabled — refresh via AI</option>
+          </select>
+        </div>
+        ` : ''}
         <div class="flex gap-3 pt-2">
           <button type="submit" class="flex-1 bg-mpCharcoal hover:bg-mpCharcoalDark text-white font-semibold rounded-full py-2.5 transition-colors">Save</button>
           <a href="/manager/admin" class="flex-1 text-center border border-mpBorder rounded-full py-2.5 text-sm text-mpMuted hover:text-mpCharcoal transition-colors">Cancel</a>
@@ -1510,7 +1531,9 @@ router.post("/update-manager-rules", requireAuth, (req, res) => {
       auto_approval,
       auto_publish,
       notify_on_approval,
-      notify_on_denial
+      notify_on_denial,
+      auto_recycle,
+      caption_refresh_on_recycle
     } = req.body;
 
     db.prepare(
@@ -1522,6 +1545,8 @@ router.post("/update-manager-rules", requireAuth, (req, res) => {
         auto_publish               = ?,
         notify_on_approval         = ?,
         notify_on_denial           = ?,
+        auto_recycle               = ?,
+        caption_refresh_on_recycle = ?,
         updated_at                 = datetime('now')
       WHERE slug = ?
     `
@@ -1531,6 +1556,8 @@ router.post("/update-manager-rules", requireAuth, (req, res) => {
       auto_publish === "1" ? 1 : 0,
       notify_on_approval === "1" ? 1 : 0,
       notify_on_denial === "1" ? 1 : 0,
+      auto_recycle === "1" ? 1 : 0,
+      caption_refresh_on_recycle === "1" ? 1 : 0,
       salon_id
     );
 
