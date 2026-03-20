@@ -375,20 +375,19 @@ router.get("/", requireAuth, (req, res) => {
             </span>
           </div>
 
-          <!-- TikTok — Coming Soon -->
-          <div class="flex items-center justify-between py-2.5 border-b border-mpBorder opacity-60">
+          <!-- TikTok -->
+          <div class="flex items-center justify-between py-2.5 border-b border-mpBorder">
             <div class="flex items-center gap-3">
-              <div class="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
-                <svg class="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 24 24"><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.27 6.27 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34V8.95a8.16 8.16 0 004.77 1.52V7.03a4.85 4.85 0 01-1-.34z"/></svg>
+              <div class="w-8 h-8 rounded-lg bg-gray-900/10 flex items-center justify-center shrink-0">
+                <svg class="w-4 h-4 text-gray-900" fill="currentColor" viewBox="0 0 24 24"><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.27 6.27 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34V8.95a8.16 8.16 0 004.77 1.52V7.03a4.85 4.85 0 01-1-.34z"/></svg>
               </div>
               <div>
                 <p class="text-sm font-medium text-mpCharcoal">TikTok</p>
-                <p class="text-[11px] text-mpMuted">Short-form video publishing — in development</p>
+                <p class="text-[11px] text-mpMuted">Max posts per day</p>
               </div>
             </div>
-            <span class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-semibold bg-mpAccentLight text-mpAccent border border-mpAccent/20">
-              Coming Soon
-            </span>
+            <input type="number" name="tiktok_daily_max" min="1" max="10" value="${tkCap}"
+              class="w-20 rounded-lg border border-mpBorder px-3 py-2 text-sm text-mpCharcoal focus:border-mpAccent focus:outline-none" />
           </div>
 
           <!-- Google My Business — Coming Soon -->
