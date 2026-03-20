@@ -40,8 +40,15 @@ Plans:
   2. Manager can flag a published post "block from recycling" in the Database view, and that post never appears in recycle candidates
   3. Manager can toggle auto-recycle on/off per salon in Admin settings and manually trigger recycling on any individual published post
   4. Dashboard shows a notice this week when posts were auto-recycled, with a link to view or undo
-  5. Over any rolling 7-day window, the scheduled post mix reflects the target distribution: ~50–60% standard, 15–20% before/after (skewed Tue–Thu), promotions never back-to-back and capped at 2–3/week, availability slots mid-week only
-**Plans**: TBD
+  5. Over any rolling 7-day window, the scheduled post mix reflects the target distribution: ~50-60% standard, 15-20% before/after (skewed Tue-Thu), promotions never back-to-back and capped at 2-3/week, availability slots mid-week only
+**Plans:** 5 plans
+
+Plans:
+- [ ] 02-01-PLAN.md — Migration 048 + content recycler core logic (checkAndAutoRecycle) + scheduler wiring
+- [ ] 02-02-PLAN.md — Intelligent cadence scheduler (pickNextPost) + scheduler wiring
+- [ ] 02-03-PLAN.md — Admin toggles (auto-recycle, caption refresh) + Database view actions (Recycle, Block)
+- [ ] 02-04-PLAN.md — Dashboard auto-recycle notice banner + undo-recycle handler
+- [ ] 02-05-PLAN.md — Full test suite verification + human checkpoint
 
 ### Phase 3: Reels & Video
 **Goal**: Stylists can text a video from their phone and it publishes as an Instagram Reel and Facebook Reel through the same approval flow they already know
@@ -61,17 +68,17 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. The manager portal has a Reputation tab showing all Google reviews with rating, reviewer name, text snippet, reply status badge, and post status badge — populated automatically every 4 hours
   2. For any unresponded review, the manager can view an AI-generated reply in the salon's brand voice, edit it if needed, and send it — or enable auto-send so replies go out without manual intervention
-  3. A 4–5 star review where a stylist is identified generates a Featured Review social post (star graphic + caption) that enters the standard approval queue; 5-star confirmed matches can auto-publish
+  3. A 4-5 star review where a stylist is identified generates a Featured Review social post (star graphic + caption) that enters the standard approval queue; 5-star confirmed matches can auto-publish
   4. Reputation tab displays aggregate stats: average rating, total review count, reply rate, posts generated this month, and a 30-day rating trend sparkline
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4
+Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Vendor Sync | 5/5 | Complete   | 2026-03-19 |
-| 2. Content Engine | 0/TBD | Not started | - |
+| 2. Content Engine | 0/5 | Not started | - |
 | 3. Reels & Video | 0/TBD | Not started | - |
 | 4. Reputation Manager | 0/TBD | Not started | - |
