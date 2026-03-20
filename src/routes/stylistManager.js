@@ -16,7 +16,7 @@ const router = express.Router();
 import { UPLOADS_DIR, toUploadUrl } from "../core/uploadPath.js";
 import { PLAN_LIMITS } from "./billing.js";
 import { sendViaTwilio } from "./twilio.js";
-import { sendWelcomeSms } from "../core/stylistWelcome.js";
+import { sendWelcomeSms, sendCoordinatorWelcomeSms } from "../core/stylistWelcome.js";
 
 function normalizePhone(raw) {
   if (!raw) return null;
@@ -452,6 +452,12 @@ router.post("/add", requireAuth, photoUpload.single("photo"), async (req, res) =
         INSERT INTO managers (id, salon_id, name, phone, email, password_hash, role)
         VALUES (?, ?, ?, ?, ?, ?, ?)
       `).run(id, salon_id, name, normalizePhone(phone) || null, email.toLowerCase().trim(), password_hash, role);
+      if (role === "coordinator" && normalizePhone(phone)) {
+        const salonName = db.prepare("SELECT name FROM salons WHERE slug = ?").get(salon_id)?.name || salon_id;
+        sendCoordinatorWelcomeSms({ name, phone: normalizePhone(phone) }, salonName).catch(err => {
+          console.error("[Coordinator] Welcome SMS failed:", err.message);
+        });
+      }
       return res.redirect(`/manager/stylists${qs}`);
     } catch (err) {
       console.error("[stylistManager] add manager error:", err);
@@ -1340,8 +1346,8 @@ function buildTeamMemberForm({ salon_id, salonTone, managerSeatsAvailable }) {
         </div>
         <div>
           <label class="block text-xs font-semibold text-mpMuted mb-1">Phone Number</label>
-          <input type="tel" name="phone" class="${inputCls}" placeholder="+13175550100" />
-          <p class="text-[11px] text-mpMuted mt-0.5">Required for Stylists (they text photos to this number). Optional for Manager/Coordinator.</p>
+          <input type="tel" name="phone" id="phoneInput" class="${inputCls}" placeholder="+13175550100" />
+          <p class="text-[11px] text-mpMuted mt-0.5" id="phoneHint">Required for Stylists (they text photos to this number). Required for Coordinators (used for SMS posting instructions). Optional for Managers.</p>
         </div>
 
         <!-- Stylist-specific fields -->
@@ -1432,6 +1438,8 @@ function buildTeamMemberForm({ salon_id, salonTone, managerSeatsAvailable }) {
         const stylistFields = document.getElementById("stylist-fields");
         const portalFields = document.getElementById("portal-fields");
 
+        const phoneInput = document.getElementById("phoneInput");
+
         roleBtns.forEach(btn => {
           if (btn.disabled) return;
           btn.addEventListener("click", () => {
@@ -1449,9 +1457,15 @@ function buildTeamMemberForm({ salon_id, salonTone, managerSeatsAvailable }) {
             if (role === "stylist") {
               stylistFields.classList.remove("hidden");
               portalFields.classList.add("hidden");
+              if (phoneInput) phoneInput.required = true;
+            } else if (role === "coordinator") {
+              stylistFields.classList.add("hidden");
+              portalFields.classList.remove("hidden");
+              if (phoneInput) phoneInput.required = true;
             } else {
               stylistFields.classList.add("hidden");
               portalFields.classList.remove("hidden");
+              if (phoneInput) phoneInput.required = false;
             }
           });
         });

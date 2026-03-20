@@ -168,7 +168,7 @@ router.get("/", (req, res) => {
   const { fromUtc, toUtc } = rangeToUtc(range, tz, start, end);
 
   let sql = `
-    SELECT id, stylist_name, salon_id, status, post_type, created_at, scheduled_for, salon_post_number, final_caption, image_url, image_urls, block_from_recycle, recycled_from_id
+    SELECT id, stylist_name, salon_id, status, post_type, created_at, scheduled_for, salon_post_number, final_caption, image_url, image_urls, block_from_recycle, recycled_from_id, submitted_by
     FROM posts
     WHERE salon_id = ?
       AND datetime(created_at) BETWEEN datetime(?) AND datetime(?)
@@ -220,10 +220,16 @@ router.get("/", (req, res) => {
         const pt = p.post_type || "standard_post";
         const ptLabel = pt.replace(/_/g, " ");
         const ptColor = postTypeColors[pt] || postTypeColors.standard_post;
+        const coordName = p.submitted_by
+          ? db.prepare("SELECT name FROM managers WHERE id = ?").get(p.submitted_by)?.name
+          : null;
         return `
       <tr class="border-b border-mpBorder hover:bg-mpBg">
         <td class="px-3 py-2 text-xs text-mpMuted">#${p.salon_post_number ?? "—"}</td>
-        <td class="px-3 py-2 text-sm text-mpCharcoal">${p.stylist_name || "—"}</td>
+        <td class="px-3 py-2">
+          <span class="text-sm text-mpCharcoal">${p.stylist_name || "—"}</span>
+          ${coordName ? `<p class="text-[10px] text-mpMuted mt-0.5">via ${coordName}</p>` : ""}
+        </td>
         <td class="px-3 py-2 text-xs uppercase tracking-wide text-mpAccent">${p.status}</td>
         <td class="px-3 py-2 text-xs">
           <span class="inline-block rounded px-2 py-0.5 text-xs font-medium capitalize ${ptColor}">${ptLabel}</span>

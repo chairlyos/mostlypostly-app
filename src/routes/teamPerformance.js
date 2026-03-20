@@ -7,6 +7,7 @@ import { db } from "../../db.js";
 import pageShell from "../ui/pageShell.js";
 import {
   getLeaderboard,
+  getCoordinatorLeaderboard,
   getSettings,
   getOrCreateSettings,
   activateBonus,
@@ -59,6 +60,7 @@ router.get("/", requireAuth, (req, res) => {
   const salon_id = req.manager.salon_id;
   const period   = ["week","month","quarter","year","all"].includes(req.query.period)
     ? req.query.period : "month";
+  const view = req.query.view === "coordinators" ? "coordinators" : "stylists";
 
   const salon = db.prepare(
     `SELECT name, logo_url, plan, plan_status FROM salons WHERE slug = ?`
@@ -78,12 +80,58 @@ router.get("/", requireAuth, (req, res) => {
   // ── Period tabs ──────────────────────────────────────────────────────────
   const periodTabs = Object.entries(PERIOD_LABELS).map(([key, label]) => {
     const active = key === period;
-    return `<a href="?period=${key}"
+    return `<a href="?period=${key}&view=${view}"
       class="px-4 py-1.5 rounded-full text-xs font-semibold transition-colors
              ${active ? "bg-mpCharcoal text-white" : "bg-white border border-mpBorder text-mpMuted hover:border-mpAccent hover:text-mpCharcoal"}">
       ${label}
     </a>`;
   }).join("");
+
+  // ── View tabs (Stylists / Coordinators) ───────────────────────────────────
+  const viewTabs = ["stylists", "coordinators"].map(v => {
+    const active = v === view;
+    const label = v === "stylists" ? "Stylists" : "Coordinators";
+    return `<a href="?view=${v}&period=${period}" class="px-4 py-1.5 rounded-full text-xs font-semibold ${
+      active
+        ? "bg-mpCharcoal text-white"
+        : "bg-gray-100 text-mpMuted hover:bg-gray-200"
+    }">${label}</a>`;
+  }).join("\n");
+
+  // ── Coordinator leaderboard ───────────────────────────────────────────────
+  let coordinatorSection = "";
+  if (view === "coordinators") {
+    const coordBoard = getCoordinatorLeaderboard(salon_id, period);
+    const coordRows = coordBoard.length ? coordBoard.map(c => `
+      <tr class="border-b border-mpBorder/50">
+        <td class="py-2.5 pr-3 font-semibold text-mpCharcoal">${c.rank}</td>
+        <td class="py-2.5 pr-3 text-mpCharcoal">${esc(c.coordinator_name)}</td>
+        <td class="py-2.5 pr-3 text-right text-mpMuted">${c.post_count}</td>
+        <td class="py-2.5 text-right font-semibold text-mpCharcoal">${c.points}</td>
+      </tr>
+    `).join("") : `<tr><td colspan="4" class="py-8 text-center text-sm text-mpMuted">No coordinator posts yet this period.</td></tr>`;
+
+    coordinatorSection = `
+      <div class="rounded-2xl border border-mpBorder bg-white overflow-hidden mb-8">
+        <div class="px-5 py-4 border-b border-mpBorder">
+          <h2 class="text-base font-bold text-mpCharcoal">Coordinator Leaderboard — ${PERIOD_LABELS[period]}</h2>
+          <p class="text-xs text-mpMuted mt-0.5">Points at 50% of standard post values (coordinators post on behalf of stylists).</p>
+        </div>
+        <div class="overflow-x-auto px-5 pb-4">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-mpBorder text-left text-xs text-mpMuted">
+                <th class="py-2 pr-3">#</th>
+                <th class="py-2 pr-3">Coordinator</th>
+                <th class="py-2 pr-3 text-right">Posts</th>
+                <th class="py-2 text-right">Points</th>
+              </tr>
+            </thead>
+            <tbody>${coordRows}</tbody>
+          </table>
+        </div>
+      </div>`;
+  }
 
   // ── Shortage alert ────────────────────────────────────────────────────────
   const shortageAlert = shortageInfo.shortage ? `
@@ -189,10 +237,15 @@ router.get("/", requireAuth, (req, res) => {
     ${bonusBanner}
 
     <!-- Period filter -->
-    <div class="mb-5 flex flex-wrap gap-2">${periodTabs}</div>
+    <div class="mb-3 flex flex-wrap gap-2">${periodTabs}</div>
 
-    <!-- Leaderboard -->
-    <div class="rounded-2xl border border-mpBorder bg-white overflow-hidden mb-8">
+    <!-- View tabs -->
+    <div class="mb-5 flex gap-2">${viewTabs}</div>
+
+    ${coordinatorSection}
+
+    <!-- Leaderboard (stylists only) -->
+    <div class="rounded-2xl border border-mpBorder bg-white overflow-hidden mb-8" ${view === "coordinators" ? 'style="display:none"' : ""}>
       <div class="px-5 py-4 border-b border-mpBorder flex items-center justify-between">
         <h2 class="text-base font-bold text-mpCharcoal">Leaderboard — ${PERIOD_LABELS[period]}</h2>
         ${bonusActive ? `<span class="rounded-full bg-mpAccentLight px-3 py-1 text-xs font-bold text-mpAccent">🎯 ${multiplier}× Bonus Active</span>` : ""}

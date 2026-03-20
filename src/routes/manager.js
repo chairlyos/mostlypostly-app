@@ -1,16 +1,30 @@
 // src/routes/manager.js — Restored MostlyPostly “Old Blue UI” Manager Dashboard
-import express from "express";
-import crypto from "crypto";
-import { db } from "../../db.js";
-import pageShell from "../ui/pageShell.js";
-import { DateTime } from "luxon";
-import { getSalonName } from "../core/salonLookup.js";
-import { handleManagerApproval } from "../core/messageRouter.js";
-import { buildPromotionImage } from "../core/buildPromotionImage.js";
-import { getSalonPolicy } from "../scheduler.js";
-import { sendViaTwilio } from "./twilio.js";
-import { PLAN_LIMITS } from "./billing.js";
-import { translatePostError } from "../core/postErrorTranslator.js";
+import express from “express”;
+import crypto from “crypto”;
+import path from “path”;
+import { renameSync } from “fs”;
+import multer from “multer”;
+import { db } from “../../db.js”;
+import pageShell from “../ui/pageShell.js”;
+import { DateTime } from “luxon”;
+import { getSalonName } from “../core/salonLookup.js”;
+import { handleManagerApproval } from “../core/messageRouter.js”;
+import { buildPromotionImage } from “../core/buildPromotionImage.js”;
+import { getSalonPolicy } from “../scheduler.js”;
+import { sendViaTwilio } from “./twilio.js”;
+import { PLAN_LIMITS } from “./billing.js”;
+import { translatePostError } from “../core/postErrorTranslator.js”;
+import { savePost } from “../core/storage.js”;
+
+// Multer config for coordinator photo uploads
+const coordinatorUpload = multer({
+  dest: path.join(process.cwd(), “public/uploads/”),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype.startsWith(“image/”)) cb(null, true);
+    else cb(new Error(“Only images are allowed”));
+  },
+});
 
 const router = express.Router();
 
@@ -225,6 +239,14 @@ router.get("/", requireAuth, async (req, res) => {
               ? `<p class="text-[11px] text-mpMuted mt-2 border-t border-mpBorder pt-2">Facebook post will include booking link: <span class="font-mono text-mpCharcoal">${esc(salonBookingUrl)}</span></p>`
               : "";
 
+            let submittedByBadge = "";
+            if (p.submitted_by) {
+              const coordinator = db.prepare("SELECT name FROM managers WHERE id = ?").get(p.submitted_by);
+              if (coordinator) {
+                submittedByBadge = `<p class="text-[11px] text-mpMuted mt-1">via ${esc(coordinator.name)} on behalf of ${esc(p.stylist_name)}</p>`;
+              }
+            }
+
             return `
           <div class="rounded-xl bg-white border border-mpBorder p-5 mb-5">
             <div class="flex gap-4">
@@ -238,6 +260,7 @@ router.get("/", requireAuth, async (req, res) => {
                   ${promoBadge}
                 </div>
 
+                ${submittedByBadge}
                 ${promoExpiry}
 
                 <p class="text-sm whitespace-pre-line text-mpCharcoal leading-relaxed mt-1">
