@@ -20,9 +20,9 @@ export const VENDOR_CONFIGS = [
     vendorName: 'Aveda',
     portalUrl: 'https://avedapurepro.com/ResourceLibrary',
     loginSelectors: {
-      userSelector: 'input[name="email"], input[type="email"], #email',
-      passSelector: 'input[name="password"], input[type="password"], #password',
-      submitSelector: 'button[type="submit"], input[type="submit"]',
+      userSelector: '#Email',
+      passSelector: '#Password',
+      submitSelector: 'button[type="submit"].btn-primary',
     },
     searchKeywordTemplate: '{MONTH} {YEAR} Salon Social Media Assets',
     pdfDownloadSelectors: {
