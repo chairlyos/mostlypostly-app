@@ -15,6 +15,7 @@ import { appendUtm, slugify } from './core/utm.js';
 import { buildTrackingToken, buildShortUrl } from './core/trackingUrl.js';
 import { checkAndAutoRecycle } from './core/contentRecycler.js';
 import { pickNextPost } from './core/pickNextPost.js';
+import { isEnabledFor } from './core/platformRouting.js';
 
 const log = createLogger("scheduler");
 
@@ -192,7 +193,8 @@ function getSalonPolicy(salonSlug) {
         google_business_name, google_token_expiry, gmb_enabled,
         tiktok_account_id, tiktok_access_token, tiktok_refresh_token,
         tiktok_token_expiry, tiktok_enabled,
-        auto_recycle, caption_refresh_on_recycle, auto_publish
+        auto_recycle, caption_refresh_on_recycle, auto_publish,
+        platform_routing
       FROM salons
       WHERE slug = ?
     `)
@@ -516,54 +518,69 @@ export async function runSchedulerOnce() {
             const videoUrl = allImages[0] || post.image_url;
             console.log(`[Scheduler] Publishing reel ${post.id} to FB + IG`);
 
-            try {
-              fbResp = await publishFacebookReel(
-                salon,       // pass full salon object — publishFacebookReel extracts page_id, token, graph_version
-                fbCaption,
-                videoUrl
-              );
-            } catch (fbErr) {
-              console.error(`[Scheduler] FB Reel failed for ${post.id}:`, fbErr.message);
-              // fbResp stays null — IG still proceeds
+            if (isEnabledFor(salon, postType, 'facebook')) {
+              try {
+                fbResp = await publishFacebookReel(
+                  salon,       // pass full salon object — publishFacebookReel extracts page_id, token, graph_version
+                  fbCaption,
+                  videoUrl
+                );
+              } catch (fbErr) {
+                console.error(`[Scheduler] FB Reel failed for ${post.id}:`, fbErr.message);
+                // fbResp stays null — IG still proceeds
+              }
             }
 
-            try {
-              igResp = await publishReelToInstagram({
-                salon_id: salon.slug,
-                videoUrl,
-                caption: igCaption,
-              });
-            } catch (igErr) {
-              console.error(`[Scheduler] IG Reel failed for ${post.id}:`, igErr.message);
-              // If both failed, throw so the outer catch handles retry
-              if (!fbResp) throw igErr;
+            if (isEnabledFor(salon, postType, 'instagram')) {
+              try {
+                igResp = await publishReelToInstagram({
+                  salon_id: salon.slug,
+                  videoUrl,
+                  caption: igCaption,
+                });
+              } catch (igErr) {
+                console.error(`[Scheduler] IG Reel failed for ${post.id}:`, igErr.message);
+                // If both failed, throw so the outer catch handles retry
+                if (!fbResp) throw igErr;
+              }
             }
           } else if (storyOnly) {
             // Availability + Promotions → Stories only
-            const image        = allImages[0] || post.image_url;
-            const storyLinkUrl = salon.booking_url || salon.booking_link || null;
-            igResp = await publishStoryToInstagram({
-              salon_id: salon.slug,
-              imageUrl: image,
-              linkUrl:  storyLinkUrl,
-            });
+            if (isEnabledFor(salon, postType, 'instagram')) {
+              const image        = allImages[0] || post.image_url;
+              const storyLinkUrl = salon.booking_url || salon.booking_link || null;
+              igResp = await publishStoryToInstagram({
+                salon_id: salon.slug,
+                imageUrl: image,
+                linkUrl:  storyLinkUrl,
+              });
+            }
           } else if (isMulti) {
-            fbResp = await publishToFacebookMulti(fbPageId, fbCaption, allImages, fbToken);
-            igResp = await publishToInstagramCarousel({
-              salon_id:  salon.slug,
-              caption:   igCaption,
-              imageUrls: allImages,
-            });
+            if (isEnabledFor(salon, postType, 'facebook')) {
+              fbResp = await publishToFacebookMulti(fbPageId, fbCaption, allImages, fbToken);
+            }
+            if (isEnabledFor(salon, postType, 'instagram')) {
+              igResp = await publishToInstagramCarousel({
+                salon_id:  salon.slug,
+                caption:   igCaption,
+                imageUrls: allImages,
+              });
+            }
           } else {
-            const image = allImages[0] || post.image_url;
-            fbResp = await publishToFacebook(fbPageId, fbCaption, image, fbToken);
-            igResp = await publishToInstagram({
-              salon_id:               salon.slug,
-              imageUrl:               image,
-              caption:                igCaption,
-              instagram_business_id:  salon.instagram_business_id || salon?.salon_info?.instagram_business_id,
-              stylist_id:             post.stylist_id || null,
-            });
+            if (isEnabledFor(salon, postType, 'facebook')) {
+              const image = allImages[0] || post.image_url;
+              fbResp = await publishToFacebook(fbPageId, fbCaption, image, fbToken);
+            }
+            if (isEnabledFor(salon, postType, 'instagram')) {
+              const image = allImages[0] || post.image_url;
+              igResp = await publishToInstagram({
+                salon_id:               salon.slug,
+                imageUrl:               image,
+                caption:                igCaption,
+                instagram_business_id:  salon.instagram_business_id || salon?.salon_info?.instagram_business_id,
+                stylist_id:             post.stylist_id || null,
+              });
+            }
           }
 
           const fbPostId = fbResp?.post_id || fbResp?.id || null;
@@ -591,7 +608,8 @@ export async function runSchedulerOnce() {
             && salon.google_location_id
             && salon.google_refresh_token
             && postType !== "availability"
-            && postType !== "reel";   // GMB does not support video Reels
+            && postType !== "reel"   // GMB does not support video Reels
+            && isEnabledFor(salon, postType, 'gmb');
 
           if (gmbEligible) {
             try {
@@ -627,7 +645,8 @@ export async function runSchedulerOnce() {
             && salon.tiktok_refresh_token
             && postType !== "availability"
             && postType !== "promotions"
-            && postType !== "celebration_story";
+            && postType !== "celebration_story"
+            && isEnabledFor(salon, postType, 'tiktok');
 
           if (tiktokEligible && tiktokPostedToday < tiktokDailyCap) {
             try {
