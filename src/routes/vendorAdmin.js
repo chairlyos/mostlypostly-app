@@ -539,6 +539,24 @@ router.get("/", requireSecret, requirePin, (req, res) => {
   <meta charset="UTF-8" /><title>Platform Console — MostlyPostly</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            mpAccent:       "#3B72B9",
+            mpAccentDark:   "#2d5a94",
+            mpAccentLight:  "#EBF3FF",
+            mpCharcoal:     "#2B2D35",
+            mpCharcoalDark: "#1a1c22",
+            mpBg:           "#F8FAFC",
+            mpBorder:       "#E2E8F0",
+            mpMuted:        "#7A7C85",
+          }
+        }
+      }
+    }
+  </script>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
     .stat-card { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:16px 20px; }
@@ -1073,6 +1091,172 @@ router.get("/", requireSecret, requirePin, (req, res) => {
             }
           </tbody>
         </table>
+      </div>
+    </div>
+
+    <!-- Platform Publishing Requirements -->
+    <div class="border rounded-2xl bg-white overflow-hidden mt-8">
+      <div class="px-6 py-4 border-b">
+        <h2 class="font-bold">Platform Publishing Requirements</h2>
+        <p class="text-xs text-gray-500 mt-0.5">Specs enforced per platform. Future: pre-publish validation will warn or block based on these rules.</p>
+      </div>
+      <div class="px-6 py-5 grid grid-cols-1 md:grid-cols-2 gap-6">
+
+        <!-- Facebook -->
+        <div class="rounded-xl border border-gray-200 overflow-hidden">
+          <div class="px-4 py-3 bg-[#1877F2] text-white">
+            <span class="font-bold text-sm">Facebook</span>
+          </div>
+          <div class="px-4 py-3 space-y-3 text-xs">
+            <div>
+              <div class="font-semibold text-gray-700 mb-1">Photos</div>
+              <ul class="space-y-0.5 text-gray-600">
+                <li>Format: JPEG, PNG (no GIF for page posts)</li>
+                <li>Max size: 4 MB</li>
+                <li>Recommended: 1200×630 px (1.91:1)</li>
+                <li>Min: 600×315 px</li>
+                <li>Ratios: 1:1 · 4:5 · 1.91:1 · 9:16 (stories)</li>
+              </ul>
+            </div>
+            <div>
+              <div class="font-semibold text-gray-700 mb-1">Videos (Reels)</div>
+              <ul class="space-y-0.5 text-gray-600">
+                <li>Format: MP4, MOV</li>
+                <li>Max size: 4 GB · Max duration: 90 sec (Reels)</li>
+                <li>Recommended: 1080×1920 px (9:16)</li>
+                <li>Min resolution: 540×960 px</li>
+                <li>Frame rate: 24–60 fps</li>
+              </ul>
+            </div>
+            <div>
+              <div class="font-semibold text-gray-700 mb-1">Caption</div>
+              <ul class="space-y-0.5 text-gray-600">
+                <li>Max characters: 63,206</li>
+                <li>Recommended: under 125 chars (truncated in feed)</li>
+                <li>Links: one clickable link per post</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- Instagram -->
+        <div class="rounded-xl border border-gray-200 overflow-hidden">
+          <div class="px-4 py-3 bg-gradient-to-r from-[#833AB4] via-[#FD1D1D] to-[#F77737] text-white">
+            <span class="font-bold text-sm">Instagram</span>
+          </div>
+          <div class="px-4 py-3 space-y-3 text-xs">
+            <div>
+              <div class="font-semibold text-gray-700 mb-1">Feed Photos</div>
+              <ul class="space-y-0.5 text-gray-600">
+                <li>Format: JPEG (PNG converted to JPEG)</li>
+                <li>Max size: 8 MB</li>
+                <li>Ratios: 1:1 · 4:5 (portrait) · 1.91:1 (landscape)</li>
+                <li>Recommended: 1080×1350 px (4:5) or 1080×1080 px (1:1)</li>
+              </ul>
+            </div>
+            <div>
+              <div class="font-semibold text-gray-700 mb-1">Reels</div>
+              <ul class="space-y-0.5 text-gray-600">
+                <li>Format: MP4 (H.264, AAC audio)</li>
+                <li>Max size: 1 GB · Max duration: 15 min</li>
+                <li>Required: 1080×1920 px (9:16)</li>
+                <li>Frame rate: 23–60 fps</li>
+              </ul>
+            </div>
+            <div>
+              <div class="font-semibold text-gray-700 mb-1">Carousels</div>
+              <ul class="space-y-0.5 text-gray-600">
+                <li>2–10 slides · all same aspect ratio</li>
+                <li>Each slide: max 8 MB</li>
+              </ul>
+            </div>
+            <div>
+              <div class="font-semibold text-gray-700 mb-1">Caption</div>
+              <ul class="space-y-0.5 text-gray-600">
+                <li>Max characters: 2,200</li>
+                <li>Max hashtags: 30 (recommended: 3–5)</li>
+                <li>Links: not clickable in captions — use bio link</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- Google Business Profile -->
+        <div class="rounded-xl border border-gray-200 overflow-hidden">
+          <div class="px-4 py-3 bg-[#4285F4] text-white">
+            <span class="font-bold text-sm">Google Business Profile</span>
+          </div>
+          <div class="px-4 py-3 space-y-3 text-xs">
+            <div>
+              <div class="font-semibold text-gray-700 mb-1">Photos</div>
+              <ul class="space-y-0.5 text-gray-600">
+                <li>Format: JPEG, PNG</li>
+                <li>Size: 10 KB – 5 MB</li>
+                <li>Min dimensions: 250×250 px</li>
+                <li>Recommended cover: 1024×576 px (16:9)</li>
+                <li>Profile photo: 250×250 px (1:1)</li>
+              </ul>
+            </div>
+            <div>
+              <div class="font-semibold text-gray-700 mb-1">Posts (What's New / Offers)</div>
+              <ul class="space-y-0.5 text-gray-600">
+                <li>No video support in posts</li>
+                <li>Caption: up to 1,500 characters</li>
+                <li>One CTA button per post (Book, Learn more, etc.)</li>
+                <li>Offer posts require a title + date range</li>
+                <li>Posts expire after 7 days (What's New)</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- TikTok -->
+        <div class="rounded-xl border border-gray-200 overflow-hidden">
+          <div class="px-4 py-3 bg-gray-900 text-white">
+            <span class="font-bold text-sm">TikTok</span>
+          </div>
+          <div class="px-4 py-3 space-y-3 text-xs">
+            <div>
+              <div class="font-semibold text-gray-700 mb-1">Videos</div>
+              <ul class="space-y-0.5 text-gray-600">
+                <li>Format: MP4, WebM (H.264 or H.265)</li>
+                <li>Max size: 4 GB · Max duration: 10 min</li>
+                <li>Recommended: 1080×1920 px (9:16)</li>
+                <li>Also supported: 1:1 · 16:9</li>
+                <li>Min resolution: 540×960 px</li>
+                <li>Frame rate: 23–60 fps</li>
+              </ul>
+            </div>
+            <div>
+              <div class="font-semibold text-gray-700 mb-1">Photo Posts (Slideshow)</div>
+              <ul class="space-y-0.5 text-gray-600">
+                <li>Format: JPEG, WebP</li>
+                <li>Up to 35 images per post</li>
+                <li>Recommended: 1080×1920 px (9:16) or 1080×1080 px (1:1)</li>
+              </ul>
+            </div>
+            <div>
+              <div class="font-semibold text-gray-700 mb-1">Caption</div>
+              <ul class="space-y-0.5 text-gray-600">
+                <li>Max characters: 2,200</li>
+                <li>Max hashtags: 30 (recommended: 3–5)</li>
+                <li>Links: not clickable in captions</li>
+              </ul>
+            </div>
+            <div>
+              <div class="font-semibold text-gray-700 mb-1">Content Policy Notes</div>
+              <ul class="space-y-0.5 text-gray-600">
+                <li>Direct Post mode — no draft review by default</li>
+                <li>Before/after medical comparisons flagged for review</li>
+                <li>Music: use TikTok's Commercial Music Library for business accounts</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+      </div>
+      <div class="px-6 py-3 border-t bg-gray-50 text-xs text-gray-400">
+        Specs current as of 2026. Verify at each platform's developer docs before shipping automated validation. These will be used as the basis for pre-publish warning/failure checks.
       </div>
     </div>
 
