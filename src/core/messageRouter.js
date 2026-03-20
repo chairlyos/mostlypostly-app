@@ -49,6 +49,27 @@ console.log("[Router Debug] moderateAIOutput type:", typeof moderateAIOutput);
 
 
 // --------------------------------------
+// Download a Twilio MMS image with auth and return a base64 data URI.
+// OpenAI cannot fetch Twilio URLs directly (requires Basic auth).
+// Falls back to the raw URL if download fails so the caller can still try.
+async function fetchTwilioImageAsDataUri(url) {
+  if (!url || !/^https:\/\/api\.twilio\.com/i.test(url)) return url;
+  try {
+    const sid = process.env.TWILIO_ACCOUNT_SID;
+    const token = process.env.TWILIO_AUTH_TOKEN;
+    if (!sid || !token) return url;
+    const authHeader = "Basic " + Buffer.from(`${sid}:${token}`).toString("base64");
+    const resp = await fetch(url, { headers: { Authorization: authHeader } });
+    if (!resp.ok) return url;
+    const contentType = resp.headers.get("content-type") || "image/jpeg";
+    const buf = Buffer.from(await resp.arrayBuffer());
+    return `data:${contentType};base64,${buf.toString("base64")}`;
+  } catch {
+    return url; // fall back to raw URL — OpenAI will try and may succeed
+  }
+}
+
+// --------------------------------------
 // Resolve a usable image URL from records
 function resolveImageUrl(pending, draft) {
   return (
@@ -359,8 +380,9 @@ async function createCoordinatorPost(chatId, imageUrl, messageBody, coordinator,
   try {
     const { generateCaption } = await import("../openai.js");
     const fullSalon = getSalonPolicy(salonId) || salonRow;
+    const imageDataUri = await fetchTwilioImageAsDataUri(imageUrl);
     const aiJson = await generateCaption({
-      imageDataUrl: imageUrl,
+      imageDataUrl: imageDataUri,
       notes: messageBody || "",
       salon: fullSalon,
       stylist: { stylist_name: matchedStylist.name, name: matchedStylist.name, instagram_handle: matchedStylist.instagram_handle || null },
@@ -659,8 +681,9 @@ async function processNewImageFlow({
     salon?.slug || salon?.salon_id || salon?.id
   );
 
+  const activeImageDataUri = await fetchTwilioImageAsDataUri(activeImageUrl);
   const aiJson = await generateCaption({
-    imageDataUrl: activeImageUrl,
+    imageDataUrl: activeImageDataUri,
     notes: text || "",
     salon: fullSalon,
     stylist,
