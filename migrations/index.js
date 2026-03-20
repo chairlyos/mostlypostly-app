@@ -52,6 +52,7 @@ import { run as run048 } from "./048_content_recycler.js";
 import { run as run049 } from "./049_coordinator_submitted_by.js";
 import { run as run050 } from "./050_tiktok.js";
 import { run as run051 } from "./051_platform_routing.js";
+import { run as run052 } from "./052_stylist_tiktok_handle.js";
 
 export const migrations = [
   { name: "001_baseline_patches",        run: run001 },
@@ -105,4 +106,5 @@ export const migrations = [
   { name: "049_coordinator_submitted_by",   run: run049 },
   { name: "050_tiktok",                     run: run050 },
   { name: "051_platform_routing",           run: run051 },
+  { name: "052_stylist_tiktok_handle",      run: run052 },
 ];
