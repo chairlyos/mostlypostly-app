@@ -209,6 +209,36 @@ router.post("/reset-routing", requireSecret, requirePin, (req, res) => {
   res.redirect(`/internal/vendors${qs(req)}&routing_reset=${encodeURIComponent(salonSlug)}`);
 });
 
+// ── POST /set-standard-routing — Apply a routing config to all (or unset) salons ─
+router.post("/set-standard-routing", requireSecret, requirePin, (req, res) => {
+  const POST_TYPES = [
+    "availability", "before_after", "celebration", "celebration_story",
+    "standard_post", "reel", "promotions", "product_education",
+  ];
+  const PLATFORMS = ["facebook", "instagram", "gmb", "tiktok"];
+
+  const routing = {};
+  for (const pt of POST_TYPES) {
+    routing[pt] = {};
+    for (const plat of PLATFORMS) {
+      const key = `routing_${pt}_${plat}`;
+      routing[pt][plat] = [].concat(req.body[key] ?? []).includes("1");
+    }
+  }
+
+  const scope = req.body.scope === "unset_only" ? "unset_only" : "all";
+  const json = JSON.stringify(routing);
+
+  if (scope === "unset_only") {
+    db.prepare(`UPDATE salons SET platform_routing = ? WHERE platform_routing IS NULL`).run(json);
+  } else {
+    db.prepare(`UPDATE salons SET platform_routing = ?`).run(json);
+  }
+
+  console.log(`[vendorAdmin] Set standard routing (scope=${scope}):`, json);
+  res.redirect(`/internal/vendors${qs(req)}&std_routing_saved=1`);
+});
+
 // ── GET / — Platform Console ───────────────────────────────────────────────────
 router.get("/", requireSecret, requirePin, (req, res) => {
   const brands = db.prepare(`
@@ -328,6 +358,8 @@ router.get("/", requireSecret, requirePin, (req, res) => {
     ? `<div class="rounded-xl bg-yellow-50 border border-yellow-200 px-4 py-3 text-sm text-yellow-800 font-medium mb-6">Your session expired (server restarted). Please re-enter your PIN above to continue.</div>`
     : req.query.routing_reset
     ? `<div class="rounded-xl bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-800 font-medium mb-6">Routing reset for ${safe(req.query.routing_reset)}.</div>`
+    : req.query.std_routing_saved
+    ? `<div class="rounded-xl bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-800 font-medium mb-6">Standard routing applied.</div>`
     : "";
 
   const today = new Date().toISOString().slice(0, 10);
@@ -932,10 +964,72 @@ router.get("/", requireSecret, requirePin, (req, res) => {
       </div>
     </div>
 
-    <!-- Global Routing Defaults -->
+    <!-- Set Standard Routing -->
     <div class="border rounded-2xl bg-white overflow-hidden mt-8">
       <div class="px-6 py-4 border-b">
-        <h2 class="font-bold">Global Routing Defaults</h2>
+        <h2 class="font-bold">Set Standard Routing</h2>
+        <p class="text-xs text-gray-500 mt-0.5">Configure the routing template and push it to salons. Use when marketing strategy changes.</p>
+      </div>
+      <div class="px-6 py-5">
+        <form method="POST" action="/internal/vendors/set-standard-routing${qs(req)}">
+          <div class="overflow-x-auto mb-4">
+            <table class="text-sm border-collapse">
+              <thead>
+                <tr class="text-xs text-gray-500 uppercase tracking-wide">
+                  <th class="text-left pr-6 pb-2 font-medium">Post Type</th>
+                  ${["Facebook","Instagram","GMB","TikTok"].map(p => `<th class="text-center px-3 pb-2 font-medium">${p}</th>`).join('')}
+                </tr>
+              </thead>
+              <tbody>
+                ${Object.entries({
+                  availability: "Availability",
+                  before_after: "Before & After",
+                  celebration: "Celebration",
+                  celebration_story: "Celebration Story",
+                  standard_post: "Standard Post",
+                  reel: "Reel / Video",
+                  promotions: "Promotions",
+                  product_education: "Product Education",
+                }).map(([pt, label]) => `
+                  <tr class="border-t border-gray-100">
+                    <td class="text-sm text-gray-700 py-2 pr-6 font-medium">${label}</td>
+                    ${["facebook","instagram","gmb","tiktok"].map(plat => {
+                      const name = `routing_${pt}_${plat}`;
+                      const checked = DEFAULT_ROUTING[pt]?.[plat] !== false;
+                      return `<td class="text-center py-2 px-3">
+                        <label class="relative inline-flex items-center cursor-pointer">
+                          <input type="checkbox" name="${name}" value="1"${checked ? ' checked' : ''}
+                            class="sr-only peer">
+                          <div class="w-11 h-6 rounded-full transition-colors peer-checked:bg-mpAccent bg-gray-200 relative
+                            after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:w-5 after:h-5 after:rounded-full after:bg-white after:shadow after:transition-all
+                            peer-checked:after:translate-x-5"></div>
+                        </label>
+                      </td>`;
+                    }).join('')}
+                  </tr>`
+                ).join('')}
+              </tbody>
+            </table>
+          </div>
+          <div class="flex items-center gap-4 pt-2 border-t border-gray-100">
+            <select name="scope" class="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-gray-50 text-gray-700">
+              <option value="all">Apply to ALL salons (overwrite custom rules)</option>
+              <option value="unset_only">Apply only to salons using defaults (NULL)</option>
+            </select>
+            <button type="submit"
+              onclick="return confirm('Apply this routing to salons? This cannot be undone.')"
+              class="px-4 py-2 bg-mpAccent text-white text-sm font-semibold rounded-lg hover:bg-mpAccentDark">
+              Apply Routing
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Per-Salon Routing Overrides -->
+    <div class="border rounded-2xl bg-white overflow-hidden mt-8">
+      <div class="px-6 py-4 border-b">
+        <h2 class="font-bold">Per-Salon Custom Routing</h2>
         <p class="text-xs text-gray-500 mt-0.5">Salons with custom platform routing rules. Reset returns a salon to all-enabled defaults.</p>
       </div>
       <div class="overflow-x-auto">
