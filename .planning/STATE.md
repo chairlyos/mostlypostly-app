@@ -111,6 +111,7 @@ None yet.
 | 260319-q5j | Vendor campaign posting frequency controls (min-gap, auto-expiry, tone_direction removal) | 2026-03-19 | 65a68f7 | [260319-q5j-audit-vendor-campaign-posting-frequency-](./quick/260319-q5j-audit-vendor-campaign-posting-frequency-/) |
 | 260319-t0p | KB article workflow — template, Post Queue demo article, Definition of Done enforcement | 2026-03-20 | f505962 | [260319-t0p-ensure-kb-article-is-created-for-every-n](./quick/260319-t0p-ensure-kb-article-is-created-for-every-n/) |
 | 260320-ate | Fix CSP inline event handler violations in vendorAdmin (onerror/onclick → event delegation) | 2026-03-20 | 57b8a71 | [260320-ate-fix-csp-inline-event-handler-violation-o](./quick/260320-ate-fix-csp-inline-event-handler-violation-o/) |
+| 260320-dn3 | Add collapsible recent activity section to manager dashboard (5 visible, rest collapsible, 14-day window) | 2026-03-20 | 40feec9 | [260320-dn3-add-collapsible-recent-activity-section-](./quick/260320-dn3-add-collapsible-recent-activity-section-/) |
 
 ## Session Continuity
 
