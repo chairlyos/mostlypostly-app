@@ -283,7 +283,7 @@ router.get("/", requireAuth, (req, res) => {
                   <div class="flex items-center gap-3">
                     <input type="number" name="frequency_cap"
                            value="${safe(vendorSetting.frequency_cap ?? 3)}"
-                           min="1" max="${safe(brandCfg.platform_max_cap ?? 6)}"
+                           min="3" max="${safe(brandCfg.platform_max_cap ?? 6)}"
                            class="w-20 border border-mpBorder rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-mpAccent" />
                     <span class="text-xs text-mpMuted">Max allowed: ${safe(brandCfg.platform_max_cap ?? 6)}/month · Min gap: every ${safe(brandCfg.min_gap_days ?? 3)} days</span>
                   </div>
@@ -480,7 +480,7 @@ router.post("/settings", requireAuth, (req, res) => {
   // Clamp frequency_cap to [1, platform_max_cap]
   const brand = db.prepare(`SELECT platform_max_cap FROM vendor_brands WHERE vendor_name = ?`).get(vendor_name);
   const platformMax = brand?.platform_max_cap ?? 6;
-  const capVal = frequency_cap ? Math.min(Math.max(1, parseInt(frequency_cap, 10) || 3), platformMax) : null;
+  const capVal = frequency_cap ? Math.min(Math.max(3, parseInt(frequency_cap, 10) || 3), platformMax) : null;
 
   // Upsert so settings are saved even if no feed row exists yet
   db.prepare(`
