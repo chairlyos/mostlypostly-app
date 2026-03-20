@@ -22,6 +22,7 @@ import db from "../../db.js";
 import { UPLOADS_DIR } from "../core/uploadPath.js";
 import { enforceStaffLimits } from "./billing.js";
 import { runVendorSync } from "../core/vendorSync.js";
+import { DEFAULT_ROUTING, mergeRoutingDefaults } from "../core/platformRouting.js";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -199,6 +200,15 @@ router.post("/set-plan", requireSecret, requirePin, (req, res) => {
   res.redirect(`/internal/vendors${qs(req)}`);
 });
 
+// ── POST /reset-routing — Reset a salon's platform_routing to NULL (use defaults) ─
+router.post("/reset-routing", requireSecret, requirePin, (req, res) => {
+  const salonSlug = req.body.salon;
+  if (!salonSlug) return res.status(400).send('salon param required');
+  db.prepare(`UPDATE salons SET platform_routing = NULL WHERE slug = ?`).run(salonSlug);
+  console.log(`[vendorAdmin] Reset platform_routing for ${salonSlug} to NULL`);
+  res.redirect(`/internal/vendors${qs(req)}&routing_reset=${encodeURIComponent(salonSlug)}`);
+});
+
 // ── GET / — Platform Console ───────────────────────────────────────────────────
 router.get("/", requireSecret, requirePin, (req, res) => {
   const brands = db.prepare(`
@@ -294,6 +304,11 @@ router.get("/", requireSecret, requirePin, (req, res) => {
   for (const name of allVendorNames) vendors[name] = [];
   for (const c of campaigns) vendors[c.vendor_name].push(c);
 
+  // Salons with custom platform routing (non-NULL)
+  const salonsWithRouting = db.prepare(
+    `SELECT slug, name, platform_routing FROM salons WHERE platform_routing IS NOT NULL ORDER BY name`
+  ).all();
+
   const safe = s => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
   const planColor = p => ({ pro: "bg-purple-100 text-purple-700", growth: "bg-blue-100 text-blue-700", starter: "bg-green-100 text-green-700", trial: "bg-gray-100 text-gray-600" }[p] || "bg-gray-100 text-gray-600");
@@ -311,6 +326,8 @@ router.get("/", requireSecret, requirePin, (req, res) => {
     ? `<div class="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700 font-medium mb-6">Promotion campaigns require an expiration date.</div>`
     : req.query.session_expired
     ? `<div class="rounded-xl bg-yellow-50 border border-yellow-200 px-4 py-3 text-sm text-yellow-800 font-medium mb-6">Your session expired (server restarted). Please re-enter your PIN above to continue.</div>`
+    : req.query.routing_reset
+    ? `<div class="rounded-xl bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-800 font-medium mb-6">Routing reset for ${safe(req.query.routing_reset)}.</div>`
     : "";
 
   const today = new Date().toISOString().slice(0, 10);
@@ -910,6 +927,56 @@ router.get("/", requireSecret, requirePin, (req, res) => {
                 </form>
               </td>
             </tr>`).join("")}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Global Routing Defaults -->
+    <div class="border rounded-2xl bg-white overflow-hidden mt-8">
+      <div class="px-6 py-4 border-b">
+        <h2 class="font-bold">Global Routing Defaults</h2>
+        <p class="text-xs text-gray-500 mt-0.5">Salons with custom platform routing rules. Reset returns a salon to all-enabled defaults.</p>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b bg-gray-50 text-left text-xs text-gray-500 uppercase tracking-wide">
+              <th class="px-4 py-3">Salon</th>
+              <th class="px-4 py-3">Custom Rules</th>
+              <th class="px-4 py-3">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${salonsWithRouting.length === 0
+              ? `<tr><td colspan="3" class="px-4 py-3 text-gray-400 text-sm">No salons with custom routing.</td></tr>`
+              : salonsWithRouting.map(sr => {
+                  let disabledRules = [];
+                  try {
+                    const merged = mergeRoutingDefaults(sr.platform_routing);
+                    for (const [pt, plats] of Object.entries(merged)) {
+                      const disabled = Object.entries(plats).filter(([, v]) => v === false).map(([p]) => p);
+                      if (disabled.length) disabledRules.push(`${safe(pt)}: ${disabled.map(safe).join(', ')} off`);
+                    }
+                  } catch {}
+                  return `<tr class="border-b last:border-0 hover:bg-gray-50/50">
+                    <td class="px-4 py-3">
+                      <div class="font-medium text-gray-900">${safe(sr.name)}</div>
+                      <div class="text-xs text-gray-400 font-mono">${safe(sr.slug)}</div>
+                    </td>
+                    <td class="px-4 py-3 text-xs text-gray-600">
+                      ${disabledRules.length ? disabledRules.map(r => `<div>${r}</div>`).join('') : '<span class="text-gray-400">All enabled</span>'}
+                    </td>
+                    <td class="px-4 py-3">
+                      <form method="POST" action="/internal/vendors/reset-routing${qs(req)}"
+                            data-confirm="Reset routing for ${safe(sr.name)} to all-enabled defaults?">
+                        <input type="hidden" name="salon" value="${safe(sr.slug)}" />
+                        <button type="submit" class="text-xs text-red-500 hover:text-red-700 font-medium">Reset to defaults</button>
+                      </form>
+                    </td>
+                  </tr>`;
+                }).join('')
+            }
           </tbody>
         </table>
       </div>
