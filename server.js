@@ -286,7 +286,7 @@ app.use(
   "/uploads",
   express.static(UPLOADS_DIR, {
     setHeaders(res, filePath) {
-      if (/\.(jpg|jpeg|png|gif|webp)$/i.test(filePath)) {
+      if (/\.(jpg|jpeg|png|gif|webp|mp4|mov)$/i.test(filePath)) {
         res.setHeader("Cache-Control", "public, max-age=86400");
       }
     },

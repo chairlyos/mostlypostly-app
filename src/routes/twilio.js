@@ -110,6 +110,10 @@ export default function twilioRoute(drafts, _lookupStylist, generateCaption) {
     }
     const imageUrl = imageUrls[0] || null; // primary, for backward compat
 
+    // Video MMS detection (REEL-01)
+    const primaryContentType = req.body.MediaContentType0 || '';
+    const isVideo = primaryContentType.startsWith('video/');
+
     console.log("🔔 [Twilio] Webhook:", {
       from,
       to: toNumber,
@@ -129,7 +133,8 @@ export default function twilioRoute(drafts, _lookupStylist, generateCaption) {
       if (
           /^(JOIN|CANCEL|SETUP|AGREE|APPROVE|DENY|EDIT|RESET|REDO|REGENERATE|MENU|LEADERBOARD|RANKINGS?)\b/i.test(text) ||
           /^(what can i do|who('?s| is) (leading|winning|in the lead))$/i.test(text) ||
-          joinSessions.has(from)
+          joinSessions.has(from) ||
+          isVideo    // Video flow sends its own prompt — suppress auto-ACK
         ) {
           // 🧠 These are command flows — respond silently (no "Got it" message)
           res.type("text/xml").send(twiml.toString());
@@ -171,6 +176,7 @@ export default function twilioRoute(drafts, _lookupStylist, generateCaption) {
         text,
         imageUrl,
         imageUrls,
+        isVideo,           // NEW — video content-type flag (REEL-01)
         drafts,
         generateCaption,
         moderateAIOutput,
