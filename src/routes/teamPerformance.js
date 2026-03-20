@@ -304,17 +304,26 @@ router.get("/", requireAuth, (req, res) => {
           <p class="text-xs text-mpMuted mb-3">Share this URL with your TV or tablet — it auto-refreshes every 60 seconds. No login required.</p>
           <div class="flex items-center gap-2 rounded-xl bg-mpBg border border-mpBorder px-3 py-2 mb-3">
             <code class="flex-1 text-xs text-mpCharcoal break-all">${esc(tvUrl)}</code>
-            <button onclick="navigator.clipboard.writeText('${esc(tvUrl)}').then(()=>this.textContent='Copied!').catch(()=>{})"
+            <button id="copy-tv-url" data-url="${esc(tvUrl)}"
               class="shrink-0 rounded-lg border border-mpBorder bg-white px-3 py-1 text-xs font-semibold hover:border-mpAccent transition-colors">
               Copy
             </button>
           </div>
-          <form method="POST" action="/manager/performance/regenerate-token"
-            onsubmit="return confirm('This will break the current TV URL. Continue?')">
+          <form id="regen-token-form" method="POST" action="/manager/performance/regenerate-token">
             <button class="text-xs text-mpMuted hover:text-red-500 underline transition-colors">
               Regenerate URL (breaks current link)
             </button>
           </form>
+          <script>
+            document.getElementById('copy-tv-url').addEventListener('click', function() {
+              navigator.clipboard.writeText(this.dataset.url).then(function() {
+                document.getElementById('copy-tv-url').textContent = 'Copied!';
+              }).catch(function() {});
+            });
+            document.getElementById('regen-token-form').addEventListener('submit', function(e) {
+              if (!confirm('This will break the current TV URL. Continue?')) e.preventDefault();
+            });
+          </script>
         </div>
 
         <!-- Double Points settings -->

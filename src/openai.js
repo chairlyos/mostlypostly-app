@@ -102,6 +102,7 @@ Your reply MUST be a single JSON object. No comments. No code fences.
 - Caption should be about the hair, the look, the vibe, or the service only
 - Hashtags returned as an array — generate exactly 2 relevant hashtags (no #MostlyPostly, no generic hashtags like #hairstylist — use service-specific ones like #balayage, #blondespecialist, etc.)
 - DO NOT include "#MostlyPostly" — it is added automatically by the platform
+- If "Notes" are provided, you MUST incorporate them into the caption — reference the service, technique, season, or context mentioned. Do not ignore notes.
 
 
 ## PART 2 — Content Classification (Shadow Mode):
