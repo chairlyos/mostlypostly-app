@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 05-02-PLAN.md
-last_updated: "2026-03-20T15:52:28.847Z"
+stopped_at: Completed 06-01-PLAN.md
+last_updated: "2026-03-20T19:03:27.902Z"
 progress:
-  total_phases: 5
+  total_phases: 6
   completed_phases: 4
-  total_plans: 17
-  completed_plans: 17
+  total_plans: 20
+  completed_plans: 18
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-19)
 
 **Core value:** Salons never run out of quality content — the platform generates, recycles, and publishes it automatically while building the salon's online reputation.
-**Current focus:** Phase 05 — guest-care-and-support-staff
+**Current focus:** Phase 06 — per-salon-platform-content-routing
 
 ## Current Position
 
-Phase: 05 (guest-care-and-support-staff) — EXECUTING
-Plan: 3 of 3 (complete)
+Phase: 06 (per-salon-platform-content-routing) — EXECUTING
+Plan: 2 of 3
 
 ## Performance Metrics
 
@@ -63,12 +63,14 @@ Plan: 3 of 3 (complete)
 | Phase 05-guest-care-and-support-staff P01 | 2 | 2 tasks | 4 files |
 | Phase 05-guest-care-and-support-staff P03 | 8 | 2 tasks | 6 files |
 | Phase 05 P02 | 413 | 3 tasks | 3 files |
+| Phase 06-per-salon-platform-content-routing P01 | 2 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
 ### Roadmap Evolution
 
 - Phase 5 added: Guest Care and Support Staff — receptionist/front-desk staff type that posts on behalf of stylists with modified portal flow, service provider dropdown, support member leaderboard scoring, and tailored welcome SMS
+- Phase 6 added: Per-Salon Platform Content Routing — per-salon control over which content types publish to which platform+format, with Admin→Integrations UI toggles, scheduler routing check, and Platform Console global defaults
 
 ### Decisions
 
@@ -115,6 +117,9 @@ Recent decisions affecting current work:
 - [Phase 05-guest-care-and-support-staff]: submitted_by lookup is per-row synchronous DB call in dashboard.js map() — acceptable since better-sqlite3 is sync and result set is capped at 1000 rows
 - [Phase 05]: GPT-4o-mini with json_object response_format for coordinator stylist name extraction
 - [Phase 05]: isCoordinatorFlow detection via post.submitted_by IS NOT NULL in stylistPortal — clean backward-compatible check
+- [Phase 06-per-salon-platform-content-routing]: platform_routing stored as TEXT JSON on salons row — consistent with brand_palette/default_hashtags columns, avoids separate routing table join on scheduler tick
+- [Phase 06-per-salon-platform-content-routing]: NULL platform_routing = all-enabled defaults — zero migration of existing data required, fully backward compatible
+- [Phase 06-per-salon-platform-content-routing]: isEnabledFor() returns true for unknown post types — new types will not be accidentally suppressed before routing rules are set
 
 ### Pending Todos
 
@@ -139,6 +144,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T15:43:51.125Z
-Stopped at: Completed 05-02-PLAN.md
+Last session: 2026-03-20T19:03:27.900Z
+Stopped at: Completed 06-01-PLAN.md
 Resume file: None
