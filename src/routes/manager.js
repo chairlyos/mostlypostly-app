@@ -165,13 +165,14 @@ router.get("/", requireAuth, async (req, res) => {
     )
     .all(salon_id);
 
-  // Fetch recent (exclude drafts and pending-approval — those show elsewhere)
+  // Fetch recent (exclude drafts and pending-approval — those show elsewhere; capped to 14 days)
   const recentRaw = db
     .prepare(
       `SELECT *
         FROM posts
         WHERE salon_id = ?
           AND status NOT IN ('manager_pending', 'draft', 'cancelled')
+          AND datetime(created_at) >= datetime('now', '-14 days')
         ORDER BY created_at DESC
        LIMIT 25`
     )
@@ -276,14 +277,11 @@ router.get("/", requireAuth, async (req, res) => {
           .join("");
 
   /* -------------------------------------------------------------
-     RECENT CARDS — exact old simple list
+     RECENT CARDS — first 5 visible, remainder collapsible
   ------------------------------------------------------------- */
   const gmbConnected = !!salonRow?.google_location_id;
 
-  const recentCards =
-  recent.length === 0
-    ? `<div class="text-mpMuted text-sm italic">No recent posts.</div>`
-    : recent.map((p) => {
+  function renderRecentCard(p) {
         const caption = esc(p.final_caption || p.caption || "")
           .replace(/\n/g, "<br/>");
 
@@ -341,7 +339,15 @@ router.get("/", requireAuth, async (req, res) => {
             </div>
           </div>
                 `;
-              }).join("");
+  }
+
+  const recentVisibleCards = recent.length === 0
+    ? `<div class="text-mpMuted text-sm italic">No recent posts.</div>`
+    : recent.slice(0, 5).map(renderRecentCard).join("");
+
+  const recentCollapsedCards = recent.length > 5
+    ? `<div id="recent-collapsed" style="display:none">${recent.slice(5).map(renderRecentCard).join("")}</div>`
+    : "";
 
   /* -------------------------------------------------------------
      UPCOMING PROMOTIONS SECTION
@@ -494,8 +500,18 @@ router.get("/", requireAuth, async (req, res) => {
       <h2 class="text-xl font-bold text-mpCharcoal mb-3">Pending Approval</h2>
       ${pendingCards}
 
-      <h2 class="text-xl font-bold text-mpCharcoal mt-10 mb-3">Recent Activity</h2>
-      ${recentCards}
+      <div class="flex items-center justify-between mt-10 mb-3">
+        <h2 class="text-xl font-bold text-mpCharcoal">Recent Activity</h2>
+        <span class="text-xs text-mpMuted">${recent.length} post${recent.length !== 1 ? 's' : ''} in the last 14 days</span>
+      </div>
+      ${recentVisibleCards}
+      ${recentCollapsedCards}
+      ${recent.length > 5 ? `
+        <button id="recent-toggle" type="button"
+          class="mt-2 mb-4 text-xs font-semibold text-mpAccent hover:underline">
+          Show ${recent.length - 5} more
+        </button>
+      ` : ''}
 
   <!-- Image lightbox -->
   <div id="img-lightbox"
@@ -518,6 +534,18 @@ router.get("/", requireAuth, async (req, res) => {
     }
     if (e.target.closest('#img-lightbox')) {
       document.getElementById('img-lightbox').style.display = 'none';
+      return;
+    }
+
+    // Recent activity section toggle
+    if (e.target.id === 'recent-toggle') {
+      var collapsed = document.getElementById('recent-collapsed');
+      if (!collapsed) return;
+      var showing = collapsed.style.display !== 'none';
+      collapsed.style.display = showing ? 'none' : '';
+      e.target.textContent = showing
+        ? 'Show ' + collapsed.children.length + ' more'
+        : 'Show less';
       return;
     }
 
