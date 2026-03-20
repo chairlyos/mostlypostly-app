@@ -12,6 +12,7 @@ import { handleZenotiEvent, handleVagaroEvent } from "../core/integrationHandler
 import { calculateOpenBlocks, formatBlocksAsSlots, categoriesForBlock, formatBlockWithCategory } from "../core/zenotiAvailability.js";
 import { buildAvailabilityImage } from "../core/buildAvailabilityImage.js";
 import { getZenotiClientForSalon, fetchStylistSlots, generateAndSaveAvailabilityPost } from "../core/zenotiSync.js";
+import { DEFAULT_ROUTING, mergeRoutingDefaults } from "../core/platformRouting.js";
 
 const router = express.Router();
 
@@ -54,6 +55,10 @@ router.get("/", requireAuth, (req, res) => {
   const tiktokConnected = !!(salon.tiktok_account_id && salon.tiktok_refresh_token);
   const tiktokEnabled   = !!salon.tiktok_enabled;
   const tiktokUsername  = salon.tiktok_username || "";
+
+  // Content Routing card data
+  const routing = mergeRoutingDefaults(salon.platform_routing ?? null);
+  const routingSaved = req.query.routing === 'saved';
 
   // Webhook URL that Zenoti should POST to
   const BASE_URL = process.env.PUBLIC_BASE_URL || process.env.BASE_URL || "";
@@ -114,6 +119,8 @@ router.get("/", requireAuth, (req, res) => {
     alertHtml = `<div class="mb-6 rounded-xl bg-mpAccentLight border border-mpBorder px-4 py-3 text-sm text-mpAccent font-medium">
       Availability sync complete — ${syncFound} post${syncFound !== 1 ? 's' : ''} created and sent to Post Queue for approval.
     </div>`;
+  } else if (routingSaved) {
+    alertHtml = `<div class="mb-4 rounded-xl bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-800">Content routing updated.</div>`;
   }
 
   // ── Helper: card dot + status label ──────────────────────────
@@ -131,6 +138,59 @@ router.get("/", requireAuth, (req, res) => {
     return `<svg id="chevron-${id}" xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
       <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
     </svg>`;
+  }
+
+  // ── Content Routing card helper ───────────────────────────────
+  function buildRoutingRows(routingMap, hasFb, hasGmb, hasTiktok) {
+    const POST_TYPE_LABELS = {
+      availability:        "Availability",
+      before_after:        "Before & After",
+      celebration:         "Celebration",
+      celebration_story:   "Celebration Story",
+      standard_post:       "Standard Post",
+      reel:                "Reel / Video",
+      promotions:          "Promotions",
+      product_education:   "Product Education",
+    };
+
+    // TikTok column greyed for these post types (skipped by scheduler anyway)
+    const TIKTOK_INELIGIBLE = new Set(["availability", "promotions", "celebration_story"]);
+
+    // GMB column only available for growth/pro plan salons
+    const gmbColumnEnabled = hasGmb && isGmbPlanAllowed;
+
+    // IG requires FB connection
+    const igEnabled = hasFb;
+
+    function toggleCell(postType, platform, enabled, disabled) {
+      const name  = `routing_${postType}_${platform}`;
+      const inner = `
+        <label class="relative inline-flex items-center cursor-pointer${disabled ? ' opacity-40 pointer-events-none cursor-not-allowed' : ''}">
+          <input type="hidden" name="${name}" value="0">
+          <input type="checkbox" name="${name}" value="1"${enabled ? ' checked' : ''}
+            class="sr-only peer" onchange="this.form.submit()">
+          <div class="w-11 h-6 rounded-full transition-colors peer-checked:bg-mpAccent bg-gray-200 relative">
+            <span class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform peer-checked:translate-x-5 block"></span>
+          </div>
+        </label>`;
+      if (disabled) {
+        return `<td class="text-center py-2 px-3"><span class="inline-flex justify-center opacity-40 cursor-not-allowed pointer-events-none">${inner}</span></td>`;
+      }
+      return `<td class="text-center py-2 px-3">${inner}</td>`;
+    }
+
+    return Object.entries(POST_TYPE_LABELS).map(([pt, label]) => {
+      const r = routingMap[pt] || {};
+      const tiktokDisabled = !hasTiktok || TIKTOK_INELIGIBLE.has(pt);
+      return `
+        <tr>
+          <td class="text-sm text-mpCharcoal py-2 pr-4 font-medium">${label}</td>
+          ${toggleCell(pt, "facebook",  r.facebook  !== false, !hasFb)}
+          ${toggleCell(pt, "instagram", r.instagram !== false, !igEnabled)}
+          ${toggleCell(pt, "gmb",       r.gmb       !== false, !gmbColumnEnabled)}
+          ${toggleCell(pt, "tiktok",    r.tiktok    !== false, tiktokDisabled)}
+        </tr>`;
+    }).join("");
   }
 
   // ── Zenoti card body ──────────────────────────────────────────
@@ -456,6 +516,48 @@ router.get("/", requireAuth, (req, res) => {
       </div>
     </div>
 
+    <!-- ── Content Routing ─────────────────────────────────── -->
+    <div class="rounded-2xl border border-mpBorder bg-mpCard shadow-sm overflow-hidden mb-4">
+      <button type="button"
+        id="toggle-btn-routing"
+        class="w-full flex justify-between items-center p-6 text-left hover:bg-mpBg transition-colors cursor-pointer">
+        <div>
+          <h2 class="text-base font-semibold text-mpCharcoal">Content Routing</h2>
+          <p class="text-sm text-mpMuted mt-0.5">Control which post types publish to each platform.</p>
+        </div>
+        ${chevron('routing')}
+      </button>
+
+      <div id="card-routing" data-open="false" class="border-t border-mpBorder px-6 pb-6">
+        <p class="text-xs text-mpMuted pt-4 pb-3">Greyed toggles indicate platforms not yet connected for this salon. Connect the platform above to enable routing.</p>
+
+        <form method="POST" action="/manager/integrations/routing-update">
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr>
+                  <th class="text-left py-2 pr-4 font-medium text-mpMuted w-40">Post Type</th>
+                  <th class="text-center py-2 px-3 font-medium text-mpMuted w-24">Facebook</th>
+                  <th class="text-center py-2 px-3 font-medium text-mpMuted w-24">Instagram</th>
+                  <th class="text-center py-2 px-3 font-medium text-mpMuted w-24">Google</th>
+                  <th class="text-center py-2 px-3 font-medium text-mpMuted w-24">TikTok</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-mpBorder">
+                ${buildRoutingRows(routing, fbConnected, gmbConnected, tiktokConnected)}
+              </tbody>
+            </table>
+          </div>
+          <div class="mt-4 flex justify-end">
+            <button type="submit"
+              class="rounded-full bg-mpAccent px-5 py-2 text-sm font-semibold text-white hover:bg-mpCharcoalDark transition-colors">
+              Save Routing
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
     <!-- ── Coming Soon ──────────────────────────────────────── -->
     <div class="border border-mpBorder rounded-2xl bg-white overflow-hidden mb-4 opacity-60">
       <div class="flex items-center justify-between px-6 py-4">
@@ -482,7 +584,7 @@ router.get("/", requireAuth, (req, res) => {
 
     <script>
       document.addEventListener('DOMContentLoaded', function() {
-        ['fb', 'gmb', 'zenoti', 'tiktok'].forEach(function(id) {
+        ['fb', 'gmb', 'zenoti', 'tiktok', 'routing'].forEach(function(id) {
           var btn    = document.getElementById('toggle-btn-' + id);
           var card   = document.getElementById('card-' + id);
           var chevron = document.getElementById('chevron-' + id);
