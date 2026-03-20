@@ -8,7 +8,6 @@ import { publishToFacebook, publishToFacebookMulti, publishFacebookReel } from "
 import { publishToInstagram, publishToInstagramCarousel, publishStoryToInstagram, publishReelToInstagram } from "./publishers/instagram.js";
 import { publishWhatsNewToGmb, publishOfferToGmb } from "./publishers/googleBusiness.js";
 import { publishPhotoToTikTok, publishVideoToTikTok } from "./publishers/tiktok.js";
-import { refreshTiktokToken } from "./core/tiktokTokenRefresh.js";
 import { logEvent } from "./core/analyticsDb.js";
 import { runCelebrationCheck } from "./core/celebrationScheduler.js";
 import { runVendorSync } from './core/vendorSync.js';
