@@ -459,6 +459,8 @@ describe("RECYC-06: Caption refresh on recycle", () => {
 describe("RECYC-07: SMS notification on auto-recycle", () => {
   it("sends SMS to all managers when auto-recycle fires and candidate found", async () => {
     getSalonPolicy.mockReturnValue(makeSalon());
+    // sendViaTwilio is async — return resolved promise so .catch() works
+    sendViaTwilio.mockResolvedValue(undefined);
 
     // Queue depth
     db.prepare.mockReturnValueOnce(makeStmt({ n: 1 }));
@@ -476,11 +478,14 @@ describe("RECYC-07: SMS notification on auto-recycle", () => {
     // INSERT
     db.prepare.mockReturnValueOnce(makeStmt(null));
     // managers for SMS
-    db.prepare.mockReturnValueOnce(makeStmt([{ phone: "+13175550001" }, { phone: "+13175550002" }]));
+    db.prepare.mockReturnValueOnce({ all: vi.fn().mockReturnValue([{ phone: "+13175550001" }, { phone: "+13175550002" }]) });
 
     db.transaction.mockImplementationOnce((fn) => () => fn());
 
     await checkAndAutoRecycle("test-salon");
+
+    // sendViaTwilio is fire-and-forget — wait a tick for promises to resolve
+    await new Promise(resolve => setTimeout(resolve, 10));
 
     expect(sendViaTwilio).toHaveBeenCalledTimes(2);
     expect(sendViaTwilio).toHaveBeenCalledWith("+13175550001", expect.stringContaining("queue"));

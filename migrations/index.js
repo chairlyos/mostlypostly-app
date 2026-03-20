@@ -48,6 +48,7 @@ import { run as run044 } from "./044_campaign_type.js";
 import { run as run045 } from "./045_vendor_sync_meta.js";
 import { run as run046 } from "./046_vendor_frequency_controls.js";
 import { run as run047 } from "./047_salon_vendor_frequency_cap.js";
+import { run as run048 } from "./048_content_recycler.js";
 
 export const migrations = [
   { name: "001_baseline_patches",        run: run001 },
@@ -97,4 +98,5 @@ export const migrations = [
   { name: "045_vendor_sync_meta",           run: run045 },
   { name: "046_vendor_frequency_controls",  run: run046 },
   { name: "047_salon_vendor_frequency_cap", run: run047 },
+  { name: "048_content_recycler",           run: run048 },
 ];
