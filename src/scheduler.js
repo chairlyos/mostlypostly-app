@@ -12,6 +12,7 @@ import { runCelebrationCheck } from "./core/celebrationScheduler.js";
 import { runVendorSync } from './core/vendorSync.js';
 import { appendUtm, slugify } from './core/utm.js';
 import { buildTrackingToken, buildShortUrl } from './core/trackingUrl.js';
+import { checkAndAutoRecycle } from './core/contentRecycler.js';
 
 const log = createLogger("scheduler");
 
@@ -180,7 +181,8 @@ function getSalonPolicy(salonSlug) {
         booking_url, default_cta, default_hashtags, tone,
         plan,
         google_location_id, google_access_token, google_refresh_token,
-        google_business_name, google_token_expiry, gmb_enabled
+        google_business_name, google_token_expiry, gmb_enabled,
+        auto_recycle, caption_refresh_on_recycle, auto_publish
       FROM salons
       WHERE slug = ?
     `)
@@ -321,6 +323,22 @@ export async function runSchedulerOnce() {
   }
 
   expireStalePosts();
+
+  // Auto-recycle check — runs for all salons with auto_recycle enabled
+  try {
+    const recycleTargets = db.prepare(
+      `SELECT slug FROM salons WHERE auto_recycle = 1`
+    ).all();
+    for (const { slug } of recycleTargets) {
+      try {
+        await checkAndAutoRecycle(slug);
+      } catch (err) {
+        console.error(`[Scheduler] Auto-recycle error for ${slug}:`, err.message);
+      }
+    }
+  } catch (err) {
+    console.error('[Scheduler] Auto-recycle scan error:', err.message);
+  }
 
   try {
     const tenants = db
