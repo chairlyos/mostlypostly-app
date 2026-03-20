@@ -7,6 +7,8 @@ import { rehostTwilioMedia } from "./utils/rehostTwilioMedia.js";
 import { publishToFacebook, publishToFacebookMulti, publishFacebookReel } from "./publishers/facebook.js";
 import { publishToInstagram, publishToInstagramCarousel, publishStoryToInstagram, publishReelToInstagram } from "./publishers/instagram.js";
 import { publishWhatsNewToGmb, publishOfferToGmb } from "./publishers/googleBusiness.js";
+import { publishPhotoToTikTok, publishVideoToTikTok } from "./publishers/tiktok.js";
+import { refreshTiktokToken } from "./core/tiktokTokenRefresh.js";
 import { logEvent } from "./core/analyticsDb.js";
 import { runCelebrationCheck } from "./core/celebrationScheduler.js";
 import { runVendorSync } from './core/vendorSync.js';
@@ -138,7 +140,12 @@ function getDailyPublishedCounts(salonId, dateStr) {
      WHERE salon_id=? AND ig_media_id IS NOT NULL AND date(published_at)=?`
   ).get(salonId, dateStr)?.n || 0;
 
-  return { fb, ig };
+  const tiktok = db.prepare(
+    `SELECT COUNT(*) AS n FROM posts
+     WHERE salon_id=? AND tiktok_post_id IS NOT NULL AND date(published_at)=?`
+  ).get(salonId, dateStr)?.n || 0;
+
+  return { fb, ig, tiktok };
 }
 
 /**
@@ -183,6 +190,8 @@ function getSalonPolicy(salonSlug) {
         plan,
         google_location_id, google_access_token, google_refresh_token,
         google_business_name, google_token_expiry, gmb_enabled,
+        tiktok_account_id, tiktok_access_token, tiktok_refresh_token,
+        tiktok_token_expiry, tiktok_enabled,
         auto_recycle, caption_refresh_on_recycle, auto_publish
       FROM salons
       WHERE slug = ?
@@ -407,6 +416,8 @@ export async function runSchedulerOnce() {
       const counts     = getDailyPublishedCounts(salonId, todayStr);
       let fbPostedToday = counts.fb;
       let igPostedToday = counts.ig;
+      let tiktokPostedToday = counts.tiktok ?? 0;
+      const tiktokDailyCap  = salon.tiktok_daily_max ?? 3;
 
       for (const post of due) {
         const localNow  = nowUtc.setZone(tz);
@@ -607,6 +618,36 @@ export async function runSchedulerOnce() {
               }
             } catch (gmbErr) {
               console.error(`⚠️ [${post.id}] GMB publish failed (FB/IG unaffected):`, gmbErr.message);
+            }
+          }
+
+          // --- TikTok publish (independent — does not block FB/IG/GMB) ---
+          const tiktokEligible = salon.tiktok_enabled
+            && salon.tiktok_access_token
+            && salon.tiktok_refresh_token
+            && postType !== "availability";
+
+          if (tiktokEligible && tiktokPostedToday < tiktokDailyCap) {
+            try {
+              let tiktokPublishId;
+              const isVideo = postType === "reel"
+                || /\.(mp4|mov|avi|webm)$/i.test(allImages[0] || "");
+
+              if (isVideo) {
+                const videoUrl = allImages[0] || post.image_url;
+                tiktokPublishId = await publishVideoToTikTok(salon, videoUrl, fbCaption);
+              } else {
+                tiktokPublishId = await publishPhotoToTikTok(salon, allImages, fbCaption);
+              }
+
+              if (tiktokPublishId) {
+                db.prepare("UPDATE posts SET tiktok_post_id = ? WHERE id = ?")
+                  .run(tiktokPublishId, post.id);
+                tiktokPostedToday++;
+                console.log(`✅ [${post.id}] TikTok published: ${tiktokPublishId}`);
+              }
+            } catch (tiktokErr) {
+              console.error(`⚠️ [${post.id}] TikTok publish failed (FB/IG unaffected):`, tiktokErr.message);
             }
           }
 
