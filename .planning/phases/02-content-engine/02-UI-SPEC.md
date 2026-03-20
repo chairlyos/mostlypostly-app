@@ -56,10 +56,10 @@ Source: Codebase scan of admin.js, manager.js, dashboard.js established patterns
 |------|------|--------|-------------|
 | Body | 14px (`text-sm`) | 400 regular | 1.5 |
 | Label / Badge | 10px (`text-[10px]`) | 700 bold, uppercase, tracked | 1.0 |
-| Heading (card title) | 16px (`text-base`) | 600 semibold | 1.25 |
+| Heading (card title) | 16px (`text-base`) | 700 bold | 1.25 |
 | Page heading | 24px (`text-2xl`) | 700 bold | 1.2 |
 
-Only two weights in use: 400 (regular) and 600–700 (semibold/bold). This matches the existing pattern across manager.js, admin.js, and dashboard.js.
+Only two weights in use: 400 (regular) and 700 (bold). This matches the existing pattern across manager.js, admin.js, and dashboard.js where headings, badges, and labels uniformly use `font-bold`.
 
 Source: Codebase scan — `text-sm font-medium`, `text-2xl font-bold`, `text-[10px] font-bold uppercase tracking-wide` patterns
 
@@ -115,7 +115,7 @@ The following net-new UI components are introduced in this phase. Each follows a
 - **Location:** Inline on each row where `status = 'published'`, in an "Actions" column
 - **Default state:** `bg-mpAccentLight text-mpAccent border-mpAccent` — accent fill, accent text
 - **Hover state:** `hover:bg-mpAccent hover:text-white` — solid fill
-- **Size:** `px-2 py-1 text-[10px] font-medium rounded`
+- **Size:** `px-2 py-1 text-[10px] font-bold rounded`
 - **Form:** `<form method="POST" action="/dashboard/recycle-post">` with hidden `post_id` and `salon` inputs
 - **Non-published rows:** Render `—` in the Actions cell (no button)
 
@@ -125,7 +125,7 @@ The following net-new UI components are introduced in this phase. Each follows a
 - **Inactive state (not blocked):** `bg-mpBg text-mpMuted border-mpBorder hover:border-red-300 hover:text-red-500`
 - **Active state (blocked):** `bg-red-100 text-red-600 border-red-300`
 - **Label:** "Block" (inactive) / "Blocked" (active)
-- **Size:** `px-2 py-1 text-[10px] font-medium rounded`
+- **Size:** `px-2 py-1 text-[10px] font-bold rounded`
 - **Form:** `<form method="POST" action="/dashboard/toggle-block">` with hidden `post_id` and `salon` inputs
 - **No confirmation dialog** — toggle is reversible; no destructive consequence
 - **Note:** `block_from_recycle` and `recycled_from_id` must be added to the dashboard.js SELECT query or the button state cannot render correctly (RESEARCH.md Pitfall 5)
@@ -186,7 +186,7 @@ Source: CONTEXT.md Decisions (banner wording guidance), RESEARCH.md Pattern 5 (b
 1. Manager clicks "Recycle" on a published post row
 2. Form POSTs to `/dashboard/recycle-post`
 3. Server clones the post, calls `enqueuePost()`, redirects back to database view with `?notice=Post+recycled`
-4. Database view renders green success notice: `rounded-xl border border-green-200 bg-green-50 px-4 py-3 mb-4 text-xs text-green-800 font-medium`
+4. Database view renders green success notice: `rounded-xl border border-green-200 bg-green-50 px-4 py-3 mb-4 text-xs text-green-800 font-bold`
 5. The new recycled post appears in the queue with `recycled_from_id` set
 
 ### Block Toggle — POST submit
