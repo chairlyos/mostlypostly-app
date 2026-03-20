@@ -38,6 +38,7 @@ export const DEFAULT_PRIORITY = [
   "celebration",
   "celebration_story",
   "standard_post",
+  "reel",
   "promotions",
   "product_education",
 ];

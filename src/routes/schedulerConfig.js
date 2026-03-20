@@ -48,6 +48,7 @@ const CONTENT_TYPE_LABELS = {
   before_after:      "Before & After",
   celebration:       "Staff Celebrations",
   standard_post:     "Standard Service Post",
+  reel:              "Reels",
   promotions:        "Promotions",
   product_education: "Product Education",
   vendor_promotion:  "Vendor Brand Promotions",
