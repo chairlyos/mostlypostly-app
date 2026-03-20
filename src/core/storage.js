@@ -52,7 +52,8 @@ const insertPostStmt = db.prepare(`
     error_message,
     salon_post_number,
     created_at,
-    updated_at
+    updated_at,
+    submitted_by
   )
   VALUES (
     @id,
@@ -88,7 +89,8 @@ const insertPostStmt = db.prepare(`
     @error_message,
     @salon_post_number,
     @created_at,
-    @updated_at
+    @updated_at,
+    @submitted_by
   )
 `);
 
@@ -163,7 +165,8 @@ export function savePost(
     salon_post_number,
 
     created_at: now,
-    updated_at: now
+    updated_at: now,
+    submitted_by: stylist?.submitted_by || null
   };
 
   try {
