@@ -72,9 +72,9 @@
 
 ### Guest Care / Coordinator (Phase 5)
 
-- [ ] **COORD-01**: Migration adds `submitted_by TEXT REFERENCES managers(id)` column to posts table
-- [ ] **COORD-02**: `savePost()` accepts and stores `submitted_by` field when present in payload; NULL when absent
-- [ ] **COORD-03**: `lookupStylist()` returns `isCoordinator: true` when matched manager has `role = 'coordinator'`
+- [x] **COORD-01**: Migration adds `submitted_by TEXT REFERENCES managers(id)` column to posts table
+- [x] **COORD-02**: `savePost()` accepts and stores `submitted_by` field when present in payload; NULL when absent
+- [x] **COORD-03**: `lookupStylist()` returns `isCoordinator: true` when matched manager has `role = 'coordinator'`
 - [ ] **COORD-04**: Coordinator texting a photo with stylist name triggers GPT-4o-mini name extraction and portal confirmation link
 - [ ] **COORD-05**: Coordinator texting a photo without stylist name receives single "Who is this for?" SMS; reply with name continues flow
 - [ ] **COORD-06**: Coordinator portal approval card shows stylist dropdown (pre-filled with GPT match) and flood warning (3+ posts in 7 days)
