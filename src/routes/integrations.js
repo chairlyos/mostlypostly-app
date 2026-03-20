@@ -403,6 +403,24 @@ router.get("/", requireAuth, (req, res) => {
       </div>
     </div>
 
+    <!-- TikTok — Coming Soon (REEL-10) -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 opacity-60 pointer-events-none mb-4">
+      <div class="px-6 py-4 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center">
+            <svg class="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1v-3.5a6.37 6.37 0 00-.79-.05A6.34 6.34 0 003.15 15.2a6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.34-6.34V8.96a8.27 8.27 0 004.85 1.56V7.09a4.84 4.84 0 01-1.09-.4z"/>
+            </svg>
+          </div>
+          <div>
+            <h3 class="font-semibold text-gray-900">TikTok</h3>
+            <p class="text-sm text-gray-500">Coming soon &mdash; pending developer app approval</p>
+          </div>
+        </div>
+        <span class="px-3 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-500">Coming Soon</span>
+      </div>
+    </div>
+
     <!-- ── Coming Soon ──────────────────────────────────────── -->
     <div class="border border-mpBorder rounded-2xl bg-white overflow-hidden mb-4 opacity-60">
       <div class="flex items-center justify-between px-6 py-4">
