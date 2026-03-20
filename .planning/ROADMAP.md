@@ -59,7 +59,13 @@ Plans:
   2. After manager approval, the video publishes as a Reel on both Instagram and Facebook; failures surface with plain-English error messages via the existing error flow
   3. Analytics and the team leaderboard correctly count and score reel posts (20 pts vs 10 for standard)
   4. A tiktok.js publisher stub exists in the codebase, ready to be wired once TikTok Developer app approval is received
-**Plans**: TBD
+**Plans:** 4 plans
+
+Plans:
+- [ ] 03-01-PLAN.md — Video download utility + Express static serving + Twilio video detection
+- [ ] 03-02-PLAN.md — Gamification scoring (reel=20pts) + error translations + TikTok stub + integrations card
+- [ ] 03-03-PLAN.md — messageRouter video SMS flow (description prompt, caption gen, reel post creation)
+- [ ] 03-04-PLAN.md — IG Reels + FB Reels publishers + scheduler wiring
 
 ### Phase 4: Reputation Manager
 **Goal**: Managers can see all Google reviews in one place, send AI-drafted replies in their brand voice, and turn great reviews into Featured Review social posts — automatically
@@ -80,5 +86,5 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 |-------|----------------|--------|-----------|
 | 1. Vendor Sync | 5/5 | Complete   | 2026-03-19 |
 | 2. Content Engine | 4/5 | In Progress|  |
-| 3. Reels & Video | 0/TBD | Not started | - |
+| 3. Reels & Video | 0/4 | Not started | - |
 | 4. Reputation Manager | 0/TBD | Not started | - |
