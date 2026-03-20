@@ -21,13 +21,13 @@
 
 ### Content Recycler (FEAT-019)
 
-- [ ] **RECYC-01**: System auto-triggers recycling when queue depth drops below salon threshold (default 3) AND last publish was more than 48 hours ago
-- [ ] **RECYC-02**: System selects recycle candidates from posts published in past 90 days, ranked by reach DESC
-- [ ] **RECYC-03**: System excludes posts recycled in the last 45 days and posts flagged block_from_recycle from candidate pool
-- [ ] **RECYC-04**: System enforces post_type distribution (does not recycle same type twice in a row)
-- [ ] **RECYC-05**: System optionally refreshes caption via GPT-4o rewrite at recycle time (per-salon toggle)
-- [ ] **RECYC-06**: Recycled posts are cloned as new rows with recycled_from_id FK set and enqueued via enqueuePost()
-- [ ] **RECYC-07**: Manager receives SMS notification when auto-recycle fires
+- [x] **RECYC-01**: System auto-triggers recycling when queue depth drops below salon threshold (default 3) AND last publish was more than 48 hours ago
+- [x] **RECYC-02**: System selects recycle candidates from posts published in past 90 days, ranked by reach DESC
+- [x] **RECYC-03**: System excludes posts recycled in the last 45 days and posts flagged block_from_recycle from candidate pool
+- [x] **RECYC-04**: System enforces post_type distribution (does not recycle same type twice in a row)
+- [x] **RECYC-05**: System optionally refreshes caption via GPT-4o rewrite at recycle time (per-salon toggle)
+- [x] **RECYC-06**: Recycled posts are cloned as new rows with recycled_from_id FK set and enqueued via enqueuePost()
+- [x] **RECYC-07**: Manager receives SMS notification when auto-recycle fires
 - [ ] **RECYC-08**: Manager can toggle auto-recycle on/off per salon in Admin settings
 - [ ] **RECYC-09**: Manager can flag individual published posts as "block from recycling" in Database view
 - [ ] **RECYC-10**: Manager can manually trigger recycle on any published post via Recycle button

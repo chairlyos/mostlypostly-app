@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed quick/260319-t0p KB article workflow
-last_updated: "2026-03-20T01:03:42.940Z"
+stopped_at: "Completed 02-01-PLAN.md — Content Recycler Foundation"
+last_updated: "2026-03-20T02:04:09.000Z"
 progress:
   total_phases: 4
   completed_phases: 1
-  total_plans: 5
-  completed_plans: 5
+  total_plans: 10
+  completed_plans: 6
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-19)
 
 **Core value:** Salons never run out of quality content — the platform generates, recycles, and publishes it automatically while building the salon's online reputation.
-**Current focus:** Phase 01 — vendor-sync
+**Current focus:** Phase 02 — content-engine
 
 ## Current Position
 
-Phase: 01 (vendor-sync) — EXECUTING
-Plan: 3 of 5
+Phase: 02 (content-engine) — EXECUTING
+Plan: 2 of 5
 
 ## Performance Metrics
 
@@ -46,6 +46,7 @@ Plan: 3 of 5
 - Trend: -
 
 *Updated after each plan completion*
+| Phase 02-content-engine P01 | 291 | 2 tasks | 5 files |
 | Phase 01-vendor-sync P03 | 1 | 1 tasks | 1 files |
 | Phase 01-vendor-sync P01 | 2 | 2 tasks | 6 files |
 | Phase 01-vendor-sync P02 | 3 | 2 tasks | 4 files |
@@ -77,6 +78,9 @@ Recent decisions affecting current work:
 - [Phase 01-vendor-sync]: Sync route fires async (fire-and-forget) — operator refreshes page to see result via last_sync_at
 - [Phase 01-vendor-sync]: syncVendor() uses fetch() JS not form POST — allows button state feedback without page reload
 - [Phase quick-260319-t0p]: KB articles live in mostlypostly-site/kb/ as standalone HTML — no CMS; 4-section structure mandatory; article required for all user-facing features
+- [Phase 02-content-engine Plan 01]: cloneAndEnqueue is a shared helper exported separately for future manual recycle routes
+- [Phase 02-content-engine Plan 01]: Dynamic SQL for weekday exclusion — excludeTypes built from MID_WEEK Set, appended only when non-empty
+- [Phase 02-content-engine Plan 01]: generateCaption dynamically imported to avoid circular deps at module load time
 
 ### Pending Todos
 
@@ -99,6 +103,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T01:03:31.632Z
-Stopped at: Completed quick/260319-t0p KB article workflow
-Resume file: None
+Last session: 2026-03-20T02:04:09.000Z
+Stopped at: Completed 02-01-PLAN.md — Content Recycler Foundation
+Resume file: .planning/phases/02-content-engine/02-02-PLAN.md
