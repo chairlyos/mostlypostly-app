@@ -51,6 +51,9 @@ router.get("/", requireAuth, (req, res) => {
   const fbConnected = !!(salon.facebook_page_id && salon.facebook_page_token);
   const gmbConnected = !!(salon.google_location_id && salon.google_access_token);
   const zenotiConnected = !!zenoti;
+  const tiktokConnected = !!(salon.tiktok_account_id && salon.tiktok_refresh_token);
+  const tiktokEnabled   = !!salon.tiktok_enabled;
+  const tiktokUsername  = salon.tiktok_username || "";
 
   // Webhook URL that Zenoti should POST to
   const BASE_URL = process.env.PUBLIC_BASE_URL || process.env.BASE_URL || "";
@@ -69,9 +72,16 @@ router.get("/", requireAuth, (req, res) => {
   const staffTotal   = req.query.staff_total   ? parseInt(req.query.staff_total,   10) : 0;
   const staffNew     = req.query.staff_new     ? parseInt(req.query.staff_new,     10) : 0;
   const gmbStatus    = req.query.gmb || '';
+  const tiktokFlash  = req.query.tiktok || '';
 
   let alertHtml = '';
-  if (gmbStatus === 'connected') {
+  if (tiktokFlash === 'connected') {
+    alertHtml = `<div class="mb-4 rounded-xl bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-800">TikTok connected successfully.</div>`;
+  } else if (tiktokFlash === 'disconnected') {
+    alertHtml = `<div class="mb-4 rounded-xl bg-gray-50 border border-gray-200 px-4 py-3 text-sm text-gray-700">TikTok disconnected.</div>`;
+  } else if (tiktokFlash === 'error') {
+    alertHtml = `<div class="mb-4 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-800">Could not connect TikTok — please try again.</div>`;
+  } else if (gmbStatus === 'connected') {
     alertHtml = `<div class="mb-6 rounded-xl bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-700 font-medium">
       Google Business Profile connected successfully.
     </div>`;
@@ -403,21 +413,46 @@ router.get("/", requireAuth, (req, res) => {
       </div>
     </div>
 
-    <!-- TikTok — Coming Soon (REEL-10) -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 opacity-60 pointer-events-none mb-4">
-      <div class="px-6 py-4 flex items-center justify-between">
+    <!-- TikTok -->
+    <div class="border border-mpBorder rounded-2xl bg-white overflow-hidden mb-4">
+      <button id="toggle-btn-tiktok" type="button" class="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-mpBg transition-colors cursor-pointer">
         <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center">
-            <svg class="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+          ${statusDot(tiktokConnected)}
+          <span class="font-semibold text-mpCharcoal">TikTok</span>
+        </div>
+        <div class="flex items-center gap-3">
+          ${statusLabel(tiktokConnected)}
+          ${chevron('tiktok')}
+        </div>
+      </button>
+      <div id="card-tiktok" data-open="${tiktokConnected}" class="border-t border-gray-100 px-6 py-5">
+        ${tiktokConnected ? `
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <p class="text-sm font-medium text-mpCharcoal">@${tiktokUsername}</p>
+              <p class="text-xs text-mpMuted mt-0.5">Auto-publishing to TikTok alongside Facebook &amp; Instagram</p>
+            </div>
+            <form method="POST" action="/auth/tiktok/toggle">
+              <button type="submit" class="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold border transition-colors ${tiktokEnabled
+                ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100'
+                : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200'}">
+                ${tiktokEnabled ? 'Enabled' : 'Paused'}
+              </button>
+            </form>
+          </div>
+          <form method="POST" action="/auth/tiktok/disconnect">
+            <button type="submit" class="text-xs text-red-500 hover:text-red-700 underline">Disconnect TikTok</button>
+          </form>
+        ` : `
+          <p class="text-sm text-mpMuted mb-4">Auto-publish to TikTok alongside Facebook &amp; Instagram.</p>
+          <a href="/auth/tiktok/login"
+             class="inline-flex items-center gap-2 rounded-xl bg-mpCharcoal hover:bg-mpCharcoalDark text-white text-sm font-semibold px-4 py-2 transition-colors">
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
               <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1v-3.5a6.37 6.37 0 00-.79-.05A6.34 6.34 0 003.15 15.2a6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.34-6.34V8.96a8.27 8.27 0 004.85 1.56V7.09a4.84 4.84 0 01-1.09-.4z"/>
             </svg>
-          </div>
-          <div>
-            <h3 class="font-semibold text-gray-900">TikTok</h3>
-            <p class="text-sm text-gray-500">Coming soon &mdash; pending developer app approval</p>
-          </div>
-        </div>
-        <span class="px-3 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-500">Coming Soon</span>
+            Connect TikTok
+          </a>
+        `}
       </div>
     </div>
 
@@ -447,7 +482,7 @@ router.get("/", requireAuth, (req, res) => {
 
     <script>
       document.addEventListener('DOMContentLoaded', function() {
-        ['fb', 'gmb', 'zenoti'].forEach(function(id) {
+        ['fb', 'gmb', 'zenoti', 'tiktok'].forEach(function(id) {
           var btn    = document.getElementById('toggle-btn-' + id);
           var card   = document.getElementById('card-' + id);
           var chevron = document.getElementById('chevron-' + id);
