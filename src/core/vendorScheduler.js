@@ -178,6 +178,7 @@ async function processSalon(salon, thisMonth) {
   //    JOIN vendor_brands to get platform-level frequency controls.
   const enabledVendors = db.prepare(`
     SELECT f.vendor_name, f.affiliate_url, f.category_filters,
+           f.frequency_cap AS salon_cap,
            COALESCE(b.min_gap_days, 3) AS min_gap_days,
            COALESCE(b.platform_max_cap, 6) AS platform_max_cap
     FROM salon_vendor_feeds f
@@ -213,7 +214,7 @@ async function processSalon(salon, thisMonth) {
 
     for (const campaign of campaigns) {
       try {
-        const didCreate = await processCampaign(campaign, salon, thisMonth, affiliateUrl, vendorName, vendor.min_gap_days);
+        const didCreate = await processCampaign(campaign, salon, thisMonth, affiliateUrl, vendorName, vendor.min_gap_days, vendor.salon_cap);
         if (didCreate) created++;
       } catch (err) {
         log.warn(`Error processing campaign ${campaign.id} for salon ${salonId}: ${err.message}`);
@@ -249,8 +250,8 @@ async function processCampaign(campaign, salon, thisMonth, affiliateUrl, vendorN
     }
   }
 
-  // 5. Check monthly post count against frequency_cap
-  const cap = campaign.frequency_cap || 3;
+  // 5. Check monthly post count — salon cap overrides campaign default when set
+  const cap = salonCap ?? campaign.frequency_cap ?? 3;
   const { count: monthCount } = db.prepare(`
     SELECT COUNT(*) AS count
     FROM vendor_post_log

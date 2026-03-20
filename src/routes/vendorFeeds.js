@@ -59,7 +59,7 @@ router.get("/", requireAuth, (req, res) => {
   const brandConfigMap = Object.fromEntries(brandConfigs.map(b => [b.vendor_name, b]));
 
   const vendorSettings = db.prepare(`
-    SELECT vendor_name, affiliate_url, category_filters FROM salon_vendor_feeds WHERE salon_id = ?
+    SELECT vendor_name, affiliate_url, category_filters, frequency_cap FROM salon_vendor_feeds WHERE salon_id = ?
   `).all(salon_id);
   const vendorSettingsMap = Object.fromEntries(vendorSettings.map(s => [s.vendor_name, s]));
 
@@ -279,6 +279,17 @@ router.get("/", requireAuth, (req, res) => {
               <form method="POST" action="/manager/vendors/settings" class="space-y-4">
                 <input type="hidden" name="vendor_name" value="${safe(vendorName)}" />
                 <div>
+                  <label class="block text-xs font-semibold text-mpCharcoal mb-1">Posts Per Month</label>
+                  <div class="flex items-center gap-3">
+                    <input type="number" name="frequency_cap"
+                           value="${safe(vendorSetting.frequency_cap ?? 3)}"
+                           min="1" max="${safe(brandCfg.platform_max_cap ?? 6)}"
+                           class="w-20 border border-mpBorder rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-mpAccent" />
+                    <span class="text-xs text-mpMuted">Max allowed: ${safe(brandCfg.platform_max_cap ?? 6)}/month · Min gap: every ${safe(brandCfg.min_gap_days ?? 3)} days</span>
+                  </div>
+                  <p class="text-[11px] text-mpMuted mt-1">How many ${safe(vendorName)} posts to schedule per month across all campaigns.</p>
+                </div>
+                <div>
                   <label class="block text-xs font-semibold text-mpCharcoal mb-1">Affiliate URL</label>
                   <input type="url" name="affiliate_url"
                          value="${safe(vendorSetting.affiliate_url || "")}"
@@ -455,7 +466,7 @@ router.post("/request-access", requireAuth, (req, res) => {
 // ── POST /settings ────────────────────────────────────────────────────────────
 router.post("/settings", requireAuth, (req, res) => {
   const salon_id = req.manager.salon_id;
-  const { vendor_name, affiliate_url } = req.body;
+  const { vendor_name, affiliate_url, frequency_cap } = req.body;
   if (!vendor_name) return res.redirect("/manager/vendors");
 
   // qs strips [] from key names: category_filters[] → category_filters
@@ -466,14 +477,20 @@ router.post("/settings", requireAuth, (req, res) => {
     ? [rawFilters]
     : [];
 
+  // Clamp frequency_cap to [1, platform_max_cap]
+  const brand = db.prepare(`SELECT platform_max_cap FROM vendor_brands WHERE vendor_name = ?`).get(vendor_name);
+  const platformMax = brand?.platform_max_cap ?? 6;
+  const capVal = frequency_cap ? Math.min(Math.max(1, parseInt(frequency_cap, 10) || 3), platformMax) : null;
+
   // Upsert so settings are saved even if no feed row exists yet
   db.prepare(`
-    INSERT INTO salon_vendor_feeds (id, salon_id, vendor_name, enabled, affiliate_url, category_filters)
-    VALUES (?, ?, ?, 0, ?, ?)
+    INSERT INTO salon_vendor_feeds (id, salon_id, vendor_name, enabled, affiliate_url, category_filters, frequency_cap)
+    VALUES (?, ?, ?, 0, ?, ?, ?)
     ON CONFLICT(salon_id, vendor_name) DO UPDATE
       SET affiliate_url = excluded.affiliate_url,
-          category_filters = excluded.category_filters
-  `).run(crypto.randomUUID(), salon_id, vendor_name, affiliate_url || null, JSON.stringify(categoryFilters));
+          category_filters = excluded.category_filters,
+          frequency_cap = excluded.frequency_cap
+  `).run(crypto.randomUUID(), salon_id, vendor_name, affiliate_url || null, JSON.stringify(categoryFilters), capVal);
 
   res.redirect("/manager/vendors?settings_saved=1");
 });
