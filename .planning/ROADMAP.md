@@ -10,7 +10,7 @@ This milestone extends the MostlyPostly content engine with four capabilities: a
 - [ ] **Phase 2: Content Engine** - Smart content recycler and intelligent cadence scheduler that keep the queue balanced and non-empty
 - [ ] **Phase 3: Reels & Video** - Detect, download, and publish Instagram/Facebook Reels from stylist MMS video with same approval flow
 - [ ] **Phase 4: Reputation Manager** - Pull Google reviews, generate AI replies, surface Featured Review posts, and expose a Reputation portal tab
-- [ ] **Phase 5: Guest Care and Support Staff** - Coordinator role SMS posting, stylist attribution, leaderboard scoring, and welcome SMS
+- [x] **Phase 5: Guest Care and Support Staff** - Coordinator role SMS posting, stylist attribution, leaderboard scoring, and welcome SMS (completed 2026-03-20)
 
 ## Phase Details
 
@@ -88,7 +88,7 @@ Plans:
   3. Performance page has Stylists/Coordinators tab toggle; coordinator leaderboard shows 50% of base point values
   4. "Submitted by [Coordinator] on behalf of [Stylist]" badge visible in manager approval queue and Database view
   5. Welcome SMS with posting instructions sent when coordinator is added via Team page
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
 - [ ] 05-01-PLAN.md — Migration 049 (submitted_by column) + savePost wiring + salonLookup coordinator detection
@@ -106,4 +106,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 | 2. Content Engine | 4/5 | In Progress|  |
 | 3. Reels & Video | 2/4 | In Progress|  |
 | 4. Reputation Manager | 0/TBD | Not started | - |
-| 5. Guest Care | 2/3 | In Progress|  |
+| 5. Guest Care | 3/3 | Complete   | 2026-03-20 |
