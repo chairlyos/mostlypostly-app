@@ -415,17 +415,18 @@ async function handleCoordinatorPost(chatId, imageUrl, messageBody, coordinator,
   const matchedStylist = fuzzyMatchStylist(extractedName, salonId);
 
   if (!matchedStylist) {
-    // No name found — store pending entry and ask
+    // No name found — store pending entry (including original messageBody) and ask
     pendingCoordinatorPosts.set(chatId, {
       chatId,
       imageUrl,
+      messageBody: messageBody || "",
       salonId,
       salon,
       coordinator,
       expiresAt: Date.now() + COORDINATOR_TTL_MS,
     });
     const { sendViaTwilio } = await import("../routes/twilio.js");
-    await sendViaTwilio(chatId, "Who is this for? Reply with the stylist's name.");
+    await sendViaTwilio(chatId, "Who is this for? Reply with the stylist's first name.");
     return;
   }
 
@@ -1046,11 +1047,13 @@ export async function handleIncomingMessage({
   const pendingCoord = pendingCoordinatorPosts.get(chatId);
   if (pendingCoord && !primaryImageUrl && !isVideo && cleanText) {
     if (Date.now() < pendingCoord.expiresAt) {
+      // Always delete the pending entry before processing to prevent re-entry
       pendingCoordinatorPosts.delete(chatId);
       const matchedStylist = fuzzyMatchStylist(cleanText, pendingCoord.salonId);
       if (matchedStylist) {
+        // Use the original messageBody so AI caption includes the original context/keywords
         await createCoordinatorPost(
-          chatId, pendingCoord.imageUrl, "",
+          chatId, pendingCoord.imageUrl, pendingCoord.messageBody || "",
           pendingCoord.coordinator, matchedStylist, pendingCoord.salon, io
         );
         endTimer(start);
@@ -1058,12 +1061,13 @@ export async function handleIncomingMessage({
       } else {
         const { sendViaTwilio } = await import("../routes/twilio.js");
         await sendViaTwilio(chatId,
-          "I couldn't find a stylist with that name. Try texting the photo again and include the stylist's first name in your message."
+          "I couldn't find a stylist with that name. Please text the photo again and include the stylist's first name in your message."
         );
         endTimer(start);
         return;
       }
     } else {
+      // TTL expired — remove stale entry and fall through to normal handling
       pendingCoordinatorPosts.delete(chatId);
     }
   }
@@ -1192,20 +1196,32 @@ export async function handleIncomingMessage({
     return;
   }
 
-  // MENU — list available stylist commands
+  // MENU — list available commands (coordinator-specific vs stylist)
   if (/^(menu|what can i do)$/i.test(cleanText)) {
-    await sendMessage.sendText(chatId,
-      `Here's what you can do with MostlyPostly:\n\n` +
-      `📸 *Standard post* — text 1–3 photos and we'll write a caption\n` +
-      `🎬 *Reel* — text a video and we'll create a Reel caption\n` +
-      `🔄 *Before & after* — text 2 photos with "before and after" or "transformation"\n` +
-      `📅 *Post my availability* — pulls your open slots from your booking software\n` +
-      `🏆 *Leaderboard* — see where you rank on the team\n\n` +
-      `After a caption preview:\n` +
-      `• Reply APPROVE to submit\n` +
-      `• Reply REDO to regenerate\n` +
-      `• Reply CANCEL to discard`
-    );
+    if (stylist?.isCoordinator) {
+      await sendMessage.sendText(chatId,
+        `Here's what you can do as a coordinator:\n\n` +
+        `📸 *Post for a stylist* — text a photo and include the stylist's name (e.g. "Taylor did this balayage")\n` +
+        `   - If no name is found, reply with the stylist's first name when asked\n\n` +
+        `After a caption preview is created:\n` +
+        `• Reply APPROVE to submit\n` +
+        `• Reply CANCEL to discard\n\n` +
+        `You can also log in at ${process.env.PUBLIC_BASE_URL || process.env.BASE_URL || "https://app.mostlypostly.com"}/manager to upload posts directly.`
+      );
+    } else {
+      await sendMessage.sendText(chatId,
+        `Here's what you can do with MostlyPostly:\n\n` +
+        `📸 *Standard post* — text 1–3 photos and we'll write a caption\n` +
+        `🎬 *Reel* — text a video and we'll create a Reel caption\n` +
+        `🔄 *Before & after* — text 2 photos with "before and after" or "transformation"\n` +
+        `📅 *Post my availability* — pulls your open slots from your booking software\n` +
+        `🏆 *Leaderboard* — see where you rank on the team\n\n` +
+        `After a caption preview:\n` +
+        `• Reply APPROVE to submit\n` +
+        `• Reply REDO to regenerate\n` +
+        `• Reply CANCEL to discard`
+      );
+    }
     endTimer(start);
     return;
   }

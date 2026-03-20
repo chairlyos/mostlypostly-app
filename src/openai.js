@@ -100,8 +100,8 @@ Your reply MUST be a single JSON object. No comments. No code fences.
 - DO NOT include any “Styled by” lines
 - DO NOT include booking links or URLs of any kind
 - Caption should be about the hair, the look, the vibe, or the service only
-- Hashtags returned as an array
-- INCLUDE "#MostlyPostly" in the hashtag list (dedupe if needed)
+- Hashtags returned as an array — generate exactly 2 relevant hashtags (no #MostlyPostly, no generic hashtags like #hairstylist — use service-specific ones like #balayage, #blondespecialist, etc.)
+- DO NOT include "#MostlyPostly" — it is added automatically by the platform
 
 
 ## PART 2 — Content Classification (Shadow Mode):

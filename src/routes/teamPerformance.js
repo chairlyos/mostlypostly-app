@@ -53,6 +53,7 @@ const POST_TYPE_LABELS = {
   celebration:       "Celebration",
   product_education: "Product Education",
   vendor_promotion:  "Vendor Post",
+  reel:              "Reel",
 };
 
 // ─── GET /manager/performance ─────────────────────────────────────────────────
@@ -75,7 +76,9 @@ router.get("/", requireAuth, (req, res) => {
   const tvToken      = getOrCreateLeaderboardToken(salon_id);
 
   const BASE_URL = process.env.PUBLIC_BASE_URL || process.env.BASE_URL || "";
-  const tvUrl = `${BASE_URL}/leaderboard/${tvToken}`;
+  const tvUrl = view === "coordinators"
+    ? `${BASE_URL}/leaderboard/${tvToken}?view=coordinators`
+    : `${BASE_URL}/leaderboard/${tvToken}`;
 
   // ── Period tabs ──────────────────────────────────────────────────────────
   const periodTabs = Object.entries(PERIOD_LABELS).map(([key, label]) => {

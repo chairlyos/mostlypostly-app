@@ -823,7 +823,7 @@ router.get("/edit/:id", requireAuth, (req, res) => {
           class="w-full p-3 rounded-lg bg-mpBg border border-mpBorder text-mpCharcoal h-48"
         >${esc(post.final_caption || post.caption || "")}</textarea>
 
-        <button class="w-full bg-mpCharcoal hover:bg-mpCharcoalDark p-3 rounded-lg text-sm font-semibold">
+        <button class="w-full bg-mpCharcoal hover:bg-mpCharcoalDark p-3 rounded-lg text-sm font-semibold text-white">
           Save Changes
         </button>
       </form>
@@ -1079,7 +1079,10 @@ router.get("/coordinator/upload", requireAuth, (req, res) => {
         <div>
           <label class="block text-xs font-semibold text-mpCharcoal mb-1.5">Photo</label>
           <input type="file" name="photo" accept="image/*" required
+            id="coord-photo-input"
+            onchange="(function(input){var preview=document.getElementById('coord-photo-preview');if(input.files&&input.files[0]){var reader=new FileReader();reader.onload=function(e){preview.src=e.target.result;preview.style.display='block';};reader.readAsDataURL(input.files[0]);}else{preview.style.display='none';}})(this)"
             class="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-mpCharcoal file:mr-3 file:rounded-full file:border-0 file:bg-mpAccent file:px-3 file:py-1 file:text-xs file:font-semibold file:text-white hover:file:bg-[#2E5E9E]" />
+          <img id="coord-photo-preview" src="" alt="Preview" style="display:none;margin-top:.5rem;max-height:200px;border-radius:.5rem;border:1px solid #E2E8F0;object-fit:contain;" />
         </div>
         <div>
           <label class="block text-xs font-semibold text-mpCharcoal mb-1.5">Caption note <span class="font-normal text-mpMuted">(optional)</span></label>

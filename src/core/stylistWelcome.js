@@ -53,11 +53,15 @@ export async function sendCoordinatorWelcomeSms(coordinator, salonName) {
   const { name, phone } = coordinator;
   if (!phone) return;
 
+  const loginUrl = `${process.env.PUBLIC_BASE_URL || process.env.BASE_URL || "https://app.mostlypostly.com"}/manager/login`;
+
   await sendViaTwilio(
     phone,
-    `You've been added as a coordinator at ${salonName}. ` +
-    `To post for a stylist, text a photo and include their name ` +
-    `(e.g. "Taylor did this color"). Reply HELP for guidance.`
+    `Hi ${name}! You've been added as a coordinator at ${salonName} on MostlyPostly.\n\n` +
+    `To post on behalf of a stylist, text a photo and include their name ` +
+    `(e.g. "Taylor did this color").\n\n` +
+    `Log in to your dashboard: ${loginUrl}\n\n` +
+    `Reply MENU anytime to see all available commands.`
   );
 }
 

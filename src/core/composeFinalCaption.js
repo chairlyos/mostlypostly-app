@@ -194,7 +194,7 @@ export function composeFinalCaption({
 }
 
 const MAX_HASHTAGS = 10;
-const MAX_AI_HASHTAGS = 5;
+const MAX_AI_HASHTAGS = 2;
 
 /**
  * Merge and dedupe hashtags case-insensitively.

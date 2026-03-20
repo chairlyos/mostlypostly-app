@@ -7,6 +7,7 @@ import express from "express";
 import {
   getSalonByLeaderboardToken,
   getLeaderboard,
+  getCoordinatorLeaderboard,
   isBonusActive,
   getBonusMultiplier,
 } from "../core/gamification.js";
@@ -75,10 +76,76 @@ router.get("/:token", (req, res) => {
   }
 
   const period      = "month";
+  const view        = req.query.view === "coordinators" ? "coordinators" : "stylists";
   const leaderboard = getLeaderboard(salon.slug, period);
   const bonusActive = isBonusActive(salon.slug);
   const multiplier  = getBonusMultiplier(salon.slug);
   const prevRanks   = getPrevRanks(salon.slug, leaderboard);
+
+  // Coordinator view — render a simple coordinator leaderboard page
+  if (view === "coordinators") {
+    const coordBoard = getCoordinatorLeaderboard(salon.slug, period);
+    const logoHtmlCoord = salon.logo_url
+      ? `<img src="${esc(salon.logo_url)}" alt="${esc(salon.name)}" style="height:44px;width:auto;object-fit:contain;" />`
+      : `<span style="font-size:1.25rem;font-weight:800;color:#0F172A;letter-spacing:-0.02em">${esc(salon.name)}</span>`;
+
+    const coordRows = coordBoard.length ? coordBoard.map(c => `
+      <div style="display:flex;align-items:center;gap:1rem;padding:.875rem 1.5rem;border-bottom:1px solid #E2E8F0;background:#fff;">
+        <div style="width:36px;height:36px;border-radius:50%;background:#F1F5F9;border:1.5px solid #E2E8F0;display:flex;align-items:center;justify-content:center;font-size:.85rem;font-weight:800;color:#475569;flex-shrink:0;">${c.rank}</div>
+        <div style="flex:1;font-size:1rem;font-weight:700;color:#0F172A;">${esc(c.coordinator_name)}</div>
+        <div style="text-align:right;">
+          <span style="font-size:1.1rem;font-weight:900;color:#3B72B9;">${c.points}</span>
+          <span style="font-size:.7rem;color:#94A3B8;"> pts</span>
+        </div>
+        <div style="width:70px;text-align:right;font-size:.8rem;color:#64748B;">${c.post_count} post${c.post_count !== 1 ? "s" : ""}</div>
+      </div>`) .join("")
+    : `<div style="padding:3rem;text-align:center;color:#94A3B8;font-size:1rem;">No coordinator posts this month yet.</div>`;
+
+    return res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>${esc(salon.name)} — Coordinator Leaderboard</title>
+  <meta http-equiv="refresh" content="60" />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+    body { font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif; background:#F8FAFC; color:#0F172A; min-height:100vh; }
+  </style>
+</head>
+<body>
+  <header style="background:#fff;border-bottom:1px solid #E2E8F0;display:flex;align-items:center;justify-content:space-between;padding:1rem 2rem;">
+    <div style="display:flex;align-items:center;gap:1rem;">
+      ${logoHtmlCoord}
+      <div style="width:1px;height:2rem;background:#E2E8F0;"></div>
+      <div>
+        <p style="font-size:.65rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#94A3B8;">Coordinator Leaderboard</p>
+        <p style="font-size:.9rem;font-weight:700;color:#0F172A;">This Month</p>
+      </div>
+    </div>
+    <div style="text-align:right;">
+      <p style="font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;color:#94A3B8;">Powered by</p>
+      <p style="font-size:.8rem;font-weight:800;color:#3B72B9;">MostlyPostly</p>
+    </div>
+  </header>
+  <main style="max-width:700px;margin:2rem auto;background:#fff;border-radius:1rem;border:1px solid #E2E8F0;overflow:hidden;">
+    <div style="padding:1rem 1.5rem;border-bottom:1px solid #E2E8F0;background:#F8FAFC;">
+      <div style="display:flex;font-size:.65rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#94A3B8;">
+        <div style="width:36px;margin-right:1rem;">#</div>
+        <div style="flex:1;">Coordinator</div>
+        <div style="text-align:right;margin-right:.5rem;">Points</div>
+        <div style="width:70px;text-align:right;">Posts</div>
+      </div>
+    </div>
+    ${coordRows}
+  </main>
+  <footer style="text-align:center;padding:1rem;font-size:.7rem;color:#94A3B8;">
+    Auto-refreshes every 60 seconds &nbsp;·&nbsp; Points at 50% of standard post values
+  </footer>
+</body>
+</html>`);
+  }
 
   const top3   = leaderboard.slice(0, 3);
   const allRows = leaderboard;                  // full list always shown in right panel
