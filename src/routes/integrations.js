@@ -618,6 +618,38 @@ router.get("/", requireAuth, (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────────
+// POST /manager/integrations/routing-update — save per-salon platform routing
+// ─────────────────────────────────────────────────────────────────
+router.post("/routing-update", requireAuth, (req, res) => {
+  const salon_id = req.manager?.salon_id;
+
+  // Post types and platforms (must match platformRouting.js constants)
+  const POST_TYPES = [
+    "availability", "before_after", "celebration", "celebration_story",
+    "standard_post", "reel", "promotions", "product_education",
+  ];
+  const PLATFORMS = ["facebook", "instagram", "gmb", "tiktok"];
+
+  // Build routing object from form body
+  // Form sends: routing_{postType}_{platform} = "1" (enabled) or "0" (from hidden fallback, disabled)
+  const routing = {};
+  for (const pt of POST_TYPES) {
+    routing[pt] = {};
+    for (const plat of PLATFORMS) {
+      const key = `routing_${pt}_${plat}`;
+      // "1" = checked checkbox value = enabled; "0" = hidden fallback = disabled
+      routing[pt][plat] = req.body[key] === "1";
+    }
+  }
+
+  db.prepare(
+    `UPDATE salons SET platform_routing = ? WHERE slug = ?`
+  ).run(JSON.stringify(routing), salon_id);
+
+  res.redirect("/manager/integrations?routing=saved");
+});
+
+// ─────────────────────────────────────────────────────────────────
 // POST /manager/integrations/gmb-toggle — toggle gmb_enabled on/off
 // ─────────────────────────────────────────────────────────────────
 router.post("/gmb-toggle", requireAuth, (req, res) => {
