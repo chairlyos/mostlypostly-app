@@ -28,9 +28,9 @@
 - [x] **RECYC-05**: System optionally refreshes caption via GPT-4o rewrite at recycle time (per-salon toggle)
 - [x] **RECYC-06**: Recycled posts are cloned as new rows with recycled_from_id FK set and enqueued via enqueuePost()
 - [x] **RECYC-07**: Manager receives SMS notification when auto-recycle fires
-- [ ] **RECYC-08**: Manager can toggle auto-recycle on/off per salon in Admin settings
-- [ ] **RECYC-09**: Manager can flag individual published posts as "block from recycling" in Database view
-- [ ] **RECYC-10**: Manager can manually trigger recycle on any published post via Recycle button
+- [x] **RECYC-08**: Manager can toggle auto-recycle on/off per salon in Admin settings
+- [x] **RECYC-09**: Manager can flag individual published posts as "block from recycling" in Database view
+- [x] **RECYC-10**: Manager can manually trigger recycle on any published post via Recycle button
 - [x] **RECYC-11**: Dashboard shows a notice when posts were auto-recycled this week with link to view/undo
 
 ### Intelligent Scheduler (FEAT-001)
