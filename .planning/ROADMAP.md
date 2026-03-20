@@ -10,6 +10,7 @@ This milestone extends the MostlyPostly content engine with four capabilities: a
 - [ ] **Phase 2: Content Engine** - Smart content recycler and intelligent cadence scheduler that keep the queue balanced and non-empty
 - [ ] **Phase 3: Reels & Video** - Detect, download, and publish Instagram/Facebook Reels from stylist MMS video with same approval flow
 - [ ] **Phase 4: Reputation Manager** - Pull Google reviews, generate AI replies, surface Featured Review posts, and expose a Reputation portal tab
+- [ ] **Phase 5: Guest Care and Support Staff** - Coordinator role SMS posting, stylist attribution, leaderboard scoring, and welcome SMS
 
 ## Phase Details
 
@@ -77,10 +78,27 @@ Plans:
   3. A 4-5 star review where a stylist is identified generates a Featured Review social post (star graphic + caption) that enters the standard approval queue; 5-star confirmed matches can auto-publish
   4. Reputation tab displays aggregate stats: average rating, total review count, reply rate, posts generated this month, and a 30-day rating trend sparkline
 
+### Phase 5: Guest Care and Support Staff
+**Goal**: Coordinators (receptionists/front-desk staff) can submit posts on behalf of stylists via SMS and portal, with GPT-based stylist name extraction, portal confirmation, 50% leaderboard scoring, flood protection, and tailored welcome SMS
+**Depends on**: Phase 4
+**Requirements**: COORD-01, COORD-02, COORD-03, COORD-04, COORD-05, COORD-06, COORD-07, COORD-08, COORD-09, COORD-10
+**Success Criteria** (what must be TRUE):
+  1. Coordinator texting a photo with a stylist name receives a portal link to confirm attribution; post is attributed to the named stylist with submitted_by tracking the coordinator
+  2. Coordinator texting a photo without a stylist name receives a single "Who is this for?" SMS; reply continues the flow
+  3. Performance page has Stylists/Coordinators tab toggle; coordinator leaderboard shows 50% of base point values
+  4. "Submitted by [Coordinator] on behalf of [Stylist]" badge visible in manager approval queue and Database view
+  5. Welcome SMS with posting instructions sent when coordinator is added via Team page
+**Plans:** 3 plans
+
+Plans:
+- [ ] 05-01-PLAN.md — Migration 049 (submitted_by column) + savePost wiring + salonLookup coordinator detection
+- [ ] 05-02-PLAN.md — messageRouter coordinator SMS branch + GPT name extraction + portal stylist dropdown + flood warning
+- [ ] 05-03-PLAN.md — Coordinator leaderboard + Performance tab + welcome SMS + submitted-by badge
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 -> 2 -> 3 -> 4
+Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -88,13 +106,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 | 2. Content Engine | 4/5 | In Progress|  |
 | 3. Reels & Video | 2/4 | In Progress|  |
 | 4. Reputation Manager | 0/TBD | Not started | - |
-
-### Phase 5: Guest Care and Support Staff
-
-**Goal:** [To be planned]
-**Requirements**: TBD
-**Depends on:** Phase 4
-**Plans:** 0 plans
-
-Plans:
-- [ ] TBD (run /gsd:plan-phase 5 to break down)
+| 5. Guest Care | 0/3 | Not started | - |

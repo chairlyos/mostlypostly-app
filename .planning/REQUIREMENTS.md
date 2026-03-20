@@ -49,8 +49,8 @@
 - [x] **REEL-03**: System sends SMS prompt to stylist asking for service description to inform caption
 - [x] **REEL-04**: System generates Reel caption from stylist's SMS answer + salon tone via GPT-4o
 - [x] **REEL-05**: Post is created in DB with post_type=reel and enters standard approval queue
-- [ ] **REEL-06**: Instagram Reels publisher handles container creation, status polling, and publish (three-step API)
-- [ ] **REEL-07**: Facebook Reels publisher handles upload + publish independently from Instagram
+- [x] **REEL-06**: Instagram Reels publisher handles container creation, status polling, and publish (three-step API)
+- [x] **REEL-07**: Facebook Reels publisher handles upload + publish independently from Instagram
 - [x] **REEL-08**: Reel post failures integrate with existing FEAT-033 error flow
 - [x] **REEL-09**: Analytics and leaderboard track reel post_type (20 pts vs 10 for standard)
 - [x] **REEL-10**: TikTok Developer app submitted in parallel; tiktok.js publisher stub created
@@ -69,6 +69,19 @@
 - [ ] **REP-10**: Manager portal includes a Reputation tab showing review list with rating, reviewer, text snippet, reply status badge, and post status badge
 - [ ] **REP-11**: Reputation tab shows aggregate stats: average rating, total reviews, reply rate, posts generated this month
 - [ ] **REP-12**: Reputation tab shows 30-day rating trend sparkline
+
+### Guest Care / Coordinator (Phase 5)
+
+- [ ] **COORD-01**: Migration adds `submitted_by TEXT REFERENCES managers(id)` column to posts table
+- [ ] **COORD-02**: `savePost()` accepts and stores `submitted_by` field when present in payload; NULL when absent
+- [ ] **COORD-03**: `lookupStylist()` returns `isCoordinator: true` when matched manager has `role = 'coordinator'`
+- [ ] **COORD-04**: Coordinator texting a photo with stylist name triggers GPT-4o-mini name extraction and portal confirmation link
+- [ ] **COORD-05**: Coordinator texting a photo without stylist name receives single "Who is this for?" SMS; reply with name continues flow
+- [ ] **COORD-06**: Coordinator portal approval card shows stylist dropdown (pre-filled with GPT match) and flood warning (3+ posts in 7 days)
+- [ ] **COORD-07**: `getCoordinatorLeaderboard()` in gamification.js returns coordinators ranked by 50% of base point values
+- [ ] **COORD-08**: Performance page has Stylists/Coordinators tab toggle; Coordinators tab shows rank, name, posts, points
+- [ ] **COORD-09**: `sendCoordinatorWelcomeSms()` sends posting instructions on coordinator creation; phone required for coordinators
+- [ ] **COORD-10**: "Submitted by [Coordinator] on behalf of [Stylist]" badge visible in manager approval queue and Database view
 
 ## v2 Requirements
 
@@ -93,6 +106,7 @@
 | Vagaro integration | Not blocking any active feature; deferred |
 | Mobile app for stylists | SMS-first remains the model |
 | ffmpeg frame extraction for video captions | Phase 2 of Reels — SMS prompt is sufficient for v1 |
+| Coordinator "who to photograph next" recommendations | Follow-up phase or quick task |
 
 ## Traceability
 
@@ -103,12 +117,13 @@
 | SCHED-01 through SCHED-06 | Phase 2 | Pending |
 | REEL-01 through REEL-10 | Phase 3 | Pending |
 | REP-01 through REP-12 | Phase 4 | Pending |
+| COORD-01 through COORD-10 | Phase 5 | Pending |
 
 **Coverage:**
-- v1 requirements: 50 total
-- Mapped to phases: 50
-- Unmapped: 0 ✓
+- v1 requirements: 60 total
+- Mapped to phases: 60
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-19*
-*Last updated: 2026-03-19 after initial definition*
+*Last updated: 2026-03-20 after Phase 5 requirement definition*
