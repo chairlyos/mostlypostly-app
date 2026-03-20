@@ -7,6 +7,7 @@ import { getSalonPolicy } from "../scheduler.js";
 import { getAllSalons } from "../core/salonLookup.js";
 import { getSalonName } from "../core/salonLookup.js";
 import shell from "../ui/pageShell.js";
+import { cloneAndEnqueue } from "../core/contentRecycler.js";
 
 
 const router = express.Router();
@@ -158,11 +159,16 @@ router.get("/", (req, res) => {
   const start = req.query.start || "";
   const end = req.query.end || "";
   const download = req.query.download === "csv";
+  const noticeBanner = req.query.notice ? `
+    <div class="mb-4 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-xs text-green-800 font-bold">
+      ${req.query.notice}
+    </div>
+  ` : '';
 
   const { fromUtc, toUtc } = rangeToUtc(range, tz, start, end);
 
   let sql = `
-    SELECT id, stylist_name, salon_id, status, post_type, created_at, scheduled_for, salon_post_number, final_caption, image_url, image_urls, recycled_from_id
+    SELECT id, stylist_name, salon_id, status, post_type, created_at, scheduled_for, salon_post_number, final_caption, image_url, image_urls, block_from_recycle, recycled_from_id
     FROM posts
     WHERE salon_id = ?
       AND datetime(created_at) BETWEEN datetime(?) AND datetime(?)
@@ -225,17 +231,38 @@ router.get("/", (req, res) => {
         </td>
         <td class="px-3 py-2 text-xs text-mpMuted">${formatLocalTime(p.created_at, salon_id)}</td>
         <td class="px-3 py-2 text-xs text-mpMuted">${formatLocalTime(p.scheduled_for, salon_id)}</td>
-        <td class="px-3 py-2 text-xs">
-          ${p.recycled_from_id ? `
-            <form method="POST" action="/dashboard/undo-recycle?salon=${encodeURIComponent(salon_id)}" class="inline">
-              <input type="hidden" name="post_id" value="${p.id}">
-              <button type="submit"
-                onclick="return confirm('Delete this recycled post? The original published post will not be affected.')"
-                class="px-2 py-1 text-[10px] font-bold rounded bg-mpBg text-mpMuted border border-mpBorder hover:border-red-300 hover:text-red-500 transition-colors">
-                Undo
-              </button>
-            </form>
-          ` : ''}
+        <td class="px-3 py-2">
+          <div class="flex gap-2 items-center flex-wrap">
+            ${p.status === 'published' ? `
+              <form method="POST" action="/dashboard/recycle-post" class="inline">
+                <input type="hidden" name="post_id" value="${p.id}">
+                <input type="hidden" name="salon" value="${salon_id}">
+                <button type="submit"
+                  class="px-2 py-1 text-[10px] font-bold rounded bg-mpAccentLight text-mpAccent hover:bg-mpAccent hover:text-white border border-mpAccent transition-colors">
+                  Recycle
+                </button>
+              </form>
+              <form method="POST" action="/dashboard/toggle-block" class="inline">
+                <input type="hidden" name="post_id" value="${p.id}">
+                <input type="hidden" name="salon" value="${salon_id}">
+                <button type="submit"
+                  class="px-2 py-1 text-[10px] font-bold rounded ${p.block_from_recycle ? 'bg-red-100 text-red-600 border border-red-300' : 'bg-mpBg text-mpMuted border border-mpBorder hover:border-red-300 hover:text-red-500'} transition-colors">
+                  ${p.block_from_recycle ? 'Blocked' : 'Block'}
+                </button>
+              </form>
+            ` : ''}
+            ${p.recycled_from_id ? `
+              <form method="POST" action="/dashboard/undo-recycle?salon=${encodeURIComponent(salon_id)}" class="inline">
+                <input type="hidden" name="post_id" value="${p.id}">
+                <button type="submit"
+                  onclick="return confirm('Delete this recycled post? The original published post will not be affected.')"
+                  class="px-2 py-1 text-[10px] font-bold rounded bg-mpBg text-mpMuted border border-mpBorder hover:border-red-300 hover:text-red-500 transition-colors">
+                  Undo
+                </button>
+              </form>
+            ` : ''}
+            ${!p.recycled_from_id && p.status !== 'published' ? '\u2014' : ''}
+          </div>
         </td>
       </tr>`;
       }
@@ -243,6 +270,7 @@ router.get("/", (req, res) => {
     .join("\n");
 
   const body = `
+    ${noticeBanner}
     <section class="mb-8">
       <h1 class="text-2xl font-extrabold text-mpCharcoal">
         Database
@@ -427,6 +455,71 @@ router.post("/undo-recycle", (req, res) => {
   } catch (err) {
     console.error('[Dashboard] undo-recycle error:', err);
     return res.status(500).send("Failed to undo recycle");
+  }
+});
+
+// ─────────────────────────────────────────────────────────────
+// Recycle Post — manual recycle of a published post
+// ─────────────────────────────────────────────────────────────
+
+router.post("/recycle-post", async (req, res) => {
+  const salon_id = req.body.salon || req.query.salon || req.session?.salon_id || req.manager?.salon_id;
+  if (!salon_id) return res.status(400).send("Missing salon context");
+
+  const { post_id } = req.body;
+  if (!post_id) return res.status(400).send("Missing post_id");
+
+  try {
+    // Verify post belongs to this salon and is published (IDOR protection)
+    const source = db.prepare(
+      `SELECT id, status FROM posts WHERE id = ? AND salon_id = ?`
+    ).get(post_id, salon_id);
+
+    if (!source) return res.status(404).send("Post not found");
+    if (source.status !== 'published') return res.status(400).send("Only published posts can be recycled");
+
+    // Use shared cloneAndEnqueue — handles caption refresh, clone, and enqueue
+    const newId = await cloneAndEnqueue(post_id, salon_id);
+
+    if (!newId) {
+      return res.status(500).send("Failed to recycle post. Try again.");
+    }
+
+    return res.redirect(`/dashboard?salon=${encodeURIComponent(salon_id)}&status=all&notice=${encodeURIComponent('Post recycled')}`);
+  } catch (err) {
+    console.error('[Dashboard] recycle-post error:', err);
+    return res.status(500).send("Something went wrong recycling this post. Try again.");
+  }
+});
+
+// ─────────────────────────────────────────────────────────────
+// Toggle Block — block or unblock a post from auto-recycle
+// ─────────────────────────────────────────────────────────────
+
+router.post("/toggle-block", (req, res) => {
+  const salon_id = req.body.salon || req.query.salon || req.session?.salon_id || req.manager?.salon_id;
+  if (!salon_id) return res.status(400).send("Missing salon context");
+
+  const { post_id } = req.body;
+  if (!post_id) return res.status(400).send("Missing post_id");
+
+  try {
+    const post = db.prepare(
+      `SELECT block_from_recycle FROM posts WHERE id = ? AND salon_id = ?`
+    ).get(post_id, salon_id);
+
+    if (!post) return res.status(404).send("Post not found");
+
+    const newVal = post.block_from_recycle ? 0 : 1;
+    db.prepare(`UPDATE posts SET block_from_recycle = ? WHERE id = ? AND salon_id = ?`)
+      .run(newVal, post_id, salon_id);
+
+    // Redirect back to same page preserving current filters
+    const referer = req.get('Referer') || `/dashboard?salon=${encodeURIComponent(salon_id)}`;
+    return res.redirect(referer);
+  } catch (err) {
+    console.error('[Dashboard] toggle-block error:', err);
+    return res.status(500).send("Failed to update block status");
   }
 });
 
