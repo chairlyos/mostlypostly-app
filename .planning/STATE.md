@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: "Completed 02-01-PLAN.md — Content Recycler Foundation"
-last_updated: "2026-03-20T02:04:09.000Z"
+stopped_at: Completed 02-02-PLAN.md — Cadence Scheduler (pickNextPost)
+last_updated: "2026-03-20T02:11:06.209Z"
 progress:
   total_phases: 4
   completed_phases: 1
   total_plans: 10
-  completed_plans: 6
+  completed_plans: 7
 ---
 
 # Project State
@@ -53,6 +53,7 @@ Plan: 2 of 5
 | Phase 01-vendor-sync P05 | 525558 | 1 tasks | 1 files |
 | Phase 01-vendor-sync P04 | 2 | 1 tasks | 1 files |
 | Phase quick P260319-t0p | 4 | 2 tasks | 4 files |
+| Phase 02-content-engine P02 | 181 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -81,6 +82,9 @@ Recent decisions affecting current work:
 - [Phase 02-content-engine Plan 01]: cloneAndEnqueue is a shared helper exported separately for future manual recycle routes
 - [Phase 02-content-engine Plan 01]: Dynamic SQL for weekday exclusion — excludeTypes built from MID_WEEK Set, appended only when non-empty
 - [Phase 02-content-engine Plan 01]: generateCaption dynamically imported to avoid circular deps at module load time
+- [Phase 02-content-engine]: Reel posts excluded from 7-day distribution query and scored -1 — bonus content that never skews cadence
+- [Phase 02-content-engine]: pickNextPost falls back to full posts array when all candidates filtered — scheduler never stalls
+- [Phase 02-content-engine]: Deficit scoring (target.min - current_ratio) replaces static priority sort — dynamic cadence enforcement
 
 ### Pending Todos
 
@@ -103,6 +107,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T02:04:09.000Z
-Stopped at: Completed 02-01-PLAN.md — Content Recycler Foundation
-Resume file: .planning/phases/02-content-engine/02-02-PLAN.md
+Last session: 2026-03-20T02:11:06.207Z
+Stopped at: Completed 02-02-PLAN.md — Cadence Scheduler (pickNextPost)
+Resume file: None

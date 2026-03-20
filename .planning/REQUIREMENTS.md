@@ -35,12 +35,12 @@
 
 ### Intelligent Scheduler (FEAT-001)
 
-- [ ] **SCHED-01**: pickNextPost() helper selects from pending queue by content-type weight based on last 7 published posts
-- [ ] **SCHED-02**: Scheduler enforces 50–60% standard portfolio posts across a 7-day rolling window
-- [ ] **SCHED-03**: Scheduler enforces 15–20% before/after posts, preferred Tue–Thu
-- [ ] **SCHED-04**: Scheduler caps promotions at max 2–3/week and never back-to-back
-- [ ] **SCHED-05**: Scheduler slots availability posts to mid-week only (Tue–Thu)
-- [ ] **SCHED-06**: Reels count as bonus and do not displace core cadence
+- [x] **SCHED-01**: pickNextPost() helper selects from pending queue by content-type weight based on last 7 published posts
+- [x] **SCHED-02**: Scheduler enforces 50–60% standard portfolio posts across a 7-day rolling window
+- [x] **SCHED-03**: Scheduler enforces 15–20% before/after posts, preferred Tue–Thu
+- [x] **SCHED-04**: Scheduler caps promotions at max 2–3/week and never back-to-back
+- [x] **SCHED-05**: Scheduler slots availability posts to mid-week only (Tue–Thu)
+- [x] **SCHED-06**: Reels count as bonus and do not displace core cadence
 
 ### Reels & Video Publishing (FEAT-022)
 
