@@ -285,6 +285,154 @@ const NO_AVAIL_TTL_MS = 60 * 60 * 1000; // 1 hour
 const pendingVideoDescriptions = new Map();
 const VIDEO_DESC_TTL_MS = 30 * 60 * 1000; // 30 minutes
 
+// In-memory pending coordinator posts (waiting for "Who is this for?" reply)
+// Map<chatId, { chatId, imageUrl, salonId, salon, coordinator, expiresAt }>
+const pendingCoordinatorPosts = new Map();
+const COORDINATOR_TTL_MS = 10 * 60 * 1000; // 10 minutes
+
+// ------------------------------------
+// Extract a stylist first name from coordinator message text using GPT-4o-mini
+async function extractStylistName(messageText, salonId) {
+  const stylists = db.prepare(
+    "SELECT id, name FROM stylists WHERE salon_id = ? AND (active IS NULL OR active = 1)"
+  ).all(salonId);
+  if (!stylists.length) return null;
+
+  const names = stylists.map(s => s.name.split(" ")[0]);
+
+  try {
+    const { default: OpenAI } = await import("openai");
+    const openai = new OpenAI();
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: `Extract a stylist first name from the user's message. Known stylists at this salon: ${names.join(", ")}. Return JSON: {"name": "FirstName"} if found, or {"name": null} if no stylist name is mentioned.`
+        },
+        { role: "user", content: messageText }
+      ],
+      response_format: { type: "json_object" },
+      max_tokens: 50,
+    });
+    const parsed = JSON.parse(response.choices[0].message.content);
+    return parsed.name || null;
+  } catch (err) {
+    console.error("[Coordinator] GPT name extraction failed:", err.message);
+    return null;
+  }
+}
+
+// ------------------------------------
+// Fuzzy-match an extracted name to a stylist row
+function fuzzyMatchStylist(extractedName, salonId) {
+  if (!extractedName) return null;
+  const lower = extractedName.toLowerCase().trim();
+  const stylists = db.prepare(
+    "SELECT id, name, phone, instagram_handle FROM stylists WHERE salon_id = ? AND (active IS NULL OR active = 1)"
+  ).all(salonId);
+
+  // Exact first-name match
+  const exact = stylists.find(s => {
+    const first = s.name.split(" ")[0].toLowerCase();
+    return first === lower;
+  });
+  if (exact) return exact;
+
+  // Prefix match (handles "Tay" for "Taylor")
+  const prefix = stylists.find(s => {
+    const first = s.name.split(" ")[0].toLowerCase();
+    return first.startsWith(lower) || lower.startsWith(first);
+  });
+  return prefix || null;
+}
+
+// ------------------------------------
+// Create a coordinator post and send portal link
+async function createCoordinatorPost(chatId, imageUrl, messageBody, coordinator, matchedStylist, salon, io) {
+  const salonId = salon?.salon_id;
+  const salonRow = db.prepare("SELECT * FROM salons WHERE slug = ?").get(salonId);
+  const salonName = salonRow?.name || salonId;
+
+  // Generate AI caption using the standard generateCaption function
+  let caption = "";
+  try {
+    const { generateCaption } = await import("../openai.js");
+    const fullSalon = getSalonPolicy(salonId) || salonRow;
+    const aiJson = await generateCaption({
+      imageDataUrl: imageUrl,
+      notes: messageBody || "",
+      salon: fullSalon,
+      stylist: { stylist_name: matchedStylist.name, name: matchedStylist.name, instagram_handle: matchedStylist.instagram_handle || null },
+      postType: "standard_post",
+      city: salonRow?.city || "",
+    });
+    caption = aiJson?.caption || "";
+  } catch (err) {
+    console.error("[Coordinator] Caption generation failed:", err.message);
+    caption = "";
+  }
+
+  // Build stylist-like payload for savePost — attributed to the matched stylist, tracked to coordinator
+  const stylistPayload = {
+    stylist_id: matchedStylist.id,
+    manager_id: coordinator.manager_id || coordinator.id,
+    stylist_name: matchedStylist.name,
+    stylist_phone: matchedStylist.phone || chatId,
+    instagram_handle: matchedStylist.instagram_handle || null,
+    image_url: imageUrl,
+    post_type: "standard_post",
+    submitted_by: coordinator.manager_id || coordinator.id,
+  };
+
+  const post = savePost(chatId, stylistPayload, caption, [], "draft", io, { salon_id: salonId });
+
+  // Create portal token for coordinator confirmation
+  const token = crypto.randomBytes(32).toString("hex");
+  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+  db.prepare(
+    "INSERT INTO stylist_portal_tokens (id, post_id, token, expires_at) VALUES (?, ?, ?, ?)"
+  ).run(crypto.randomUUID(), post.id, token, expiresAt);
+
+  const BASE_URL = process.env.PUBLIC_BASE_URL || process.env.BASE_URL || "https://app.mostlypostly.com";
+  const portalUrl = `${BASE_URL}/stylist/${post.id}?token=${token}`;
+
+  const { sendViaTwilio } = await import("../routes/twilio.js");
+  await sendViaTwilio(
+    chatId,
+    `Got it! I've drafted a post for ${matchedStylist.name}. ` +
+    `Review and confirm here: ${portalUrl}\n\n` +
+    `Or reply APPROVE to submit now, or CANCEL to discard.`
+  );
+}
+
+// ------------------------------------
+// Handle coordinator incoming photo — extract stylist name or ask "Who is this for?"
+async function handleCoordinatorPost(chatId, imageUrl, messageBody, coordinator, salon, io) {
+  const salonId = salon?.salon_id;
+
+  const extractedName = await extractStylistName(messageBody || "", salonId);
+  const matchedStylist = fuzzyMatchStylist(extractedName, salonId);
+
+  if (!matchedStylist) {
+    // No name found — store pending entry and ask
+    pendingCoordinatorPosts.set(chatId, {
+      chatId,
+      imageUrl,
+      salonId,
+      salon,
+      coordinator,
+      expiresAt: Date.now() + COORDINATOR_TTL_MS,
+    });
+    const { sendViaTwilio } = await import("../routes/twilio.js");
+    await sendViaTwilio(chatId, "Who is this for? Reply with the stylist's name.");
+    return;
+  }
+
+  // Name found — create draft and send portal link
+  await createCoordinatorPost(chatId, imageUrl, messageBody, coordinator, matchedStylist, salon, io);
+}
+
 function hasConsent(stylist) {
   return !!(stylist?.compliance_opt_in) || !!(stylist?.consent?.sms_opt_in);
 }
@@ -890,6 +1038,34 @@ export async function handleIncomingMessage({
     await sendQuickStart(chatId, stylist?.name || stylist?.stylist_name || null);
     endTimer(start);
     return;
+  }
+
+  // ── Coordinator "Who is this for?" reply handler ──
+  // If this chatId has a pending coordinator post awaiting a stylist name,
+  // treat the current text (no image, no video) as the stylist name reply.
+  const pendingCoord = pendingCoordinatorPosts.get(chatId);
+  if (pendingCoord && !primaryImageUrl && !isVideo && cleanText) {
+    if (Date.now() < pendingCoord.expiresAt) {
+      pendingCoordinatorPosts.delete(chatId);
+      const matchedStylist = fuzzyMatchStylist(cleanText, pendingCoord.salonId);
+      if (matchedStylist) {
+        await createCoordinatorPost(
+          chatId, pendingCoord.imageUrl, "",
+          pendingCoord.coordinator, matchedStylist, pendingCoord.salon, io
+        );
+        endTimer(start);
+        return;
+      } else {
+        const { sendViaTwilio } = await import("../routes/twilio.js");
+        await sendViaTwilio(chatId,
+          "I couldn't find a stylist with that name. Try texting the photo again and include the stylist's first name in your message."
+        );
+        endTimer(start);
+        return;
+      }
+    } else {
+      pendingCoordinatorPosts.delete(chatId);
+    }
   }
 
   // -- VIDEO DESCRIPTION REPLY (REEL-03, REEL-04) --
@@ -1555,6 +1731,15 @@ Log in to review: ${managerLink}
       salon
     });
 
+    endTimer(start);
+    return;
+  }
+
+  // ── Coordinator photo branch ──
+  // Coordinators with a photo get the attribution flow (after video detection,
+  // so a coordinator video still goes through the video flow below).
+  if (stylist?.isCoordinator && primaryImageUrl && !isVideo) {
+    await handleCoordinatorPost(chatId, primaryImageUrl, cleanText, stylist, salon, io);
     endTimer(start);
     return;
   }
