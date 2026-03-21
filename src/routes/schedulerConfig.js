@@ -384,11 +384,12 @@ router.get("/", requireAuth, (req, res) => {
               </div>
               <div>
                 <p class="text-sm font-medium text-mpCharcoal">TikTok</p>
-                <p class="text-[11px] text-mpMuted">Max posts per day</p>
+                <p class="text-[11px] text-mpMuted">${salon.tiktok_account_id && salon.tiktok_refresh_token ? `@${salon.tiktok_username || salon.tiktok_account_id}` : "Not connected — set up in Integrations"}</p>
               </div>
             </div>
-            <input type="number" name="tiktok_daily_max" min="1" max="10" value="${tkCap}"
-              class="w-20 rounded-lg border border-mpBorder px-3 py-2 text-sm text-mpCharcoal focus:border-mpAccent focus:outline-none" />
+            <span class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-semibold ${salon.tiktok_account_id && salon.tiktok_refresh_token ? "bg-green-50 text-green-700 border border-green-200" : "bg-gray-100 text-gray-400 border border-gray-200"}">
+              ${salon.tiktok_account_id && salon.tiktok_refresh_token ? "Connected" : "Not connected"}
+            </span>
           </div>
 
           <!-- Google My Business — Coming Soon -->
@@ -426,7 +427,7 @@ router.get("/", requireAuth, (req, res) => {
         </div>
       </div>
 
-      <!-- Platform Daily Caps — FB + IG only (active platforms) -->
+      <!-- Platform Daily Caps — FB + IG + TikTok (active platforms) -->
       <div class="rounded-2xl border border-mpBorder bg-white px-6 py-5 shadow-sm">
         <div class="flex items-start justify-between gap-3 mb-1 flex-wrap">
           <h2 class="text-base font-bold text-mpCharcoal">Platform Daily Caps</h2>
@@ -438,7 +439,7 @@ router.get("/", requireAuth, (req, res) => {
           Maximum feed posts per day per platform. You can set these as low as 1 — useful for quality control or slower periods.
           Stories and availability posts don't count against these limits.
         </p>
-        <div class="grid gap-6 sm:grid-cols-2">
+        <div class="grid gap-6 sm:grid-cols-3">
           <div>
             <label class="block text-xs font-semibold text-mpMuted mb-1.5">Instagram Feed (posts/day)</label>
             <input type="number" id="igCapInput" name="ig_feed_daily_max"
@@ -459,6 +460,17 @@ router.get("/", requireAuth, (req, res) => {
             <div class="mt-1.5 flex items-center justify-between text-[11px]">
               <span class="text-mpMuted">Plan max: ${planDef.max_daily}/day</span>
               <span class="text-mpMuted">Rec: 2–4</span>
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-mpMuted mb-1.5">TikTok Feed (posts/day)</label>
+            <input type="number" id="tkCapInput" name="tiktok_daily_max"
+              value="${tkCap}" min="1" max="${planDef.max_daily}"
+              oninput="updatePace()"
+              class="w-full rounded-lg border border-mpBorder px-3 py-2 text-sm text-mpCharcoal focus:border-mpAccent focus:outline-none" />
+            <div class="mt-1.5 flex items-center justify-between text-[11px]">
+              <span class="text-mpMuted">Plan max: ${planDef.max_daily}/day</span>
+              <span class="text-mpMuted">Rec: 1–3</span>
             </div>
           </div>
         </div>
