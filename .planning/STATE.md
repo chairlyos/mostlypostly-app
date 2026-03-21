@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 07-02-PLAN.md
-last_updated: "2026-03-21T18:59:20.553Z"
+stopped_at: Completed 07-03-PLAN.md
+last_updated: "2026-03-21T20:04:17.676Z"
 progress:
   total_phases: 7
   completed_phases: 6
-  total_plans: 23
-  completed_plans: 23
+  total_plans: 24
+  completed_plans: 24
 ---
 
 # Project State
@@ -23,8 +23,8 @@ See: .planning/PROJECT.md (updated 2026-03-19)
 
 ## Current Position
 
-Phase: 07
-Plan: Not started
+Phase: 07 (content-calendar-view) — EXECUTING
+Plan: 2 of 4
 
 ## Performance Metrics
 
@@ -69,6 +69,7 @@ Plan: Not started
 | Phase 07-content-calendar-view P00 | 89 | 1 tasks | 1 files |
 | Phase 07 P01 | 4 | 2 tasks | 3 files |
 | Phase 07 P02 | 144 | 2 tasks | 2 files |
+| Phase 07 P03 | 5 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -135,6 +136,8 @@ Recent decisions affecting current work:
 - [Phase 07]: calendar pill priority: failed overrides vendor_campaign_id (red takes priority over purple)
 - [Phase 07]: POST /reschedule included in Plan 01 with full SortableJS wiring — not deferred to Plan 02
 - [Phase 07]: Inline deny form in day panel toggled by button — CSRF from res.locals.csrfToken; data-draggable only on manager_approved posts; SortableJS selector restricted to draggable attribute
+- [Phase 07-content-calendar-view]: animation:0 prevents layout shift — SortableJS animation param controls init transitions not drag feedback; 0 eliminates pill shift on page render
+- [Phase 07-content-calendar-view]: cdn.jsdelivr.net added to CSP scriptSrc — single entry unblocks SortableJS on both /manager/calendar and /manager/queue
 
 ### Pending Todos
 
@@ -164,6 +167,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-21T18:55:41.647Z
-Stopped at: Completed 07-02-PLAN.md
+Last session: 2026-03-21T20:04:17.673Z
+Stopped at: Completed 07-03-PLAN.md
 Resume file: None
