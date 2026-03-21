@@ -8,6 +8,7 @@ This milestone extends the MostlyPostly content engine with four capabilities: a
 
 - [x] **Phase 1: Vendor Sync** - Nightly automated ingestion of Aveda brand assets into the vendor campaign library (completed 2026-03-19)
 - [ ] **Phase 2: Content Engine** - Smart content recycler and intelligent cadence scheduler that keep the queue balanced and non-empty
+- [ ] **Phase 7: Content Calendar View** - Visual 4-week calendar grid showing scheduled and published posts by date, with click-to-preview, day panel actions, and drag-to-reschedule (FEAT-018)
 - [ ] **Phase 3: Reels & Video** - Detect, download, and publish Instagram/Facebook Reels from stylist MMS video with same approval flow
 - [ ] **Phase 4: Reputation Manager** - Pull Google reviews, generate AI replies, surface Featured Review posts, and expose a Reputation portal tab
 - [x] **Phase 5: Guest Care and Support Staff** - Coordinator role SMS posting, stylist attribution, leaderboard scoring, and welcome SMS (completed 2026-03-20)
@@ -107,6 +108,8 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 | 3. Reels & Video | 2/4 | In Progress|  |
 | 4. Reputation Manager | 0/TBD | Not started | - |
 | 5. Guest Care | 3/3 | Complete   | 2026-03-20 |
+| 6. Content Routing | 3/3 | Complete | - |
+| 7. Content Calendar View | 0/2 | Not started | - |
 
 ### Phase 6: Per-Salon Platform Content Routing
 
@@ -119,3 +122,14 @@ Plans:
 - [x] 06-01-PLAN.md — Migration 051 (platform_routing column) + platformRouting.js helper module
 - [x] 06-02-PLAN.md — Content Routing card on Integrations page (toggle grid + save handler)
 - [x] 06-03-PLAN.md — Scheduler routing guards + Platform Console global defaults viewer
+
+### Phase 7: Content Calendar View
+
+**Goal:** Managers can see all scheduled and published posts on a visual 4-week calendar, click any day to preview posts in a slide-out panel, approve/deny/post-now directly from the panel, and drag-drop posts to reschedule them (FEAT-018)
+**Depends on:** Phase 6
+**Requirements**: CAL-01, CAL-02, CAL-03, CAL-04, CAL-05
+**Plans:** 0/2 plans complete
+
+Plans:
+- [ ] 07-01-PLAN.md — Calendar route + month grid with color-coded post pills + pageShell nav + server.js mount
+- [ ] 07-02-PLAN.md — Day panel fragment endpoint + approve/deny/post-now actions + drag-to-reschedule
