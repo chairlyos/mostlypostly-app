@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 08-01-PLAN.md
-last_updated: "2026-03-21T21:32:11.774Z"
+stopped_at: Completed 08-02-PLAN.md
+last_updated: "2026-03-21T21:35:31.445Z"
 progress:
   total_phases: 8
   completed_phases: 6
   total_plans: 27
-  completed_plans: 25
+  completed_plans: 26
 ---
 
 # Project State
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-03-19)
 ## Current Position
 
 Phase: 08 (calendar-views-and-controls) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 
 ## Performance Metrics
 
@@ -71,6 +71,7 @@ Plan: 2 of 3
 | Phase 07 P02 | 144 | 2 tasks | 2 files |
 | Phase 07 P03 | 5 | 2 tasks | 3 files |
 | Phase 08-calendar-views-and-controls P01 | 6 | 2 tasks | 1 files |
+| Phase 08 P02 | 6 | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -141,6 +142,7 @@ Recent decisions affecting current work:
 - [Phase 07-content-calendar-view]: cdn.jsdelivr.net added to CSP scriptSrc — single entry unblocks SortableJS on both /manager/calendar and /manager/queue
 - [Phase 08-calendar-views-and-controls]: normalizePostType() maps DB post_type variants to canonical filter keys — single source of truth for both data-post-type HTML attributes and client-side filter state
 - [Phase 08-calendar-views-and-controls]: switchView() for month triggers window.location.href reload to preserve SortableJS init; week/agenda use fetch() fragment swap into #calendar-view-body
+- [Phase 08-calendar-views-and-controls]: window.applyFilters/applyCardSettings assigned before function body in IIFE so week fragment inline scripts can re-apply state after DOM swap
 
 ### Pending Todos
 
@@ -171,6 +173,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-21T21:32:11.772Z
-Stopped at: Completed 08-01-PLAN.md
+Last session: 2026-03-21T21:35:31.443Z
+Stopped at: Completed 08-02-PLAN.md
 Resume file: None
