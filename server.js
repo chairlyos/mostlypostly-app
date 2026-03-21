@@ -123,7 +123,7 @@ app.use(
     contentSecurityPolicy: {
       directives: {
         defaultSrc:     ["'self'"],
-        scriptSrc:      ["'self'", "https://cdn.tailwindcss.com", "https://cdn.socket.io", "'unsafe-inline'"],
+        scriptSrc:      ["'self'", "https://cdn.tailwindcss.com", "https://cdn.socket.io", "https://cdn.jsdelivr.net", "'unsafe-inline'"],
         styleSrc:       ["'self'", "https://fonts.googleapis.com", "https://cdn.tailwindcss.com", "'unsafe-inline'"],
         fontSrc:        ["'self'", "https://fonts.gstatic.com"],
         imgSrc:         ["'self'", "data:", "blob:", "https:", "http:"],
