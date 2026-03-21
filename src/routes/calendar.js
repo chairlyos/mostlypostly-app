@@ -116,6 +116,17 @@ function statusBadge(status) {
   return `<span class="inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold ${s.color}">${safe(s.label)}</span>`;
 }
 
+// Normalize post type to a canonical filter key
+function normalizePostType(post) {
+  if (post.vendor_campaign_id) return "vendor";
+  const map = {
+    before_after_post: "before_after",
+    promotions:        "promotion",
+    celebration_story: "celebration",
+  };
+  return map[post.post_type] || post.post_type || "standard_post";
+}
+
 // ── GET / — Calendar month grid ───────────────────────────────────────────────
 router.get("/", requireAuth, (req, res) => {
   const salon_id = req.session.salon_id;
@@ -199,22 +210,24 @@ router.get("/", requireAuth, (req, res) => {
         const barClass = calendarCardBarClass(p);
         const isDraggable = p.status === "manager_approved" && !!p.scheduled_for;
         const iconsHtml = platformIcons(salon, "sm");
+        const postTypeNorm = normalizePostType(p);
 
         let publishedLine = "";
         if (p.status === "published" && p.published_at) {
           let pubDt = DateTime.fromSQL(p.published_at, { zone: "utc" });
           if (!pubDt.isValid) pubDt = DateTime.fromISO(p.published_at, { zone: "utc" });
-          if (pubDt.isValid) publishedLine = `<div class="text-[9px] text-green-600 mt-0.5 truncate">✓ ${pubDt.setZone(tz).toFormat("MMM d")}</div>`;
+          if (pubDt.isValid) publishedLine = `<div class="card-field-time text-[9px] text-green-600 mt-0.5 truncate">✓ ${pubDt.setZone(tz).toFormat("MMM d")}</div>`;
         }
 
-        pills += `<div class="calendar-post-card relative bg-white rounded border border-mpBorder mb-1 overflow-hidden ${isDraggable ? "cursor-grab" : "cursor-default"}" data-id="${safe(p.id)}"${isDraggable ? ' data-draggable="true"' : ""}>
+        pills += `<div class="calendar-post-card relative bg-white rounded border border-mpBorder mb-1 overflow-hidden ${isDraggable ? "cursor-grab" : "cursor-default"}" data-id="${safe(p.id)}" data-post-type="${safe(postTypeNorm)}" data-status="${safe(p.status)}"${isDraggable ? ' data-draggable="true"' : ""}>
           <div class="absolute left-0 top-0 bottom-0 w-1 ${barClass}"></div>
           <div class="pl-2.5 pr-1.5 py-1">
             <div class="flex items-center justify-between gap-1">
               <span class="text-[10px] font-semibold text-mpCharcoal truncate">${safe(lbl)}</span>
-              ${iconsHtml}
+              <div class="card-field-platforms">${iconsHtml}</div>
             </div>
-            ${p.stylist_name ? `<div class="text-[9px] text-mpMuted truncate mt-0.5">${safe(p.stylist_name)}</div>` : ""}
+            ${p.stylist_name ? `<div class="card-field-stylist text-[9px] text-mpMuted truncate mt-0.5">${safe(p.stylist_name)}</div>` : ""}
+            <div class="card-field-caption text-[9px] text-mpMuted truncate mt-0.5">${safe((p.final_caption || p.base_caption || "").slice(0, 60))}</div>
             ${publishedLine}
           </div>
         </div>`;
@@ -254,7 +267,42 @@ router.get("/", requireAuth, (req, res) => {
           <h1 class="text-2xl font-bold text-mpCharcoal">Content Calendar</h1>
           <p class="text-sm text-mpMuted mt-0.5">Click a day to see posts. Drag posts between days to reschedule.</p>
         </div>
-        <div class="flex items-center gap-3">
+        <!-- View toggle (Month | Week | Agenda) -->
+        <div id="view-toggle" class="inline-flex rounded-lg border border-mpBorder overflow-hidden">
+          <button data-view="month" class="view-btn px-3 py-1.5 text-xs font-semibold transition-colors">Month</button>
+          <button data-view="week" class="view-btn px-3 py-1.5 text-xs font-semibold transition-colors border-l border-mpBorder">Week</button>
+          <button data-view="agenda" class="view-btn px-3 py-1.5 text-xs font-semibold transition-colors border-l border-mpBorder">Agenda</button>
+        </div>
+        <!-- + New Post button -->
+        <a href="/manager/coordinator/upload" class="inline-flex items-center gap-1 rounded-full bg-mpAccent px-4 py-1.5 text-xs font-semibold text-white hover:bg-[#2E5E9E] transition-colors shadow-sm">
+          <span class="text-sm leading-none">+</span> New Post
+        </a>
+        <!-- Card settings gear -->
+        <div id="card-settings-wrapper" class="relative">
+          <button id="card-settings-btn" type="button" class="flex h-8 w-8 items-center justify-center rounded-lg border border-mpBorder text-mpMuted hover:bg-mpBg hover:text-mpCharcoal transition-colors" aria-label="Card display settings">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          </button>
+          <div id="card-settings-dropdown" class="hidden absolute right-0 top-full mt-1 z-50 bg-white border border-mpBorder rounded-lg shadow-lg p-3 w-44">
+            <p class="text-[10px] font-semibold text-mpMuted uppercase tracking-wide mb-2">Show on cards</p>
+            <label class="flex items-center gap-2 text-xs text-mpCharcoal py-1 cursor-pointer">
+              <input type="checkbox" class="card-setting-toggle rounded" data-card-field="showStylist" checked /> Stylist name
+            </label>
+            <label class="flex items-center gap-2 text-xs text-mpCharcoal py-1 cursor-pointer">
+              <input type="checkbox" class="card-setting-toggle rounded" data-card-field="showPlatforms" checked /> Platforms
+            </label>
+            <label class="flex items-center gap-2 text-xs text-mpCharcoal py-1 cursor-pointer">
+              <input type="checkbox" class="card-setting-toggle rounded" data-card-field="showTime" checked /> Published time
+            </label>
+            <label class="flex items-center gap-2 text-xs text-mpCharcoal py-1 cursor-pointer">
+              <input type="checkbox" class="card-setting-toggle rounded" data-card-field="showCaption" checked /> Caption preview
+            </label>
+          </div>
+        </div>
+        <!-- Nav arrows -->
+        <div id="nav-arrows" class="flex items-center gap-3">
           <a href="/manager/calendar?month=${prevMonth}"
              class="flex h-8 w-8 items-center justify-center rounded-lg border border-mpBorder text-mpMuted hover:bg-mpBg hover:text-mpCharcoal transition-colors" aria-label="Previous month">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -271,27 +319,46 @@ router.get("/", requireAuth, (req, res) => {
         </div>
       </div>
 
-      <!-- Day-of-week headers -->
-      <div class="grid grid-cols-7 gap-1.5 mb-1.5">
-        ${DAY_HEADERS.map(d => `<div class="text-center text-[11px] font-semibold text-mpMuted py-1">${d}</div>`).join("")}
+      <!-- Filter bar -->
+      <div id="filter-bar" class="mb-3 flex flex-wrap gap-1.5">
+        <span class="text-[11px] text-mpMuted font-semibold mr-1 self-center">Filter:</span>
+        <button data-filter-type="standard_post" class="filter-chip inline-flex px-2.5 py-1 rounded-full text-[11px] font-semibold bg-blue-100 text-blue-700 border border-blue-200 transition-opacity">Post</button>
+        <button data-filter-type="before_after" class="filter-chip inline-flex px-2.5 py-1 rounded-full text-[11px] font-semibold bg-teal-100 text-teal-700 border border-teal-200 transition-opacity">B/A</button>
+        <button data-filter-type="promotion" class="filter-chip inline-flex px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-700 border border-amber-200 transition-opacity">Promo</button>
+        <button data-filter-type="availability" class="filter-chip inline-flex px-2.5 py-1 rounded-full text-[11px] font-semibold bg-green-100 text-green-700 border border-green-200 transition-opacity">Avail</button>
+        <button data-filter-type="celebration" class="filter-chip inline-flex px-2.5 py-1 rounded-full text-[11px] font-semibold bg-pink-100 text-pink-700 border border-pink-200 transition-opacity">Celeb</button>
+        <button data-filter-type="reel" class="filter-chip inline-flex px-2.5 py-1 rounded-full text-[11px] font-semibold bg-indigo-100 text-indigo-700 border border-indigo-200 transition-opacity">Reel</button>
+        <button data-filter-type="vendor" class="filter-chip inline-flex px-2.5 py-1 rounded-full text-[11px] font-semibold bg-purple-100 text-purple-700 border border-purple-200 transition-opacity">Vendor</button>
+        <span class="mx-1 text-mpBorder self-center">|</span>
+        <button data-filter-status="manager_pending" class="filter-chip inline-flex px-2.5 py-1 rounded-full text-[11px] font-semibold bg-orange-100 text-orange-700 border border-orange-200 transition-opacity">Pending</button>
+        <button data-filter-status="manager_approved" class="filter-chip inline-flex px-2.5 py-1 rounded-full text-[11px] font-semibold bg-gray-100 text-gray-600 border border-gray-200 transition-opacity">Scheduled</button>
+        <button data-filter-status="published" class="filter-chip inline-flex px-2.5 py-1 rounded-full text-[11px] font-semibold bg-green-100 text-green-700 border border-green-200 transition-opacity">Published</button>
+        <button data-filter-status="failed" class="filter-chip inline-flex px-2.5 py-1 rounded-full text-[11px] font-semibold bg-red-100 text-red-700 border border-red-200 transition-opacity">Failed</button>
       </div>
 
-      <!-- Calendar grid rows -->
-      ${rows}
+      <div id="calendar-view-body">
+        <!-- Day-of-week headers -->
+        <div class="grid grid-cols-7 gap-1.5 mb-1.5">
+          ${DAY_HEADERS.map(d => `<div class="text-center text-[11px] font-semibold text-mpMuted py-1">${d}</div>`).join("")}
+        </div>
 
-      <!-- Color legend -->
-      <div class="mt-4 flex flex-wrap gap-2 items-center">
-        <span class="text-[11px] text-mpMuted font-semibold mr-1">Key:</span>
-        ${[
-          ["bg-blue-100 text-blue-700",    "Post"],
-          ["bg-teal-100 text-teal-700",    "Before/After"],
-          ["bg-amber-100 text-amber-700",  "Promo"],
-          ["bg-green-100 text-green-700",  "Avail"],
-          ["bg-pink-100 text-pink-700",    "Celeb"],
-          ["bg-indigo-100 text-indigo-700","Reel"],
-          ["bg-purple-100 text-purple-700","Vendor"],
-          ["bg-red-100 text-red-700",      "Failed"],
-        ].map(([cls, lbl]) => `<span class="inline-flex px-2 py-0.5 rounded text-[10px] font-semibold ${cls}">${lbl}</span>`).join("")}
+        <!-- Calendar grid rows -->
+        ${rows}
+
+        <!-- Color legend -->
+        <div class="mt-4 flex flex-wrap gap-2 items-center">
+          <span class="text-[11px] text-mpMuted font-semibold mr-1">Key:</span>
+          ${[
+            ["bg-blue-100 text-blue-700",    "Post"],
+            ["bg-teal-100 text-teal-700",    "Before/After"],
+            ["bg-amber-100 text-amber-700",  "Promo"],
+            ["bg-green-100 text-green-700",  "Avail"],
+            ["bg-pink-100 text-pink-700",    "Celeb"],
+            ["bg-indigo-100 text-indigo-700","Reel"],
+            ["bg-purple-100 text-purple-700","Vendor"],
+            ["bg-red-100 text-red-700",      "Failed"],
+          ].map(([cls, lbl]) => `<span class="inline-flex px-2 py-0.5 rounded text-[10px] font-semibold ${cls}">${lbl}</span>`).join("")}
+        </div>
       </div>
     </div>
 
@@ -362,11 +429,234 @@ router.get("/", requireAuth, (req, res) => {
           },
         });
       });
+
+      // ── localStorage keys and defaults ──────────────────────────────────────
+      var LS_VIEW    = 'calendar_view';
+      var LS_FILTERS = 'calendar_filters';
+      var LS_CARD    = 'calendar_card_settings';
+
+      var DEFAULT_FILTERS = {
+        types:    { standard_post: true, before_after: true, promotion: true, availability: true, celebration: true, reel: true, vendor: true },
+        statuses: { manager_pending: true, manager_approved: true, published: true, failed: true }
+      };
+      var DEFAULT_CARD = { showStylist: true, showPlatforms: true, showTime: true, showCaption: true };
+
+      function loadJSON(key, fallback) {
+        try { return JSON.parse(localStorage.getItem(key)) || fallback; }
+        catch(e) { return fallback; }
+      }
+      function saveJSON(key, val) { localStorage.setItem(key, JSON.stringify(val)); }
+
+      // ── View toggle ──────────────────────────────────────────────────────────
+      var activeView = localStorage.getItem(LS_VIEW) || 'month';
+
+      function setActiveViewBtn(view) {
+        document.querySelectorAll('.view-btn').forEach(function(btn) {
+          if (btn.dataset.view === view) {
+            btn.classList.add('bg-[#3B72B9]', 'text-white');
+            btn.classList.remove('bg-white', 'text-[#2B2D35]', 'hover:bg-[#F8FAFC]');
+          } else {
+            btn.classList.remove('bg-[#3B72B9]', 'text-white');
+            btn.classList.add('bg-white', 'text-[#2B2D35]', 'hover:bg-[#F8FAFC]');
+          }
+        });
+      }
+
+      function switchView(view) {
+        localStorage.setItem(LS_VIEW, view);
+        setActiveViewBtn(view);
+        var navArrows = document.getElementById('nav-arrows');
+        if (navArrows) {
+          if (view === 'agenda') {
+            navArrows.classList.add('hidden');
+          } else {
+            navArrows.classList.remove('hidden');
+          }
+        }
+        if (view === 'month') {
+          window.location.href = '/manager/calendar' + window.location.search;
+          return;
+        }
+        var qs = window.location.search;
+        fetch('/manager/calendar/' + view + qs)
+          .then(function(r) { return r.text(); })
+          .then(function(html) {
+            var body = document.getElementById('calendar-view-body');
+            if (body) {
+              body.innerHTML = html; // eslint-disable-line no-unsanitized/property
+            }
+            applyFilters();
+            applyCardSettings();
+          })
+          .catch(function() {
+            var body = document.getElementById('calendar-view-body');
+            if (body) body.textContent = 'Failed to load view.';
+          });
+      }
+
+      document.querySelectorAll('.view-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          switchView(btn.dataset.view);
+        });
+      });
+
+      // Initialize view state on page load
+      setActiveViewBtn(activeView);
+      if (activeView === 'agenda') {
+        var navArrows = document.getElementById('nav-arrows');
+        if (navArrows) navArrows.classList.add('hidden');
+      }
+      if (activeView !== 'month') {
+        switchView(activeView);
+      }
+
+      // ── Filter logic ─────────────────────────────────────────────────────────
+      var filters = loadJSON(LS_FILTERS, DEFAULT_FILTERS);
+      // Ensure both keys exist (graceful upgrade if localStorage has old format)
+      if (!filters.types) filters.types = DEFAULT_FILTERS.types;
+      if (!filters.statuses) filters.statuses = DEFAULT_FILTERS.statuses;
+
+      function applyFilters() {
+        var cards = document.querySelectorAll('#calendar-view-body .calendar-post-card, #calendar-view-body .agenda-post-card');
+        cards.forEach(function(card) {
+          var type   = card.dataset.postType;
+          var status = card.dataset.status;
+          var typeOk   = filters.types[type]      !== false;
+          var statusOk = filters.statuses[status] !== false;
+          if (typeOk && statusOk) {
+            card.classList.remove('hidden');
+          } else {
+            card.classList.add('hidden');
+          }
+        });
+        checkEmptyState();
+      }
+
+      function renderFilterChips() {
+        document.querySelectorAll('.filter-chip').forEach(function(chip) {
+          var type   = chip.dataset.filterType;
+          var status = chip.dataset.filterStatus;
+          var active;
+          if (type)   active = filters.types[type]      !== false;
+          if (status) active = filters.statuses[status] !== false;
+          if (active) {
+            chip.classList.remove('opacity-30');
+          } else {
+            chip.classList.add('opacity-30');
+          }
+        });
+      }
+
+      document.querySelectorAll('.filter-chip').forEach(function(chip) {
+        chip.addEventListener('click', function() {
+          var type   = chip.dataset.filterType;
+          var status = chip.dataset.filterStatus;
+          if (type) {
+            filters.types[type] = filters.types[type] === false ? true : false;
+          }
+          if (status) {
+            filters.statuses[status] = filters.statuses[status] === false ? true : false;
+          }
+          saveJSON(LS_FILTERS, filters);
+          renderFilterChips();
+          applyFilters();
+        });
+      });
+
+      renderFilterChips();
+      applyFilters();
+
+      // ── Card settings ────────────────────────────────────────────────────────
+      var cardSettings = loadJSON(LS_CARD, DEFAULT_CARD);
+
+      function applyCardSettings() {
+        var fieldMap = {
+          showStylist:   '.card-field-stylist',
+          showPlatforms: '.card-field-platforms',
+          showTime:      '.card-field-time',
+          showCaption:   '.card-field-caption',
+        };
+        Object.keys(fieldMap).forEach(function(key) {
+          var selector = fieldMap[key];
+          var visible  = cardSettings[key] !== false;
+          document.querySelectorAll(selector).forEach(function(el) {
+            el.style.display = visible ? '' : 'none';
+          });
+        });
+      }
+
+      // Gear dropdown open/close
+      var gearBtn      = document.getElementById('card-settings-btn');
+      var gearDropdown = document.getElementById('card-settings-dropdown');
+      var gearWrapper  = document.getElementById('card-settings-wrapper');
+
+      if (gearBtn && gearDropdown) {
+        gearBtn.addEventListener('click', function(e) {
+          e.stopPropagation();
+          gearDropdown.classList.toggle('hidden');
+        });
+
+        document.addEventListener('click', function(e) {
+          if (gearWrapper && !gearWrapper.contains(e.target)) {
+            gearDropdown.classList.add('hidden');
+          }
+        });
+      }
+
+      // Initialize checkboxes from saved settings, wire change handlers
+      document.querySelectorAll('.card-setting-toggle').forEach(function(cb) {
+        var field = cb.dataset.cardField;
+        cb.checked = cardSettings[field] !== false;
+        cb.addEventListener('change', function() {
+          cardSettings[field] = cb.checked;
+          saveJSON(LS_CARD, cardSettings);
+          applyCardSettings();
+        });
+      });
+
+      applyCardSettings();
+
+      // ── Empty filter state ───────────────────────────────────────────────────
+      function checkEmptyState() {
+        var body = document.getElementById('calendar-view-body');
+        if (!body) return;
+        var cards   = body.querySelectorAll('.calendar-post-card, .agenda-post-card');
+        var visible = Array.prototype.filter.call(cards, function(c) { return !c.classList.contains('hidden'); });
+        var emptyMsg = document.getElementById('filter-empty-msg');
+        if (cards.length > 0 && visible.length === 0) {
+          if (!emptyMsg) {
+            emptyMsg = document.createElement('p');
+            emptyMsg.id = 'filter-empty-msg';
+            emptyMsg.className = 'text-sm text-mpMuted text-center py-8';
+            emptyMsg.textContent = 'No posts match the current filters.';
+            body.appendChild(emptyMsg);
+          }
+          emptyMsg.style.display = '';
+        } else {
+          if (emptyMsg) emptyMsg.style.display = 'none';
+        }
+      }
+
+      // ── Week sortable placeholder (wired in Plan 02) ─────────────────────────
+      function initWeekSortable() {
+        // Wired in Plan 02 when week view cells are rendered
+      }
+
     })();
     </script>
   `;
 
   res.send(pageShell({ title: "Calendar", body, current: "calendar", salon_id, manager_id }));
+});
+
+// ── GET /week — Stub fragment for week view (Plan 02 implements full view) ────
+router.get("/week", requireAuth, (req, res) => {
+  res.send(`<p class="text-sm text-mpMuted text-center py-12">Week view loading...</p>`);
+});
+
+// ── GET /agenda — Stub fragment for agenda view (Plan 03 implements full view) ─
+router.get("/agenda", requireAuth, (req, res) => {
+  res.send(`<p class="text-sm text-mpMuted text-center py-12">Agenda view loading...</p>`);
 });
 
 // ── GET /day/:date — HTML fragment for day panel ──────────────────────────────
@@ -396,7 +686,10 @@ router.get("/day/:date", requireAuth, (req, res) => {
   `).all(salon_id, utcStart, utcEnd, utcStart, utcEnd);
 
   if (posts.length === 0) {
-    res.send(`<p class="text-sm text-mpMuted text-center py-6">No posts on this day.</p>`);
+    res.send(`<p class="text-sm text-mpMuted text-center py-6">No posts on this day.</p>
+      <div class="mt-4 pt-4 border-t border-mpBorder text-center">
+        <a href="/manager/coordinator/upload?date=${safe(date)}" class="text-xs font-semibold text-mpAccent hover:underline">+ Post for this day</a>
+      </div>`);
     return;
   }
 
@@ -487,7 +780,10 @@ router.get("/day/:date", requireAuth, (req, res) => {
       </div>`;
   }).join("");
 
-  res.send(cards);
+  res.send(cards + `
+    <div class="mt-4 pt-4 border-t border-mpBorder text-center">
+      <a href="/manager/coordinator/upload?date=${safe(date)}" class="text-xs font-semibold text-mpAccent hover:underline">+ Post for this day</a>
+    </div>`);
 });
 
 // ── POST /reschedule — Drag reschedule (preserves time-of-day, changes date) ──
