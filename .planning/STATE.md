@@ -149,9 +149,10 @@ None yet.
 | 260320-ate | Fix CSP inline event handler violations in vendorAdmin (onerror/onclick → event delegation) | 2026-03-20 | 57b8a71 | [260320-ate-fix-csp-inline-event-handler-violation-o](./quick/260320-ate-fix-csp-inline-event-handler-violation-o/) |
 | 260320-dn3 | Add collapsible recent activity section to manager dashboard (5 visible, rest collapsible, 14-day window) | 2026-03-20 | 40feec9 | [260320-dn3-add-collapsible-recent-activity-section-](./quick/260320-dn3-add-collapsible-recent-activity-section-/) |
 | 260321-0r9 | restrict manager caption editor to caption only, reattach hashtags booking url styled-by at post time | 2026-03-21 | df60646 | [260321-0r9-restrict-manager-caption-editor-to-capti](./quick/260321-0r9-restrict-manager-caption-editor-to-capti/) |
+| 260321-11z | Fix TikTok Platform Connections status badge and move daily cap to Platform Daily Caps card | 2026-03-21 | 26e3504 | [260321-11z-fix-tiktok-platform-connections-status-d](./quick/260321-11z-fix-tiktok-platform-connections-status-d/) |
 
 ## Session Continuity
 
-Last session: 2026-03-21T04:40:00.000Z
-Stopped at: Completed quick task 260321-0r9: restrict manager caption editor to caption only, reattach hashtags booking url styled-by at post time
+Last session: 2026-03-21T05:00:00.000Z
+Stopped at: Completed quick task 260321-11z: Fix TikTok Platform Connections status badge and move daily cap to Platform Daily Caps card
 Resume file: None
