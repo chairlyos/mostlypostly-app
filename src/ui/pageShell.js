@@ -152,6 +152,7 @@ export default function pageShell({
     <nav class="flex flex-1 flex-col items-center py-3 gap-0.5">
       ${navLocked ? "" : navItem("/manager",            ICONS.home,      "Dashboard",    "manager")}
       ${navLocked ? "" : navItem("/manager/queue",      ICONS.queue,     "Post Queue",   "queue")}
+      ${navLocked ? "" : navItem("/manager/calendar",   ICONS.calendar,  "Calendar",     "calendar")}
       ${navLocked ? "" : navItem("/analytics",          ICONS.chart,     "Analytics",    "analytics")}
       ${(!navLocked && !isCoordinator) ? navItem("/manager/stylists",   ICONS.team,      "Team",         "team") : ""}
       ${navLocked ? "" : navItem("/manager/performance", ICONS.trophy,   "Performance",  "performance")}
@@ -193,6 +194,7 @@ export default function pageShell({
     <nav class="flex-1 px-5 py-4 space-y-0.5 overflow-y-auto">
       ${navLocked ? "" : mobileNavLink("/manager",            "Dashboard",  "manager")}
       ${navLocked ? "" : mobileNavLink("/manager/queue",      "Post Queue", "queue")}
+      ${navLocked ? "" : mobileNavLink("/manager/calendar",   "Calendar",   "calendar")}
       ${navLocked ? "" : mobileNavLink("/analytics",          "Analytics",  "analytics")}
       ${(!navLocked && !isCoordinator) ? mobileNavLink("/manager/stylists",   "Team",        "team") : ""}
       ${navLocked ? "" : mobileNavLink("/manager/performance", "Performance", "performance")}
@@ -286,6 +288,10 @@ const ICONS = {
 
   queue: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75">
     <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 0 1 0 3.75H5.625a1.875 1.875 0 0 1 0-3.75Z" />
+  </svg>`,
+
+  calendar: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75">
+    <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5m-9-6h.008v.008H12v-.008ZM12 15h.008v.008H12V15Zm0 2.25h.008v.008H12v-.008ZM9.75 15h.008v.008H9.75V15Zm0 2.25h.008v.008H9.75v-.008ZM7.5 15h.008v.008H7.5V15Zm0 2.25h.008v.008H7.5v-.008Zm6.75-4.5h.008v.008h-.008v-.008Zm0 2.25h.008v.008h-.008V15Zm0 2.25h.008v.008h-.008v-.008Zm2.25-4.5h.008v.008H18v-.008Zm0 2.25h.008v.008H18V15Z" />
   </svg>`,
 
   integration: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75">

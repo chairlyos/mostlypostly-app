@@ -86,6 +86,7 @@ import vendorAdminRoute from "./src/routes/vendorAdmin.js";
 import billingRoutes, { stripeWebhookHandler } from "./src/routes/billing.js";
 import locationsRoute from "./src/routes/locations.js";
 import postQueueRoute from "./src/routes/postQueue.js";
+import calendarRoute from "./src/routes/calendar.js";
 import integrationsRoute from "./src/routes/integrations.js";
 import mfaRoute from "./src/routes/mfa.js";
 import managerProfileRoute from "./src/routes/managerProfile.js";
@@ -441,7 +442,12 @@ app.use("/manager/vendors", vendorFeedsRoute);
 app.use("/manager/queue", postQueueRoute);
 
 // -------------------------------------------------------
-// 12. VENDOR ADMIN (internal MostlyPostly tool)
+// 13. CONTENT CALENDAR (month grid view)
+// -------------------------------------------------------
+app.use("/manager/calendar", calendarRoute);
+
+// -------------------------------------------------------
+// 14. VENDOR ADMIN (internal MostlyPostly tool)
 // -------------------------------------------------------
 app.use("/internal/vendors", vendorAdminRoute);
 
