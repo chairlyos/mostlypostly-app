@@ -110,16 +110,26 @@ export async function publishPhotoToTikTok(salon, imageUrls, caption) {
     body: JSON.stringify(body),
   });
 
-  const data = await resp.json();
-  if (!resp.ok || data.error?.code !== "ok") {
+  let data = await resp.json();
+
+  // Unaudited apps can only post privately — retry with SELF_ONLY
+  if (data.error?.code === "unaudited_client_can_only_post_to_private_accounts") {
+    console.warn(`[TikTok] App unaudited — retrying photo post as SELF_ONLY for ${salon.slug}`);
+    body.post_info.privacy_level = "SELF_ONLY";
+    const resp2 = await fetch(`${API_BASE}/post/publish/content/init/`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json; charset=UTF-8" },
+      body: JSON.stringify(body),
+    });
+    data = await resp2.json();
+  }
+
+  if (!data.data?.publish_id || data.error?.code !== "ok") {
     console.error(`[TikTok] Full error response:`, JSON.stringify(data));
     throw new Error(`[TikTok] Photo post failed: ${JSON.stringify(data.error || data)}`);
   }
 
-  const publishId = data.data?.publish_id;
-  if (!publishId) {
-    throw new Error(`[TikTok] Photo post response missing publish_id: ${JSON.stringify(data)}`);
-  }
+  const publishId = data.data.publish_id;
   console.log(`[TikTok] Photo post published for salon ${salon.slug}: ${publishId}`);
   return publishId;
 }
@@ -174,15 +184,25 @@ export async function publishVideoToTikTok(salon, videoUrl, caption) {
     body: JSON.stringify(body),
   });
 
-  const data = await resp.json();
-  if (!resp.ok || data.error?.code !== "ok") {
+  let data = await resp.json();
+
+  // Unaudited apps can only post privately — retry with SELF_ONLY
+  if (data.error?.code === "unaudited_client_can_only_post_to_private_accounts") {
+    console.warn(`[TikTok] App unaudited — retrying video post as SELF_ONLY for ${salon.slug}`);
+    body.post_info.privacy_level = "SELF_ONLY";
+    const resp2 = await fetch(`${API_BASE}/post/publish/video/init/`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json; charset=UTF-8" },
+      body: JSON.stringify(body),
+    });
+    data = await resp2.json();
+  }
+
+  if (!data.data?.publish_id || data.error?.code !== "ok") {
     throw new Error(`[TikTok] Video post failed: ${JSON.stringify(data.error || data)}`);
   }
 
-  const publishId = data.data?.publish_id;
-  if (!publishId) {
-    throw new Error(`[TikTok] Video post response missing publish_id: ${JSON.stringify(data)}`);
-  }
+  const publishId = data.data.publish_id;
   console.log(`[TikTok] Video post published for salon ${salon.slug}: ${publishId}`);
   return publishId;
 }
