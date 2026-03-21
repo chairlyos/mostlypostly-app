@@ -477,7 +477,12 @@ router.get("/", requireAuth, (req, res) => {
           window.location.href = '/manager/calendar' + window.location.search;
           return;
         }
-        var qs = window.location.search;
+        var qs = '';
+        if (view === 'week') {
+          var params = new URLSearchParams(window.location.search);
+          var weekVal = params.get('week');
+          if (weekVal) qs = '?week=' + encodeURIComponent(weekVal);
+        }
         fetch('/manager/calendar/' + view + qs)
           .then(function(r) { return r.text(); })
           .then(function(html) {
@@ -516,6 +521,7 @@ router.get("/", requireAuth, (req, res) => {
       if (!filters.types) filters.types = DEFAULT_FILTERS.types;
       if (!filters.statuses) filters.statuses = DEFAULT_FILTERS.statuses;
 
+      window.applyFilters = applyFilters;
       function applyFilters() {
         var cards = document.querySelectorAll('#calendar-view-body .calendar-post-card, #calendar-view-body .agenda-post-card');
         cards.forEach(function(card) {
@@ -585,6 +591,8 @@ router.get("/", requireAuth, (req, res) => {
         });
       }
 
+      window.applyCardSettings = applyCardSettings;
+
       // Gear dropdown open/close
       var gearBtn      = document.getElementById('card-settings-btn');
       var gearDropdown = document.getElementById('card-settings-dropdown');
@@ -649,9 +657,207 @@ router.get("/", requireAuth, (req, res) => {
   res.send(pageShell({ title: "Calendar", body, current: "calendar", salon_id, manager_id }));
 });
 
-// ── GET /week — Stub fragment for week view (Plan 02 implements full view) ────
+// ── GET /week — Week view fragment: 7-column grid for a single week ───────────
 router.get("/week", requireAuth, (req, res) => {
-  res.send(`<p class="text-sm text-mpMuted text-center py-12">Week view loading...</p>`);
+  const salon_id = req.session.salon_id;
+
+  const salon = db.prepare("SELECT timezone, facebook_page_token, instagram_business_id, tiktok_enabled, google_location_id FROM salons WHERE slug = ?").get(salon_id);
+  const tz = salon?.timezone || "America/Indiana/Indianapolis";
+
+  // Parse ?week=YYYY-MM-DD (Sunday). Default: current week's Sunday.
+  let weekStart;
+  const weekParam = req.query.week;
+  if (weekParam && /^\d{4}-\d{2}-\d{2}$/.test(weekParam)) {
+    const parsed = DateTime.fromISO(weekParam, { zone: tz });
+    if (parsed.isValid) {
+      weekStart = parsed.startOf("day");
+    }
+  }
+  if (!weekStart) {
+    const now = DateTime.now().setZone(tz);
+    // Luxon weekday: Mon=1 ... Sat=6, Sun=7
+    weekStart = now.weekday === 7 ? now.startOf("day") : now.minus({ days: now.weekday }).startOf("day");
+  }
+
+  const weekEnd = weekStart.plus({ days: 6 }).endOf("day");
+
+  // UTC range for DB query
+  const rangeStartUtc = weekStart.toUTC().toFormat("yyyy-LL-dd HH:mm:ss");
+  const rangeEndUtc   = weekEnd.toUTC().toFormat("yyyy-LL-dd HH:mm:ss");
+
+  const posts = db.prepare(`
+    SELECT p.id, p.post_type, p.status, p.scheduled_for, p.published_at, p.stylist_name,
+           p.image_url, p.image_urls, p.final_caption, p.base_caption, p.vendor_campaign_id,
+           vc.vendor_name
+    FROM posts p
+    LEFT JOIN vendor_campaigns vc ON p.vendor_campaign_id = vc.id
+    WHERE p.salon_id = ?
+      AND p.status NOT IN ('draft', 'cancelled')
+      AND (p.scheduled_for BETWEEN ? AND ? OR p.published_at BETWEEN ? AND ?)
+    ORDER BY COALESCE(p.scheduled_for, p.published_at) ASC
+  `).all(salon_id, rangeStartUtc, rangeEndUtc, rangeStartUtc, rangeEndUtc);
+
+  // Group posts by local salon date
+  const byDate = new Map();
+  for (const post of posts) {
+    const rawTs = post.scheduled_for || post.published_at;
+    if (!rawTs) continue;
+    let dt = DateTime.fromSQL(rawTs, { zone: "utc" });
+    if (!dt.isValid) dt = DateTime.fromISO(rawTs, { zone: "utc" });
+    const localDate = dt.setZone(tz).toFormat("yyyy-LL-dd");
+    if (!byDate.has(localDate)) byDate.set(localDate, []);
+    byDate.get(localDate).push(post);
+  }
+
+  const prevWeekISO = weekStart.minus({ weeks: 1 }).toFormat("yyyy-LL-dd");
+  const nextWeekISO = weekStart.plus({ weeks: 1 }).toFormat("yyyy-LL-dd");
+  const weekLabel   = `${weekStart.toFormat("MMM d")} - ${weekEnd.toFormat("MMM d, yyyy")}`;
+  const today       = DateTime.now().setZone(tz).toFormat("yyyy-LL-dd");
+
+  const SHORT_DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+  // Day-of-week headers
+  let dayHeaders = "";
+  for (let i = 0; i < 7; i++) {
+    const d = weekStart.plus({ days: i });
+    dayHeaders += `<div class="text-center text-[11px] font-semibold text-mpMuted py-1">${SHORT_DAYS[i]} ${d.month}/${d.day}</div>`;
+  }
+
+  // Week cells
+  let cells = "";
+  for (let i = 0; i < 7; i++) {
+    const cursor  = weekStart.plus({ days: i });
+    const dateStr = cursor.toFormat("yyyy-LL-dd");
+    const isToday = dateStr === today;
+    const dayPosts = byDate.get(dateStr) || [];
+
+    const cellBorder = isToday ? "ring-2 ring-mpAccent ring-inset" : "border border-mpBorder";
+
+    let pills = "";
+    for (const p of dayPosts) {
+      const lbl         = calendarPillLabel(p);
+      const barClass    = calendarCardBarClass(p);
+      const isDraggable = p.status === "manager_approved" && !!p.scheduled_for;
+      const iconsHtml   = platformIcons(salon, "sm");
+      const postTypeNorm = normalizePostType(p);
+
+      let publishedLine = "";
+      if (p.status === "published" && p.published_at) {
+        let pubDt = DateTime.fromSQL(p.published_at, { zone: "utc" });
+        if (!pubDt.isValid) pubDt = DateTime.fromISO(p.published_at, { zone: "utc" });
+        if (pubDt.isValid) publishedLine = `<div class="card-field-time text-[9px] text-green-600 mt-0.5 truncate">&#10003; ${pubDt.setZone(tz).toFormat("MMM d h:mm a")}</div>`;
+      } else if ((p.status === "manager_approved" || p.status === "manager_pending") && p.scheduled_for) {
+        let schDt = DateTime.fromSQL(p.scheduled_for, { zone: "utc" });
+        if (!schDt.isValid) schDt = DateTime.fromISO(p.scheduled_for, { zone: "utc" });
+        if (schDt.isValid) publishedLine = `<div class="card-field-time text-[9px] text-mpMuted mt-0.5 truncate">${schDt.setZone(tz).toFormat("h:mm a")}</div>`;
+      }
+
+      pills += `<div class="calendar-post-card relative bg-white rounded border border-mpBorder mb-1 overflow-hidden ${isDraggable ? "cursor-grab" : "cursor-default"}" data-id="${safe(p.id)}" data-post-type="${safe(postTypeNorm)}" data-status="${safe(p.status)}"${isDraggable ? ' data-draggable="true"' : ""}>
+        <div class="absolute left-0 top-0 bottom-0 w-1 ${barClass}"></div>
+        <div class="pl-2.5 pr-1.5 py-1">
+          <div class="flex items-center justify-between gap-1">
+            <span class="text-[10px] font-semibold text-mpCharcoal truncate">${safe(lbl)}</span>
+            <div class="card-field-platforms">${iconsHtml}</div>
+          </div>
+          ${p.stylist_name ? `<div class="card-field-stylist text-[9px] text-mpMuted truncate mt-0.5">${safe(p.stylist_name)}</div>` : ""}
+          <div class="card-field-caption text-[9px] text-mpMuted truncate mt-0.5">${safe((p.final_caption || p.base_caption || "").slice(0, 60))}</div>
+          ${publishedLine}
+        </div>
+      </div>`;
+    }
+
+    cells += `
+      <div class="calendar-day-cell relative min-h-[200px] p-1.5 rounded-xl bg-white ${cellBorder} cursor-pointer hover:border-mpAccent/40 transition-colors"
+           data-date="${dateStr}">
+        ${pills}
+      </div>`;
+  }
+
+  const fragment = `
+    <!-- Week navigation row -->
+    <div class="mb-4 flex items-center justify-between gap-3">
+      <button type="button" class="week-nav-btn flex h-8 w-8 items-center justify-center rounded-lg border border-mpBorder text-mpMuted hover:bg-mpBg hover:text-mpCharcoal transition-colors" data-week-nav="${prevWeekISO}" aria-label="Previous week">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+        </svg>
+      </button>
+      <span class="text-base font-semibold text-mpCharcoal">${safe(weekLabel)}</span>
+      <button type="button" class="week-nav-btn flex h-8 w-8 items-center justify-center rounded-lg border border-mpBorder text-mpMuted hover:bg-mpBg hover:text-mpCharcoal transition-colors" data-week-nav="${nextWeekISO}" aria-label="Next week">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+        </svg>
+      </button>
+    </div>
+
+    <!-- Day-of-week headers -->
+    <div class="grid grid-cols-7 gap-1.5 mb-1.5">
+      ${dayHeaders}
+    </div>
+
+    <!-- Week grid -->
+    <div class="grid grid-cols-7 gap-1.5">
+      ${cells}
+    </div>
+
+    <script>
+    (function() {
+      // Week navigation: clicking a nav button fetches the new week fragment
+      document.querySelectorAll('.week-nav-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          var weekISO = btn.dataset.weekNav;
+          fetch('/manager/calendar/week?week=' + encodeURIComponent(weekISO))
+            .then(function(r) { return r.text(); })
+            .then(function(html) {
+              var body = document.getElementById('calendar-view-body');
+              if (body) {
+                body.innerHTML = html; // eslint-disable-line no-unsanitized/property
+              }
+              if (typeof window.applyFilters === 'function') window.applyFilters();
+              if (typeof window.applyCardSettings === 'function') window.applyCardSettings();
+            })
+            .catch(function() {
+              var body = document.getElementById('calendar-view-body');
+              if (body) body.textContent = 'Failed to load week.';
+            });
+        });
+      });
+
+      // SortableJS drag-to-reschedule on each week day cell
+      document.querySelectorAll('#calendar-view-body .calendar-day-cell').forEach(function(cell) {
+        Sortable.create(cell, {
+          group: { name: 'calendar-posts', pull: true, put: true },
+          draggable: '.calendar-post-card[data-draggable="true"]',
+          animation: 0,
+          ghostClass: 'opacity-40',
+          onEnd: function(evt) {
+            if (evt.from === evt.to) return;
+            var postId    = evt.item.dataset.id;
+            var newDate   = evt.to.dataset.date;
+            var csrfToken = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
+            fetch('/manager/calendar/reschedule', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
+              body: JSON.stringify({ postId: postId, newDate: newDate }),
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+              if (!data.ok) evt.from.insertBefore(evt.item, evt.from.firstChild);
+            })
+            .catch(function() { evt.from.insertBefore(evt.item, evt.from.firstChild); });
+          },
+        });
+
+        // Day cell click opens day panel (skip if click on a post card)
+        cell.addEventListener('click', function(e) {
+          if (e.target.closest('.calendar-post-card')) return;
+          if (typeof window.openDayPanel === 'function') window.openDayPanel(cell.dataset.date);
+        });
+      });
+    })();
+    <\/script>
+  `;
+
+  res.send(fragment);
 });
 
 // ── GET /agenda — Stub fragment for agenda view (Plan 03 implements full view) ─
