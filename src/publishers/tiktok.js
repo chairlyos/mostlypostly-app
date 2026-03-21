@@ -75,24 +75,24 @@ export async function publishPhotoToTikTok(salon, imageUrls, caption) {
 
   const creatorInfo  = await getCreatorInfo(accessToken);
   const privacyLevel = pickPrivacyLevel(creatorInfo);
+  console.log(`[TikTok] Creator info for ${salon.slug}:`, JSON.stringify(creatorInfo));
   console.log(`[TikTok] Using privacy_level=${privacyLevel} for salon ${salon.slug}`);
 
   const body = {
     post_info: {
-      title:         safeCaption,
-      privacy_level: privacyLevel,
+      title:           safeCaption,
+      privacy_level:   privacyLevel,
+      disable_comment: creatorInfo.comment_disabled ?? false,
     },
     source_info: {
-      source:            "PULL_FROM_URL",
-      photo_cover_index: 0,
-      photo_images:      validImages,
+      source:       "PULL_FROM_URL",
+      photo_images: validImages,
     },
     post_mode:  "DIRECT_POST",
     media_type: "PHOTO",
   };
 
-  console.log(`[TikTok] Photo post_info:`, JSON.stringify(body.post_info));
-  console.log(`[TikTok] Photo source_info images:`, validImages.length, validImages[0]?.slice(0,80));
+  console.log(`[TikTok] Photo full request body:`, JSON.stringify(body));
 
   const resp = await fetch(`${API_BASE}/post/publish/content/init/`, {
     method: "POST",

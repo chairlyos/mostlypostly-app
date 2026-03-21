@@ -12,6 +12,7 @@ import { getSalonPolicy } from "../scheduler.js";
 
 import { publishToFacebook } from "../publishers/facebook.js";
 import { publishToInstagram } from "../publishers/instagram.js";
+import { rehostTwilioMedia } from "../utils/rehostTwilioMedia.js";
 import { handleJoinCommand, continueJoinConversation } from "./joinManager.js";
 import { isJoinInProgress } from "./joinSessionStore.js";
 import {
@@ -895,8 +896,9 @@ async function generateReelCaption({
   };
 
   // Save draft to DB as post_type='reel'
+  let savedPost = null;
   try {
-    savePost(
+    savedPost = savePost(
       chatId,
       stylistPayload,
       aiJson?.caption || '',
@@ -910,22 +912,26 @@ async function generateReelCaption({
   }
 
   // Create portal token so coordinator/stylist can review via web
+  // Use the DB-assigned post id (savePost generates its own UUID)
   let portalUrl = null;
-  try {
-    const portalToken = crypto.randomBytes(32).toString('hex');
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-    db.prepare(
-      'INSERT INTO stylist_portal_tokens (id, post_id, token, expires_at) VALUES (?, ?, ?, ?)'
-    ).run(crypto.randomUUID(), postId, portalToken, expiresAt);
-    const BASE_URL = process.env.PUBLIC_BASE_URL || process.env.BASE_URL || 'https://app.mostlypostly.com';
-    portalUrl = `${BASE_URL}/stylist/${postId}?token=${portalToken}`;
-  } catch (err) {
-    console.warn('[Router] Could not create reel portal token:', err.message);
+  const savedPostId = savedPost?.id;
+  if (savedPostId) {
+    try {
+      const portalToken = crypto.randomBytes(32).toString('hex');
+      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+      db.prepare(
+        'INSERT INTO stylist_portal_tokens (id, post_id, token, expires_at) VALUES (?, ?, ?, ?)'
+      ).run(crypto.randomUUID(), savedPostId, portalToken, expiresAt);
+      const BASE_URL = process.env.PUBLIC_BASE_URL || process.env.BASE_URL || 'https://app.mostlypostly.com';
+      portalUrl = `${BASE_URL}/stylist/${savedPostId}?token=${portalToken}`;
+    } catch (err) {
+      console.warn('[Router] Could not create reel portal token:', err.message);
+    }
   }
 
   // Store in-memory draft (same shape as photo drafts)
   const draft = {
-    _db_id: postId,
+    _db_id: savedPostId || postId,
     salon,
     stylist,
     image_url: videoPublicUrl,
