@@ -151,6 +151,7 @@ None yet.
 | 260321-0r9 | restrict manager caption editor to caption only, reattach hashtags booking url styled-by at post time | 2026-03-21 | df60646 | [260321-0r9-restrict-manager-caption-editor-to-capti](./quick/260321-0r9-restrict-manager-caption-editor-to-capti/) |
 | 260321-11z | Fix TikTok Platform Connections status badge and move daily cap to Platform Daily Caps card | 2026-03-21 | 26e3504 | [260321-11z-fix-tiktok-platform-connections-status-d](./quick/260321-11z-fix-tiktok-platform-connections-status-d/) |
 | 260321-15t | Fix pts_reel column error in Team Performance settings save + sort categories by value desc | 2026-03-21 | 96f4d1e | [260321-15t-fix-pts-reel-column-error-in-teamperform](./quick/260321-15t-fix-pts-reel-column-error-in-teamperform/) |
+| 260321-18y | fix platform console apply-all buttons to toggle entire column on or off | 2026-03-21 | f116de1 | [260321-18y-fix-platform-console-apply-all-buttons-t](./quick/260321-18y-fix-platform-console-apply-all-buttons-t/) |
 
 ## Session Continuity
 
