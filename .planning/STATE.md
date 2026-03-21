@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 07-content-calendar-view-07-00-PLAN.md
-last_updated: "2026-03-21T18:47:05.918Z"
+stopped_at: Completed 07-01-PLAN.md
+last_updated: "2026-03-21T18:50:51.283Z"
 progress:
   total_phases: 7
   completed_phases: 5
   total_plans: 23
-  completed_plans: 21
+  completed_plans: 22
 ---
 
 # Project State
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-03-19)
 ## Current Position
 
 Phase: 07 (content-calendar-view) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 
 ## Performance Metrics
 
@@ -67,6 +67,7 @@ Plan: 2 of 3
 | Phase 06-per-salon-platform-content-routing P02 | 2 | 2 tasks | 1 files |
 | Phase 06 P03 | 5 | 2 tasks | 2 files |
 | Phase 07-content-calendar-view P00 | 89 | 1 tasks | 1 files |
+| Phase 07 P01 | 4 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -130,6 +131,8 @@ Recent decisions affecting current work:
 - [Phase 06-per-salon-platform-content-routing]: Platform Console reset-routing uses requireSecret + requirePin middleware pattern from existing routes
 - [Phase 07-content-calendar-view]: rescheduleDateOnly tested as inline pure function; mirrors Pattern 5 from RESEARCH.md
 - [Phase 07-content-calendar-view]: Reel post type uses indigo color per RESEARCH.md recommendation -- distinct from all 7 locked colors
+- [Phase 07]: calendar pill priority: failed overrides vendor_campaign_id (red takes priority over purple)
+- [Phase 07]: POST /reschedule included in Plan 01 with full SortableJS wiring — not deferred to Plan 02
 
 ### Pending Todos
 
@@ -159,6 +162,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-21T18:47:05.916Z
-Stopped at: Completed 07-content-calendar-view-07-00-PLAN.md
+Last session: 2026-03-21T18:50:51.281Z
+Stopped at: Completed 07-01-PLAN.md
 Resume file: None
