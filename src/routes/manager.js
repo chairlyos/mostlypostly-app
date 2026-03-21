@@ -72,6 +72,19 @@ function imageStrip(p, thumbClass = "w-32 h-32") {
   if (!urls.length && p.image_url) urls = [p.image_url];
   if (!urls.length) return `<div class="${thumbClass} rounded-lg bg-mpBg border border-mpBorder"></div>`;
 
+  // Reel posts: render video thumbnail
+  if (p.post_type === "reel") {
+    const videoUrl = urls[0];
+    return `<div class="relative ${thumbClass} flex-shrink-0">
+      <video src="${esc(videoUrl)}" class="w-full h-full rounded-lg object-cover border border-mpBorder" muted playsinline preload="metadata"></video>
+      <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+        <div class="w-8 h-8 rounded-full bg-black/50 flex items-center justify-center">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+        </div>
+      </div>
+    </div>`;
+  }
+
   const displayUrls = urls.map(toProxyUrl);
 
   if (displayUrls.length === 1) {
