@@ -28,23 +28,44 @@ function safe(s) {
   return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-// Inline SVG platform icon badges — no external CDN
-function platformIconsHtml(salon) {
+// Inline SVG platform icon badges — circular bubbles, no external CDN
+// size: "sm" = 14px (grid mini-cards), "md" = 20px (day panel cards)
+function platformIcons(salon, size = "md") {
+  const px = size === "sm" ? 14 : 20;
   const icons = [];
   if (salon.facebook_page_token) {
-    icons.push(`<svg width="20" height="20" viewBox="0 0 24 24" title="Facebook"><rect width="24" height="24" rx="5" fill="#1877F2"/><path d="M14 8h-1.5c-.3 0-.5.2-.5.5V10h2l-.3 2H12v6h-2v-6H8.5v-2H10V8.5C10 7.1 11.1 6 12.5 6H14v2z" fill="#fff"/></svg>`);
+    icons.push(`<svg width="${px}" height="${px}" viewBox="0 0 24 24" title="Facebook"><circle cx="12" cy="12" r="12" fill="#1877F2"/><path d="M14 8h-1.5c-.3 0-.5.2-.5.5V10h2l-.3 2H12v6h-2v-6H8.5v-2H10V8.5C10 7.1 11.1 6 12.5 6H14v2z" fill="#fff"/></svg>`);
   }
   if (salon.instagram_business_id) {
-    icons.push(`<svg width="20" height="20" viewBox="0 0 24 24" title="Instagram"><rect width="24" height="24" rx="5" fill="#C13584"/><rect x="6.5" y="6.5" width="11" height="11" rx="3" stroke="#fff" stroke-width="1.5" fill="none"/><circle cx="12" cy="12" r="3" stroke="#fff" stroke-width="1.5" fill="none"/><circle cx="16" cy="8" r="0.8" fill="#fff"/></svg>`);
+    icons.push(`<svg width="${px}" height="${px}" viewBox="0 0 24 24" title="Instagram"><circle cx="12" cy="12" r="12" fill="#C13584"/><rect x="6.5" y="6.5" width="11" height="11" rx="3" stroke="#fff" stroke-width="1.5" fill="none"/><circle cx="12" cy="12" r="3" stroke="#fff" stroke-width="1.5" fill="none"/><circle cx="16" cy="8" r="0.8" fill="#fff"/></svg>`);
   }
   if (salon.tiktok_enabled) {
-    icons.push(`<svg width="20" height="20" viewBox="0 0 24 24" title="TikTok"><circle cx="12" cy="12" r="12" fill="#000"/><text x="12" y="16" text-anchor="middle" fill="#fff" font-size="9" font-family="sans-serif" font-weight="bold">TT</text></svg>`);
+    icons.push(`<svg width="${px}" height="${px}" viewBox="0 0 24 24" title="TikTok"><circle cx="12" cy="12" r="12" fill="#010101"/><path d="M16.5 9.2a4.2 4.2 0 01-2.5-.8v3.9a3.4 3.4 0 11-3-3.4v1.9a1.5 1.5 0 101.1 1.5V6h1.9a2.3 2.3 0 002.5 2.1v1.1z" fill="#fff"/></svg>`);
   }
   if (salon.google_location_id) {
-    icons.push(`<svg width="20" height="20" viewBox="0 0 24 24" title="Google Business"><circle cx="12" cy="12" r="12" fill="#fff" stroke="#E2E8F0"/><text x="7.5" y="16.5" fill="#4285F4" font-size="13" font-family="sans-serif" font-weight="bold">G</text></svg>`);
+    icons.push(`<svg width="${px}" height="${px}" viewBox="0 0 24 24" title="Google Business"><circle cx="12" cy="12" r="12" fill="#fff" stroke="#dadce0" stroke-width="1"/><path d="M17.5 12.2h-5.4v1.8h3.1c-.3 1.5-1.6 2.5-3.1 2.5a3.5 3.5 0 010-7c.9 0 1.7.3 2.3.9l1.3-1.3A5.4 5.4 0 0012 7.5a5.5 5.5 0 000 11c2.8 0 5.2-2 5.5-4.8v-.5z" fill="#4285F4"/><path d="M7.2 12a4.8 4.8 0 01.3-1.7L5.9 9.1A5.5 5.5 0 005.5 12c0 1 .3 2 .7 2.8l1.6-1.3A4.8 4.8 0 017.2 12z" fill="#34A853"/><path d="M12 17.5c-1.4 0-2.6-.6-3.5-1.6l-1.6 1.3C8 18.5 9.9 19.5 12 19.5c1.7 0 3.3-.6 4.5-1.7l-1.7-1.3c-.7.6-1.7.9-2.8 1z" fill="#FBBC05"/></svg>`);
   }
   if (!icons.length) return "";
-  return `<div class="flex gap-1 mt-1">${icons.join("")}</div>`;
+  const gap = size === "sm" ? "gap-0.5" : "gap-1";
+  return `<div class="flex ${gap}">${icons.join("")}</div>`;
+}
+
+// Solid color class for the left bar on grid mini-cards
+function calendarCardBarClass(post) {
+  if (post.status === "failed") return "bg-red-500";
+  if (post.vendor_campaign_id) return "bg-purple-500";
+  const map = {
+    standard_post:     "bg-blue-500",
+    before_after:      "bg-teal-500",
+    before_after_post: "bg-teal-500",
+    availability:      "bg-green-500",
+    promotion:         "bg-amber-500",
+    promotions:        "bg-amber-500",
+    celebration:       "bg-pink-500",
+    celebration_story: "bg-pink-500",
+    reel:              "bg-indigo-500",
+  };
+  return map[post.post_type] || "bg-gray-400";
 }
 
 // Color-coded pill class per post type (failed overrides, vendor overrides type)
@@ -100,7 +121,7 @@ router.get("/", requireAuth, (req, res) => {
   const salon_id = req.session.salon_id;
   const manager_id = req.session.manager_id;
 
-  const salon = db.prepare("SELECT timezone FROM salons WHERE slug = ?").get(salon_id);
+  const salon = db.prepare("SELECT timezone, facebook_page_token, instagram_business_id, tiktok_enabled, google_location_id FROM salons WHERE slug = ?").get(salon_id);
   const tz = salon?.timezone || "America/Indiana/Indianapolis";
 
   // Parse ?month=YYYY-MM or default to current month
@@ -174,23 +195,36 @@ router.get("/", requireAuth, (req, res) => {
       let pills = "";
       const visible = dayPosts.slice(0, 3);
       for (const p of visible) {
-        const cls = calendarPillClass(p);
         const lbl = calendarPillLabel(p);
+        const barClass = calendarCardBarClass(p);
         const isDraggable = p.status === "manager_approved" && !!p.scheduled_for;
-        let pillThumb = null;
-        try { pillThumb = JSON.parse(p.image_urls || "[]")[0] || p.image_url; } catch { pillThumb = p.image_url; }
-        pillThumb = toProxyUrl(pillThumb);
-        const thumbHtml = pillThumb
-          ? `<img src="${safe(pillThumb)}" alt="" class="w-5 h-5 rounded-sm object-cover flex-shrink-0" />`
-          : "";
-        pills += `<div class="calendar-post-card ${isDraggable ? "cursor-grab" : "cursor-default"} flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold mb-0.5 ${cls}" data-id="${safe(p.id)}"${isDraggable ? ' data-draggable="true"' : ""}>${thumbHtml}<span class="truncate">${safe(lbl)}</span></div>`;
+        const iconsHtml = platformIcons(salon, "sm");
+
+        let publishedLine = "";
+        if (p.status === "published" && p.published_at) {
+          let pubDt = DateTime.fromSQL(p.published_at, { zone: "utc" });
+          if (!pubDt.isValid) pubDt = DateTime.fromISO(p.published_at, { zone: "utc" });
+          if (pubDt.isValid) publishedLine = `<div class="text-[9px] text-green-600 mt-0.5 truncate">✓ ${pubDt.setZone(tz).toFormat("MMM d")}</div>`;
+        }
+
+        pills += `<div class="calendar-post-card relative bg-white rounded border border-mpBorder mb-1 overflow-hidden ${isDraggable ? "cursor-grab" : "cursor-default"}" data-id="${safe(p.id)}"${isDraggable ? ' data-draggable="true"' : ""}>
+          <div class="absolute left-0 top-0 bottom-0 w-1 ${barClass}"></div>
+          <div class="pl-2.5 pr-1.5 py-1">
+            <div class="flex items-center justify-between gap-1">
+              <span class="text-[10px] font-semibold text-mpCharcoal truncate">${safe(lbl)}</span>
+              ${iconsHtml}
+            </div>
+            ${p.stylist_name ? `<div class="text-[9px] text-mpMuted truncate mt-0.5">${safe(p.stylist_name)}</div>` : ""}
+            ${publishedLine}
+          </div>
+        </div>`;
       }
       if (dayPosts.length > 3) {
         pills += `<div class="text-[9px] text-mpMuted font-semibold pl-0.5">+${dayPosts.length - 3} more</div>`;
       }
 
       cells += `
-        <div class="calendar-day-cell relative min-h-[100px] p-1.5 rounded-xl bg-white ${cellBorder} cursor-pointer hover:border-mpAccent/40 transition-colors"
+        <div class="calendar-day-cell relative min-h-[110px] p-1.5 rounded-xl bg-white ${cellBorder} cursor-pointer hover:border-mpAccent/40 transition-colors"
              data-date="${dateStr}">
           <div class="${dayNumClass} mb-1 select-none">${cursor.day}</div>
           ${pills}
@@ -385,7 +419,7 @@ router.get("/day/:date", requireAuth, (req, res) => {
       ? `<span class="text-[10px] font-semibold text-purple-700">Vendor · ${safe(p.vendor_name || "Brand")}</span>`
       : `<span class="inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold ${calendarPillClass(p)}">${safe(calendarPillLabel(p))}</span>`;
     const cardStyle = isVendor ? ` style="border-left: 4px solid #7C3AED"` : "";
-    const platformIcons = platformIconsHtml(salon);
+    const platformIconsRow = platformIcons(salon, "md");
 
     // CSRF token read from res.locals (set by csrf middleware on every request)
     const csrfToken = res.locals?.csrfToken || "";
@@ -441,7 +475,7 @@ router.get("/day/:date", requireAuth, (req, res) => {
               <span class="font-medium text-sm text-mpCharcoal truncate">${nameDisplay}</span>
               ${timeDisplay ? `<span class="text-xs text-mpMuted ml-2 flex-shrink-0">${safe(timeDisplay)}</span>` : ""}
             </div>
-            ${platformIcons}
+            ${platformIconsRow}
             <div class="flex items-center gap-1.5 mt-1 flex-wrap">
               ${typeLabel}
               ${statusBadge(p.status)}
