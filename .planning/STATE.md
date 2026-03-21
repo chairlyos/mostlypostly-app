@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 08-02-PLAN.md
-last_updated: "2026-03-21T21:35:31.445Z"
+stopped_at: Completed 08-03-PLAN.md
+last_updated: "2026-03-21T21:39:17.827Z"
 progress:
   total_phases: 8
-  completed_phases: 6
+  completed_phases: 7
   total_plans: 27
-  completed_plans: 26
+  completed_plans: 27
 ---
 
 # Project State
@@ -72,6 +72,7 @@ Plan: 3 of 3
 | Phase 07 P03 | 5 | 2 tasks | 3 files |
 | Phase 08-calendar-views-and-controls P01 | 6 | 2 tasks | 1 files |
 | Phase 08 P02 | 6 | 1 tasks | 1 files |
+| Phase 08 P03 | 8 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -143,6 +144,8 @@ Recent decisions affecting current work:
 - [Phase 08-calendar-views-and-controls]: normalizePostType() maps DB post_type variants to canonical filter keys — single source of truth for both data-post-type HTML attributes and client-side filter state
 - [Phase 08-calendar-views-and-controls]: switchView() for month triggers window.location.href reload to preserve SortableJS init; week/agenda use fetch() fragment swap into #calendar-view-body
 - [Phase 08-calendar-views-and-controls]: window.applyFilters/applyCardSettings assigned before function body in IIFE so week fragment inline scripts can re-apply state after DOM swap
+- [Phase 08-calendar-views-and-controls]: Agenda cards include data-date attribute so click handler can pass date to openDayPanel() without extra lookup
+- [Phase 08-calendar-views-and-controls]: scheduled_for set at POST time to 10:00 AM salon-local — advisory pre-scheduling; actual scheduling occurs at manager approval
 
 ### Pending Todos
 
@@ -173,6 +176,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-21T21:35:31.443Z
-Stopped at: Completed 08-02-PLAN.md
+Last session: 2026-03-21T21:39:17.825Z
+Stopped at: Completed 08-03-PLAN.md
 Resume file: None

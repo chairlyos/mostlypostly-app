@@ -9,7 +9,7 @@ This milestone extends the MostlyPostly content engine with four capabilities: a
 - [x] **Phase 1: Vendor Sync** - Nightly automated ingestion of Aveda brand assets into the vendor campaign library (completed 2026-03-19)
 - [ ] **Phase 2: Content Engine** - Smart content recycler and intelligent cadence scheduler that keep the queue balanced and non-empty
 - [x] **Phase 7: Content Calendar View** - Visual 4-week calendar grid showing scheduled and published posts by date, with click-to-preview, day panel actions, and drag-to-reschedule (FEAT-018) (completed 2026-03-21)
-- [ ] **Phase 8: Calendar Views and Controls** - Week view, Agenda view, view toggle, filter bar, New Post button, and card display settings for the content calendar
+- [x] **Phase 8: Calendar Views and Controls** - Week view, Agenda view, view toggle, filter bar, New Post button, and card display settings for the content calendar (completed 2026-03-21)
 - [ ] **Phase 3: Reels & Video** - Detect, download, and publish Instagram/Facebook Reels from stylist MMS video with same approval flow
 - [ ] **Phase 4: Reputation Manager** - Pull Google reviews, generate AI replies, surface Featured Review posts, and expose a Reputation portal tab
 - [x] **Phase 5: Guest Care and Support Staff** - Coordinator role SMS posting, stylist attribution, leaderboard scoring, and welcome SMS (completed 2026-03-20)
@@ -111,7 +111,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 | 5. Guest Care | 3/3 | Complete   | 2026-03-20 |
 | 6. Content Routing | 3/3 | Complete | - |
 | 7. Content Calendar View | 4/4 | Complete   | 2026-03-21 |
-| 8. Calendar Views & Controls | 2/3 | In Progress|  |
+| 8. Calendar Views & Controls | 3/3 | Complete   | 2026-03-21 |
 
 ### Phase 6: Per-Salon Platform Content Routing
 
@@ -130,12 +130,12 @@ Plans:
 **Goal:** Managers can switch between Month, Week, and Agenda views on the calendar; filter the calendar by post type, platform, and status; create new posts directly from the calendar header; and toggle which fields appear on calendar cards — all view preferences persisted in localStorage
 **Depends on:** Phase 7
 **Requirements**: CAL-06, CAL-07, CAL-08, CAL-09, CAL-10
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
 - [x] 08-01-PLAN.md — View toggle + filter bar + New Post button + card display settings gear + localStorage persistence
 - [x] 08-02-PLAN.md — Week view (7-column grid fragment with drag-reschedule)
-- [ ] 08-03-PLAN.md — Agenda view (30-day rolling list) + coordinator upload date pre-fill
+- [x] 08-03-PLAN.md — Agenda view (30-day rolling list) + coordinator upload date pre-fill
 
 ### Phase 7: Content Calendar View
 
