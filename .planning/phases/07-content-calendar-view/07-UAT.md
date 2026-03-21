@@ -1,5 +1,5 @@
 ---
-status: complete
+status: diagnosed
 phase: 07-content-calendar-view
 source: [07-00-SUMMARY.md, 07-01-SUMMARY.md, 07-02-SUMMARY.md]
 started: 2026-03-21T00:00:00Z
@@ -79,19 +79,37 @@ blocked: 0
   reason: "User reported: as i hit approve, the card in the day square moves around a bit"
   severity: minor
   test: 8
-  artifacts: []
-  missing: []
+  root_cause: "SortableJS animation: 150 fires during re-initialization on full-page reload after approve; newly-draggable pill animates into position"
+  artifacts:
+    - path: "src/routes/calendar.js"
+      issue: "Sortable.create() called with animation: 150 — fires init animation on every page load"
+  missing:
+    - "Change animation: 150 to animation: 0 in Sortable.create() call"
+  debug_session: ".planning/debug/calendar-approve-pill-shift.md"
 - truth: "Day panel shows a Deny button that reveals inline deny form without navigating away"
   status: failed
   reason: "User reported: no deny button. only remove. clicking remove takes me to the main dashboard."
   severity: major
   test: 9
-  artifacts: []
-  missing: []
+  root_cause: "Remove link in calendar.js missing &return=calendar param; GET /cancel-post handler in manager.js has no return-to-caller logic unlike every other action handler"
+  artifacts:
+    - path: "src/routes/calendar.js"
+      issue: "Remove href missing &return=calendar query param (line ~392)"
+    - path: "src/routes/manager.js"
+      issue: "GET /cancel-post handler hardcodes redirect to /manager instead of checking req.query.return (line ~753)"
+  missing:
+    - "Add &return=calendar to Remove href in calendar.js"
+    - "Add req.query.return === 'calendar' check to /cancel-post handler in manager.js"
+  debug_session: ".planning/debug/calendar-deny-button-missing.md"
 - truth: "Approved posts in calendar day cells can be dragged to a new day to reschedule"
   status: failed
   reason: "User reported: no drag option in the day cell. I also noticed that the drag is not working within the post queue"
   severity: major
   test: 11
-  artifacts: []
-  missing: []
+  root_cause: "Helmet CSP scriptSrc is missing https://cdn.jsdelivr.net — SortableJS CDN load is blocked on both calendar and post queue pages; Sortable is undefined at runtime"
+  artifacts:
+    - path: "server.js"
+      issue: "scriptSrc array missing 'https://cdn.jsdelivr.net' (line ~126)"
+  missing:
+    - "Add 'https://cdn.jsdelivr.net' to scriptSrc in Helmet CSP config in server.js"
+  debug_session: ".planning/debug/drag-drop-csp-blocked.md"
