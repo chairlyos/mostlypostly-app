@@ -150,9 +150,10 @@ None yet.
 | 260320-dn3 | Add collapsible recent activity section to manager dashboard (5 visible, rest collapsible, 14-day window) | 2026-03-20 | 40feec9 | [260320-dn3-add-collapsible-recent-activity-section-](./quick/260320-dn3-add-collapsible-recent-activity-section-/) |
 | 260321-0r9 | restrict manager caption editor to caption only, reattach hashtags booking url styled-by at post time | 2026-03-21 | df60646 | [260321-0r9-restrict-manager-caption-editor-to-capti](./quick/260321-0r9-restrict-manager-caption-editor-to-capti/) |
 | 260321-11z | Fix TikTok Platform Connections status badge and move daily cap to Platform Daily Caps card | 2026-03-21 | 26e3504 | [260321-11z-fix-tiktok-platform-connections-status-d](./quick/260321-11z-fix-tiktok-platform-connections-status-d/) |
+| 260321-15t | Fix pts_reel column error in Team Performance settings save + sort categories by value desc | 2026-03-21 | 96f4d1e | [260321-15t-fix-pts-reel-column-error-in-teamperform](./quick/260321-15t-fix-pts-reel-column-error-in-teamperform/) |
 
 ## Session Continuity
 
-Last session: 2026-03-21T05:00:00.000Z
-Stopped at: Completed quick task 260321-11z: Fix TikTok Platform Connections status badge and move daily cap to Platform Daily Caps card
+Last session: 2026-03-21T04:52:46Z
+Stopped at: Completed quick task 260321-15t: Fix pts_reel column error in Team Performance settings + sort point categories descending
 Resume file: None
