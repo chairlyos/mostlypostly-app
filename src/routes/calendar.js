@@ -157,7 +157,8 @@ router.get("/", requireAuth, (req, res) => {
       for (const p of visible) {
         const cls = calendarPillClass(p);
         const lbl = calendarPillLabel(p);
-        pills += `<div class="calendar-post-card cursor-grab px-1.5 py-0.5 rounded text-[10px] font-semibold truncate mb-0.5 ${cls}" data-id="${safe(p.id)}">${safe(lbl)}</div>`;
+        const isDraggable = p.status === "manager_approved" && !!p.scheduled_for;
+        pills += `<div class="calendar-post-card ${isDraggable ? "cursor-grab" : "cursor-default"} px-1.5 py-0.5 rounded text-[10px] font-semibold truncate mb-0.5 ${cls}" data-id="${safe(p.id)}"${isDraggable ? ' data-draggable="true"' : ""}>${safe(lbl)}</div>`;
       }
       if (dayPosts.length > 3) {
         pills += `<div class="text-[9px] text-mpMuted font-semibold pl-0.5">+${dayPosts.length - 3} more</div>`;
@@ -277,7 +278,7 @@ router.get("/", requireAuth, (req, res) => {
       document.querySelectorAll('.calendar-day-cell').forEach(function(cell) {
         Sortable.create(cell, {
           group: { name: 'calendar-posts', pull: true, put: true },
-          draggable: '.calendar-post-card',
+          draggable: '.calendar-post-card[data-draggable="true"]',
           animation: 150,
           ghostClass: 'opacity-40',
           onEnd: function(evt) {
@@ -354,16 +355,33 @@ router.get("/day/:date", requireAuth, (req, res) => {
       ? `<span class="inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-100 text-purple-700">${safe(p.vendor_name || "Vendor")}</span>`
       : `<span class="inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold ${calendarPillClass(p)}">${safe(calendarPillLabel(p))}</span>`;
 
+    // CSRF token read from res.locals (set by csrf middleware on every request)
+    const csrfToken = res.locals?.csrfToken || "";
+
     let actions = "";
     if (p.status === "manager_pending") {
       actions = `
-        <a href="/manager/approve?post=${safe(p.id)}"
+        <a href="/manager/approve?post=${safe(p.id)}&return=calendar"
            class="text-[11px] text-green-600 hover:text-green-800 font-semibold">Approve</a>
-        <a href="/manager/deny?post=${safe(p.id)}"
-           class="text-[11px] text-red-400 hover:text-red-600 font-semibold">Deny</a>`;
+        <button type="button" onclick="this.nextElementSibling.classList.toggle('hidden')"
+           class="text-[11px] text-red-400 hover:text-red-600 font-semibold">Deny</button>
+        <a href="/manager/post-now?post=${safe(p.id)}&return=calendar"
+           class="text-[11px] text-mpAccent hover:text-mpCharcoal font-semibold ml-auto"
+           onclick="return confirm('Publish this post right now?')">Post Now</a>`;
+      // Inline deny form (initially hidden, toggled by Deny button above)
+      actions += `
+        <form method="POST" action="/manager/deny" class="hidden w-full mt-2 space-y-1">
+          <input type="hidden" name="_csrf" value="${safe(csrfToken)}" />
+          <input type="hidden" name="post_id" value="${safe(p.id)}" />
+          <input type="hidden" name="return" value="calendar" />
+          <textarea name="reason" required placeholder="Reason for denial..."
+            class="w-full p-2 rounded border border-mpBorder bg-mpBg text-xs text-mpCharcoal h-16"></textarea>
+          <button type="submit"
+            class="text-[11px] font-semibold text-white bg-red-600 hover:bg-red-700 px-3 py-1 rounded">Submit Denial</button>
+        </form>`;
     } else if (p.status === "manager_approved") {
       actions = `
-        <a href="/manager/post-now?post=${safe(p.id)}"
+        <a href="/manager/post-now?post=${safe(p.id)}&return=calendar"
            class="text-[11px] text-mpAccent hover:text-mpCharcoal font-semibold"
            onclick="return confirm('Publish this post right now?')">Post Now</a>
         <a href="/manager/cancel-post?post=${safe(p.id)}"
@@ -372,7 +390,9 @@ router.get("/day/:date", requireAuth, (req, res) => {
     } else if (p.status === "failed") {
       actions = `
         <form method="POST" action="/manager/retry-post" style="display:inline">
+          <input type="hidden" name="_csrf" value="${safe(csrfToken)}" />
           <input type="hidden" name="post_id" value="${safe(p.id)}" />
+          <input type="hidden" name="return" value="calendar" />
           <button type="submit" class="text-[11px] text-amber-600 hover:text-amber-800 font-semibold">Retry</button>
         </form>`;
     }
@@ -393,7 +413,7 @@ router.get("/day/:date", requireAuth, (req, res) => {
             <p class="text-xs text-mpCharcoal line-clamp-2 leading-relaxed">${safe(preview)}</p>
           </div>
         </div>
-        ${actions ? `<div class="mt-2 pt-2 border-t border-mpBorder flex gap-4">${actions}</div>` : ""}
+        ${actions ? `<div class="mt-2 pt-2 border-t border-mpBorder flex flex-wrap items-center gap-3">${actions}</div>` : ""}
       </div>`;
   }).join("");
 
