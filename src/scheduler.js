@@ -493,18 +493,52 @@ export async function runSchedulerOnce() {
             throw new Error("No image URL available for this post — cannot publish to Instagram or Facebook");
           }
 
-          // --- Vendor post: derive platform-specific captions ---
+          // --- Derive platform-specific captions ---
           const isVendorPost = !!post.vendor_campaign_id;
-          let fbCaption = post.final_caption;
-          let igCaption = post.final_caption;
+          let fbCaption, igCaption;
 
           if (isVendorPost) {
-            // IG: strip "Shop today: URL" line, strip any remaining URLs, append "Shop, link in bio."
+            // Vendor posts: use pre-built final_caption (assembled by vendorScheduler.js)
+            fbCaption = post.final_caption;
+            // IG: strip "Shop today: URL" line, strip any remaining URLs
             igCaption = post.final_caption
               .replace(/\n\nShop today: https?:\/\/\S+/gi, '')
               .replace(/https?:\/\/\S+/gi, '')
               .replace(/\n{3,}/g, '\n\n')
               .trim();
+          } else {
+            // Standard posts: rebuild from base_caption + metadata at publish time
+            // (same pattern as TikTok publish block — ensures manager edits don't lose metadata)
+            const postStylist = post.stylist_id
+              ? db.prepare('SELECT instagram_handle, name FROM stylists WHERE id = ?').get(post.stylist_id)
+              : null;
+            let postHashtags = [];
+            try { postHashtags = JSON.parse(post.hashtags || '[]'); } catch (_e) { /* ignore */ }
+
+            fbCaption = composeFinalCaption({
+              caption:         post.base_caption || post.final_caption || '',
+              hashtags:        postHashtags,
+              stylistName:     post.stylist_name || '',
+              instagramHandle: postStylist?.instagram_handle || '',
+              bookingUrl:      salon.booking_url || '',
+              salon,
+              platform:        'facebook',
+              salonId:         salon.slug,
+              postId:          post.id,
+              postType:        postType,
+              stylistSlug:     post.stylist_name ? slugify(post.stylist_name) : null,
+            }).trim();
+
+            igCaption = composeFinalCaption({
+              caption:         post.base_caption || post.final_caption || '',
+              hashtags:        postHashtags,
+              stylistName:     post.stylist_name || '',
+              instagramHandle: postStylist?.instagram_handle || '',
+              bookingUrl:      salon.booking_url || '',
+              salon,
+              platform:        'instagram',
+              postType:        postType,
+            }).trim();
           }
 
           const isMulti = allImages.length > 1;
@@ -769,40 +803,9 @@ export function enqueuePost(post) {
 
   const scheduled = toSqliteTimestamp(scheduledUtc);
 
-  // Inject UTM tracking short URL for booking link (Facebook captions contain "Book: https://...")
-  try {
-    const bookingMatch = post.final_caption?.match(/Book:\s+(https?:\/\/\S+)/);
-    const BASE = (process.env.PUBLIC_BASE_URL || 'app.mostlypostly.com').replace(/^https?:\/\//, '');
-    if (bookingMatch && !bookingMatch[1].includes(BASE + '/t/')) {
-      const rawBooking = bookingMatch[1];
-      const postMeta = db.prepare(`SELECT post_type, stylist_name FROM posts WHERE id = ?`).get(post.id);
-      const utmContent = postMeta?.post_type || 'standard_post';
-      const utmTerm = slugify(postMeta?.stylist_name || '');
-      const destination = appendUtm(rawBooking, {
-        source: 'mostlypostly',
-        medium: 'social',
-        campaign: post.salon_id,
-        content: utmContent,
-        term: utmTerm || undefined,
-      });
-      const token = buildTrackingToken({
-        salonId: post.salon_id,
-        postId: post.id,
-        clickType: 'booking',
-        utmContent,
-        utmTerm: utmTerm || null,
-        destination,
-      });
-      const shortUrl = buildShortUrl(token);
-      const updatedCaption = post.final_caption.replace(bookingMatch[0], `Book: ${shortUrl}`);
-      db.prepare(`UPDATE posts SET final_caption = ?, updated_at = ? WHERE id = ?`)
-        .run(updatedCaption, new Date().toISOString(), post.id);
-      post = { ...post, final_caption: updatedCaption };
-    }
-  } catch (err) {
-    // UTM injection failure never blocks scheduling
-    console.warn('[Scheduler] UTM injection failed for post', post.id, err.message);
-  }
+  // Note: UTM tracking short URL injection removed here.
+  // composeFinalCaption now handles booking URL tracking token injection at publish time
+  // (when salonId + postId are passed to it in the publish block).
 
   db.prepare(
     `UPDATE posts SET status='manager_approved', scheduled_for=? WHERE id=?`
