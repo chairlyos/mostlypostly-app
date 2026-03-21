@@ -750,7 +750,8 @@ router.get("/cancel-post", requireAuth, (req, res) => {
       `UPDATE posts SET status='cancelled', scheduled_for=NULL WHERE id=? AND salon_id=?`
     ).run(id, salon_id);
   }
-  return res.redirect(`/manager?salon=${encodeURIComponent(salon_id)}`);
+  const returnTo = req.query.return === 'calendar' ? '/manager/calendar' : `/manager?salon=${encodeURIComponent(salon_id)}`;
+  return res.redirect(returnTo);
 });
 
 /* -------------------------------------------------------------

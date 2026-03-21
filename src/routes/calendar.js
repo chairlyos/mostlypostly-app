@@ -283,7 +283,7 @@ router.get("/", requireAuth, (req, res) => {
         Sortable.create(cell, {
           group: { name: 'calendar-posts', pull: true, put: true },
           draggable: '.calendar-post-card[data-draggable="true"]',
-          animation: 150,
+          animation: 0,
           ghostClass: 'opacity-40',
           onEnd: function(evt) {
             if (evt.from === evt.to) return;
@@ -388,7 +388,7 @@ router.get("/day/:date", requireAuth, (req, res) => {
         <a href="/manager/post-now?post=${safe(p.id)}&return=calendar"
            class="text-[11px] text-mpAccent hover:text-mpCharcoal font-semibold"
            onclick="return confirm('Publish this post right now?')">Post Now</a>
-        <a href="/manager/cancel-post?post=${safe(p.id)}"
+        <a href="/manager/cancel-post?post=${safe(p.id)}&return=calendar"
            class="text-[11px] text-red-400 hover:text-red-600 font-semibold"
            onclick="return confirm('Remove from queue?')">Remove</a>`;
     } else if (p.status === "failed") {
