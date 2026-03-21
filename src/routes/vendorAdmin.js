@@ -1051,8 +1051,7 @@ router.get("/", requireSecret, requirePin, (req, res) => {
               <option value="all">Apply to ALL salons (overwrite custom rules)</option>
               <option value="unset_only">Apply only to salons using defaults (NULL)</option>
             </select>
-            <button type="submit"
-              onclick="return confirm('Apply this routing to salons? This cannot be undone.')"
+            <button type="submit" id="apply-routing-btn"
               class="px-4 py-2 bg-mpAccent text-white text-sm font-semibold rounded-lg hover:bg-mpAccentDark">
               Apply Routing
             </button>
@@ -2565,6 +2564,15 @@ async function aiGen(btn) {
 }
 
 document.getElementById('ai-btn').addEventListener('click', function() { aiGen(this); });
+
+var applyRoutingBtn = document.getElementById('apply-routing-btn');
+if (applyRoutingBtn) {
+  applyRoutingBtn.addEventListener('click', function(e) {
+    if (!confirm('Apply this routing to salons? This cannot be undone.')) {
+      e.preventDefault();
+    }
+  });
+}
 
 document.addEventListener('change', function(e) {
   var el = e.target.closest('[data-apply-all]');
