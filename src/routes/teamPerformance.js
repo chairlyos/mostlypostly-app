@@ -202,7 +202,13 @@ router.get("/", requireAuth, (req, res) => {
     </tr>`;
 
   // ── Point values card ────────────────────────────────────────────────────
-  const ptRows = Object.entries(DEFAULT_POINTS).map(([key, def]) => {
+  const ptRows = Object.entries(DEFAULT_POINTS)
+    .sort((a, b) => {
+      const valA = settings?.[`pts_${a[0]}`] ?? a[1];
+      const valB = settings?.[`pts_${b[0]}`] ?? b[1];
+      return valB - valA;
+    })
+    .map(([key, def]) => {
     const dbKey = `pts_${key}`;
     const current = settings?.[dbKey] ?? def;
     return `
