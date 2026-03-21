@@ -1005,7 +1005,7 @@ router.get("/", requireSecret, requirePin, (req, res) => {
                     <label class="relative inline-flex items-center cursor-pointer" title="Toggle all ${plat} channels">
                       <input type="checkbox" checked
                         class="sr-only peer"
-                        onchange="document.querySelectorAll('.col-${plat}').forEach(cb => { cb.checked = this.checked; })">
+                        data-apply-all="${plat}">
                       <div class="w-11 h-6 rounded-full transition-colors peer-checked:bg-mpAccent bg-gray-300 relative
                         after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:w-5 after:h-5 after:rounded-full after:bg-white after:shadow after:transition-all
                         peer-checked:after:translate-x-5"></div>
@@ -2565,6 +2565,16 @@ async function aiGen(btn) {
 }
 
 document.getElementById('ai-btn').addEventListener('click', function() { aiGen(this); });
+
+document.addEventListener('change', function(e) {
+  var toggle = e.target.closest('[data-apply-all]');
+  if (!toggle) return;
+  var plat = toggle.getAttribute('data-apply-all');
+  var checked = toggle.checked;
+  document.querySelectorAll('.col-' + plat).forEach(function(cb) {
+    cb.checked = checked;
+  });
+});
 </script>
 </body></html>`);
 });
