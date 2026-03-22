@@ -261,48 +261,60 @@ router.get("/", requireAuth, (req, res) => {
     </div>
 
     <div class="max-w-5xl mx-auto">
-      <!-- Month navigation header -->
-      <div class="mb-5 flex items-center justify-between gap-4">
+      <!-- Row 1: Page title, view toggle, New Post button, card settings gear -->
+      <div class="mb-3 flex items-center justify-between gap-4">
         <div>
           <h1 class="text-2xl font-bold text-mpCharcoal">Content Calendar</h1>
           <p class="text-sm text-mpMuted mt-0.5">Click a day to see posts. Drag posts between days to reschedule.</p>
         </div>
-        <!-- View toggle (Month | Week | Agenda) -->
-        <div id="view-toggle" class="inline-flex rounded-lg border border-mpBorder overflow-hidden">
-          <button data-view="month" class="view-btn px-3 py-1.5 text-xs font-semibold transition-colors">Month</button>
-          <button data-view="week" class="view-btn px-3 py-1.5 text-xs font-semibold transition-colors border-l border-mpBorder">Week</button>
-          <button data-view="agenda" class="view-btn px-3 py-1.5 text-xs font-semibold transition-colors border-l border-mpBorder">Agenda</button>
-        </div>
-        <!-- + New Post button -->
-        <a href="/manager/coordinator/upload" class="inline-flex items-center gap-1 rounded-full bg-mpAccent px-4 py-1.5 text-xs font-semibold text-white hover:bg-[#2E5E9E] transition-colors shadow-sm">
-          <span class="text-sm leading-none">+</span> New Post
-        </a>
-        <!-- Card settings gear -->
-        <div id="card-settings-wrapper" class="relative">
-          <button id="card-settings-btn" type="button" class="flex h-8 w-8 items-center justify-center rounded-lg border border-mpBorder text-mpMuted hover:bg-mpBg hover:text-mpCharcoal transition-colors" aria-label="Card display settings">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z" />
-              <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-          </button>
-          <div id="card-settings-dropdown" class="hidden absolute right-0 top-full mt-1 z-50 bg-white border border-mpBorder rounded-lg shadow-lg p-3 w-44">
-            <p class="text-[10px] font-semibold text-mpMuted uppercase tracking-wide mb-2">Show on cards</p>
-            <label class="flex items-center gap-2 text-xs text-mpCharcoal py-1 cursor-pointer">
-              <input type="checkbox" class="card-setting-toggle rounded" data-card-field="showStylist" checked /> Stylist name
-            </label>
-            <label class="flex items-center gap-2 text-xs text-mpCharcoal py-1 cursor-pointer">
-              <input type="checkbox" class="card-setting-toggle rounded" data-card-field="showPlatforms" checked /> Platforms
-            </label>
-            <label class="flex items-center gap-2 text-xs text-mpCharcoal py-1 cursor-pointer">
-              <input type="checkbox" class="card-setting-toggle rounded" data-card-field="showTime" checked /> Published time
-            </label>
-            <label class="flex items-center gap-2 text-xs text-mpCharcoal py-1 cursor-pointer">
-              <input type="checkbox" class="card-setting-toggle rounded" data-card-field="showCaption" checked /> Caption preview
-            </label>
+        <div class="flex items-center gap-3 flex-shrink-0">
+          <!-- View toggle (Month | Week | Agenda) -->
+          <div id="view-toggle" class="inline-flex rounded-lg border border-mpBorder overflow-hidden">
+            <button data-view="month" class="view-btn px-4 py-2 text-sm font-semibold transition-colors">Month</button>
+            <button data-view="week" class="view-btn px-4 py-2 text-sm font-semibold transition-colors border-l border-mpBorder">Week</button>
+            <button data-view="agenda" class="view-btn px-4 py-2 text-sm font-semibold transition-colors border-l border-mpBorder">Agenda</button>
           </div>
+          <!-- Card settings gear -->
+          <div id="card-settings-wrapper" class="relative">
+            <button id="card-settings-btn" type="button" class="flex h-9 w-9 items-center justify-center rounded-lg border border-mpBorder text-mpMuted hover:bg-mpBg hover:text-mpCharcoal transition-colors" aria-label="Card display settings">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z" />
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </button>
+            <div id="card-settings-dropdown" class="hidden absolute right-0 top-full mt-1 z-50 bg-white border border-mpBorder rounded-lg shadow-lg p-3 w-44">
+              <p class="text-[10px] font-semibold text-mpMuted uppercase tracking-wide mb-2">Show on cards</p>
+              <label class="flex items-center gap-2 text-xs text-mpCharcoal py-1 cursor-pointer">
+                <input type="checkbox" class="card-setting-toggle rounded" data-card-field="showStylist" checked /> Stylist name
+              </label>
+              <label class="flex items-center gap-2 text-xs text-mpCharcoal py-1 cursor-pointer">
+                <input type="checkbox" class="card-setting-toggle rounded" data-card-field="showPlatforms" checked /> Platforms
+              </label>
+              <label class="flex items-center gap-2 text-xs text-mpCharcoal py-1 cursor-pointer">
+                <input type="checkbox" class="card-setting-toggle rounded" data-card-field="showTime" checked /> Published time
+              </label>
+              <label class="flex items-center gap-2 text-xs text-mpCharcoal py-1 cursor-pointer">
+                <input type="checkbox" class="card-setting-toggle rounded" data-card-field="showCaption" checked /> Caption preview
+              </label>
+            </div>
+          </div>
+          <!-- + New Post button -->
+          <a href="/manager/coordinator/upload" class="inline-flex items-center gap-1 rounded-full bg-mpAccent px-4 py-2 text-sm font-semibold text-white hover:bg-[#2E5E9E] transition-colors shadow-sm">
+            <span class="text-base leading-none">+</span> New Post
+          </a>
         </div>
-        <!-- Nav arrows -->
-        <div id="nav-arrows" class="flex items-center gap-3">
+      </div>
+
+      <!-- Row 2: Nav arrows (month label centered) + funnel filter icon -->
+      <div class="mb-4 flex items-center justify-between gap-3">
+        <!-- Funnel filter toggle -->
+        <button id="filter-funnel-btn" type="button" class="flex h-8 w-8 items-center justify-center rounded-lg border border-mpBorder text-mpMuted hover:bg-mpBg hover:text-mpCharcoal transition-colors" aria-label="Toggle filters">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+          </svg>
+        </button>
+        <!-- Nav arrows + month label -->
+        <div id="nav-arrows" class="flex items-center gap-3 ml-auto">
           <a href="/manager/calendar?month=${prevMonth}"
              class="flex h-8 w-8 items-center justify-center rounded-lg border border-mpBorder text-mpMuted hover:bg-mpBg hover:text-mpCharcoal transition-colors" aria-label="Previous month">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -319,8 +331,8 @@ router.get("/", requireAuth, (req, res) => {
         </div>
       </div>
 
-      <!-- Filter bar -->
-      <div id="filter-bar" class="mb-3 flex flex-wrap gap-1.5">
+      <!-- Filter bar (hidden by default, toggled by funnel icon) -->
+      <div id="filter-bar" class="hidden mb-3 flex flex-wrap gap-1.5">
         <span class="text-[11px] text-mpMuted font-semibold mr-1 self-center">Filter:</span>
         <button data-filter-type="standard_post" class="filter-chip inline-flex px-2.5 py-1 rounded-full text-[11px] font-semibold bg-blue-100 text-blue-700 border border-blue-200 transition-opacity">Post</button>
         <button data-filter-type="before_after" class="filter-chip inline-flex px-2.5 py-1 rounded-full text-[11px] font-semibold bg-teal-100 text-teal-700 border border-teal-200 transition-opacity">B/A</button>
@@ -572,6 +584,16 @@ router.get("/", requireAuth, (req, res) => {
       renderFilterChips();
       applyFilters();
 
+      // ── Funnel filter toggle ─────────────────────────────────────────────────
+      var funnelBtn = document.getElementById('filter-funnel-btn');
+      var filterBar = document.getElementById('filter-bar');
+      if (funnelBtn && filterBar) {
+        funnelBtn.addEventListener('click', function(e) {
+          e.stopPropagation();
+          filterBar.classList.toggle('hidden');
+        });
+      }
+
       // ── Card settings ────────────────────────────────────────────────────────
       var cardSettings = loadJSON(LS_CARD, DEFAULT_CARD);
 
@@ -767,7 +789,7 @@ router.get("/week", requireAuth, (req, res) => {
     }
 
     cells += `
-      <div class="calendar-day-cell relative min-h-[200px] p-1.5 rounded-xl bg-white ${cellBorder} cursor-pointer hover:border-mpAccent/40 transition-colors"
+      <div class="calendar-day-cell relative min-h-[calc(100vh-220px)] p-1.5 rounded-xl bg-white ${cellBorder} cursor-pointer hover:border-mpAccent/40 transition-colors"
            data-date="${dateStr}">
         ${pills}
       </div>`;
