@@ -3,14 +3,14 @@
 //
 // Runs daily. For each Pro salon with enabled + approved vendor feeds:
 //   1. Finds active, non-expired campaigns under that vendor
-//   2. Checks this month's post count vs frequency_cap
-//   3. Generates an AI caption adapted to the salon's tone
-//   4. Creates a post (manager_pending or enqueued) with vendor_campaign_id
+//   2. Pre-schedules posts across a 30-day window (vendor_scheduled status)
+//   3. Divides the window into cap equal intervals; fills only empty intervals
+//   4. Generates an AI caption adapted to the salon's tone
 //   5. Logs to vendor_post_log for cap tracking
 
 import crypto from "crypto";
+import { DateTime } from "luxon";
 import { db } from "../../db.js";
-import { enqueuePost } from "../scheduler.js";
 import { appendUtm, slugify } from './utm.js';
 import { buildTrackingToken, buildShortUrl } from './trackingUrl.js';
 
@@ -141,14 +141,16 @@ Remember: this is for ${salonName} — write in their voice (${tone}), not the b
 // =====================================================
 
 export async function runVendorScheduler() {
-  const thisMonth = new Date().toISOString().slice(0, 7); // "YYYY-MM"
+  const LOOKAHEAD_DAYS = 30;
+  const windowStart = new Date();
+  windowStart.setHours(0, 0, 0, 0);
+  const windowEnd = new Date(windowStart.getTime() + LOOKAHEAD_DAYS * 24 * 60 * 60 * 1000);
 
-  log.info(`Running vendor scheduler for month: ${thisMonth}`);
+  log.info(`Running vendor scheduler. Window: ${windowStart.toISOString().slice(0,10)} → ${windowEnd.toISOString().slice(0,10)}`);
 
-  // 1. Get all Pro salons (active or trialing)
   const proSalons = db.prepare(`
     SELECT slug, name, tone, default_hashtags, require_manager_approval,
-           posting_start_time, posting_end_time
+           posting_start_time, posting_end_time, timezone
     FROM salons
     WHERE plan IN ('pro')
       AND plan_status IN ('active', 'trialing')
@@ -157,10 +159,9 @@ export async function runVendorScheduler() {
   log.info(`Found ${proSalons.length} Pro salon(s)`);
 
   let totalCreated = 0;
-
   for (const salon of proSalons) {
     try {
-      totalCreated += await processSalon(salon, thisMonth);
+      totalCreated += await processSalon(salon, windowStart, windowEnd);
     } catch (err) {
       log.warn(`Error processing salon ${salon.slug}: ${err.message}`);
     }
@@ -170,7 +171,7 @@ export async function runVendorScheduler() {
   return totalCreated;
 }
 
-async function processSalon(salon, thisMonth) {
+async function processSalon(salon, windowStart, windowEnd) {
   const salonId = salon.slug;
   let created = 0;
 
@@ -214,7 +215,7 @@ async function processSalon(salon, thisMonth) {
 
     for (const campaign of campaigns) {
       try {
-        const didCreate = await processCampaign(campaign, salon, thisMonth, affiliateUrl, vendorName, vendor.min_gap_days, vendor.salon_cap);
+        const didCreate = await processCampaign(campaign, salon, windowStart, windowEnd, affiliateUrl, vendorName, vendor.min_gap_days);
         if (didCreate) created++;
       } catch (err) {
         log.warn(`Error processing campaign ${campaign.id} for salon ${salonId}: ${err.message}`);
@@ -225,133 +226,121 @@ async function processSalon(salon, thisMonth) {
   return created;
 }
 
-async function processCampaign(campaign, salon, thisMonth, affiliateUrl, vendorName, minGapDays) {
+async function processCampaign(campaign, salon, windowStart, windowEnd, affiliateUrl, vendorName, minGapDays) {
   const salonId = salon.slug;
+  const tz = salon.timezone || "America/Indiana/Indianapolis";
+  const cap = campaign.frequency_cap ?? 3;
+  const lookaheadDays = 30;
 
-  // 4. Check minimum gap between vendor posts for this brand (platform floor)
-  const effectiveMinGap = minGapDays ?? 3;
-  const lastVendorPost = db.prepare(`
-    SELECT MAX(scheduled_for) AS last_vendor_post
-    FROM posts
-    WHERE salon_id = ?
-      AND vendor_campaign_id IN (
-        SELECT id FROM vendor_campaigns WHERE vendor_name = ?
-      )
-      AND status IN ('manager_pending', 'manager_approved', 'published')
-  `).get(salonId, vendorName || campaign.vendor_name);
-
-  if (lastVendorPost?.last_vendor_post) {
-    const lastMs = new Date(lastVendorPost.last_vendor_post).getTime();
-    const nowMs  = Date.now();
-    const daysSince = (nowMs - lastMs) / (1000 * 60 * 60 * 24);
-    if (daysSince < effectiveMinGap) {
-      log.info(`  Salon ${salonId} / campaign ${campaign.id}: min-gap not met (${daysSince.toFixed(1)} days < ${effectiveMinGap} required) — skipping`);
-      return false;
-    }
-  }
-
-  // 5. Check monthly post count — salon cap overrides campaign default when set
-  const cap = salonCap ?? campaign.frequency_cap ?? 3;
-  const { count: monthCount } = db.prepare(`
-    SELECT COUNT(*) AS count
-    FROM vendor_post_log
-    WHERE salon_id = ? AND campaign_id = ? AND posted_month = ?
-  `).get(salonId, campaign.id, thisMonth);
-
-  if (monthCount >= cap) {
-    log.info(`  Salon ${salonId} / campaign ${campaign.id}: at cap (${monthCount}/${cap})`);
-    return false;
-  }
-
-  // 6. Make sure we haven't already scheduled a pending/approved post from this
-  //    campaign this month (avoid duplicating on repeated scheduler runs)
-  const existing = db.prepare(`
-    SELECT COUNT(*) AS count
-    FROM posts
-    WHERE salon_id = ?
-      AND vendor_campaign_id = ?
-      AND status IN ('manager_pending', 'manager_approved', 'published')
-      AND strftime('%Y-%m', created_at) = ?
-  `).get(salonId, campaign.id, thisMonth);
-
-  if ((existing?.count || 0) > 0) {
-    log.info(`  Salon ${salonId} / campaign ${campaign.id}: post already exists this month, skipping`);
-    return false;
-  }
-
-  // 7. Require a photo — both FB and IG need an image URL
+  // 4. Require a photo
   if (!campaign.photo_url) {
     log.warn(`  Skipping campaign ${campaign.id} ("${campaign.campaign_name}") — no photo_url set`);
     return false;
   }
 
-  // Caption handling — PDF captions used as brand brief for AI; manual campaigns generate from scratch
+  // 5. Count existing vendor posts from this campaign in the 30-day window
+  const windowStartSql = windowStart.toISOString().replace("T", " ").slice(0, 19);
+  const windowEndSql   = windowEnd.toISOString().replace("T", " ").slice(0, 19);
+
+  const { existingCount } = db.prepare(`
+    SELECT COUNT(*) AS existingCount
+    FROM posts
+    WHERE salon_id = ?
+      AND vendor_campaign_id = ?
+      AND status IN ('vendor_scheduled','manager_pending','manager_approved','published')
+      AND scheduled_for BETWEEN ? AND ?
+  `).get(salonId, campaign.id, windowStartSql, windowEndSql);
+
+  if (existingCount >= cap) {
+    log.info(`  Salon ${salonId} / campaign ${campaign.id}: window full (${existingCount}/${cap}) — skipping`);
+    return false;
+  }
+
+  // 6. Divide 30-day window into cap equal intervals, find first empty slot
+  const intervalMs = (lookaheadDays * 24 * 60 * 60 * 1000) / cap;
+  let scheduledFor = null;
+
+  for (let i = 0; i < cap; i++) {
+    const intStart = new Date(windowStart.getTime() + i * intervalMs);
+    const intEnd   = new Date(windowStart.getTime() + (i + 1) * intervalMs);
+    const intStartSql = intStart.toISOString().replace("T", " ").slice(0, 19);
+    const intEndSql   = intEnd.toISOString().replace("T", " ").slice(0, 19);
+
+    const { slotTaken } = db.prepare(`
+      SELECT COUNT(*) AS slotTaken
+      FROM posts
+      WHERE salon_id = ?
+        AND vendor_campaign_id = ?
+        AND status IN ('vendor_scheduled','manager_pending','manager_approved','published')
+        AND scheduled_for BETWEEN ? AND ?
+    `).get(salonId, campaign.id, intStartSql, intEndSql);
+
+    if (slotTaken > 0) continue; // manager moved a post here — respect it
+
+    // Pick a random day within this interval, at a random time within posting hours
+    const intervalDays = Math.max(1, Math.floor(intervalMs / (24 * 60 * 60 * 1000)));
+    const randDayOffset = Math.floor(Math.random() * intervalDays);
+    const candidateDay = new Date(intStart.getTime() + randDayOffset * 24 * 60 * 60 * 1000);
+
+    const [startH, startM] = (salon.posting_start_time || "09:00").split(":").map(Number);
+    const [endH,   endM]   = (salon.posting_end_time   || "20:00").split(":").map(Number);
+    const windowMinutes = Math.max(1, (endH * 60 + endM) - (startH * 60 + startM));
+    const randMinutes = Math.floor(Math.random() * windowMinutes);
+    const postHour   = startH + Math.floor((startM + randMinutes) / 60);
+    const postMinute = (startM + randMinutes) % 60;
+
+    const localDt = DateTime.fromObject(
+      { year: candidateDay.getUTCFullYear(), month: candidateDay.getUTCMonth() + 1, day: candidateDay.getUTCDate(),
+        hour: postHour, minute: postMinute, second: 0 },
+      { zone: tz }
+    );
+    scheduledFor = localDt.toUTC().toFormat("yyyy-LL-dd HH:mm:ss");
+    break;
+  }
+
+  if (!scheduledFor) {
+    log.info(`  Salon ${salonId} / campaign ${campaign.id}: all ${cap} slots filled — skipping`);
+    return false;
+  }
+
+  // 7. Generate AI caption (unchanged)
   let caption;
-  if (campaign.source === 'pdf_sync' && campaign.caption_body) {
-    // PDF caption is the brand's messaging brief — pass it to AI to rewrite in salon's tone
+  if (campaign.source === "pdf_sync" && campaign.caption_body) {
     log.info(`  Generating AI caption with PDF brand brief for salon ${salonId} / campaign "${campaign.campaign_name}"`);
     caption = await generateVendorCaption({ campaign, salon, brandCaption: campaign.caption_body });
   } else {
-    // Manual/CSV campaigns — generate AI caption adapted to salon's tone
     log.info(`  Generating AI caption for salon ${salonId} / campaign "${campaign.campaign_name}"`);
     caption = await generateVendorCaption({ campaign, salon });
   }
-
   if (!caption) {
     log.warn(`  Skipping campaign ${campaign.id} — no caption available`);
     return false;
   }
 
-  // Build locked hashtag block — appended AFTER AI caption, never passed to AI
-  const brandCfg = db.prepare(
-    `SELECT brand_hashtags FROM vendor_brands WHERE vendor_name = ?`
-  ).get(campaign.vendor_name);
-  const brandHashtags = (() => {
-    try { return JSON.parse(brandCfg?.brand_hashtags || "[]"); } catch { return []; }
-  })();
-  const salonDefaultTags = (() => {
-    try { return JSON.parse(salon.default_hashtags || "[]"); } catch { return []; }
-  })();
-  const lockedBlock = buildVendorHashtagBlock({
-    salonHashtags: salonDefaultTags,
-    brandHashtags,
-    productHashtag: campaign.product_hashtag || null,
-  });
+  // 8. Build locked hashtag block (unchanged)
+  const brandCfg = db.prepare(`SELECT brand_hashtags FROM vendor_brands WHERE vendor_name = ?`).get(campaign.vendor_name);
+  const brandHashtags = (() => { try { return JSON.parse(brandCfg?.brand_hashtags || "[]"); } catch { return []; } })();
+  const salonDefaultTags = (() => { try { return JSON.parse(salon.default_hashtags || "[]"); } catch { return []; } })();
+  const lockedBlock = buildVendorHashtagBlock({ salonHashtags: salonDefaultTags, brandHashtags, productHashtag: campaign.product_hashtag || null });
 
-  // 8. Compute next salon post number
-  const { maxnum } = db.prepare(
-    `SELECT MAX(salon_post_number) AS maxnum FROM posts WHERE salon_id = ?`
-  ).get(salonId) || {};
+  // 9. salon_post_number (unchanged)
+  const { maxnum } = db.prepare(`SELECT MAX(salon_post_number) AS maxnum FROM posts WHERE salon_id = ?`).get(salonId) || {};
   const salon_post_number = (maxnum || 0) + 1;
 
-  // 9. Build the post row
+  // 10. Build post — status is always vendor_scheduled, scheduled_for set directly
   const postId = crypto.randomUUID();
   const now    = new Date().toISOString();
-  const status = salon.require_manager_approval ? "manager_pending" : "manager_approved";
 
-  // Deterministic affiliate URL injection — system controls placement, not AI
   let trackedCaption;
   if (affiliateUrl) {
-    const utmContent = `vendor_${slugify(campaign.vendor_name)}`;
-    const destination = appendUtm(affiliateUrl, {
-      source: 'mostlypostly',
-      medium: 'social',
-      campaign: salonId,
-      content: utmContent,
-    });
+    const utmContent  = `vendor_${slugify(campaign.vendor_name)}`;
+    const destination = appendUtm(affiliateUrl, { source: "mostlypostly", medium: "social", campaign: salonId, content: utmContent });
     try {
-      const token = buildTrackingToken({
-        salonId,
-        postId,
-        clickType: 'vendor',
-        vendorName: campaign.vendor_name,
-        utmContent,
-        destination,
-      });
+      const token    = buildTrackingToken({ salonId, postId, clickType: "vendor", vendorName: campaign.vendor_name, utmContent, destination });
       const shortUrl = buildShortUrl(token);
       trackedCaption = caption + "\n\nShop today: " + shortUrl + (lockedBlock ? "\n\n" + lockedBlock : "");
     } catch (err) {
-      log.warn(`  UTM token creation failed for campaign ${campaign.id}: ${err.message}`);
+      log.warn(`  UTM token creation failed: ${err.message}`);
       trackedCaption = caption + (lockedBlock ? "\n\n" + lockedBlock : "");
     }
   } else {
@@ -359,57 +348,30 @@ async function processCampaign(campaign, salon, thisMonth, affiliateUrl, vendorN
   }
 
   db.prepare(`
-    INSERT INTO posts (
-      id, salon_id, stylist_name, image_url,
-      base_caption, final_caption,
-      post_type, status,
-      vendor_campaign_id,
-      salon_post_number, created_at, updated_at
-    ) VALUES (
-      @id, @salon_id, @stylist_name, @image_url,
-      @base_caption, @final_caption,
-      @post_type, @status,
-      @vendor_campaign_id,
-      @salon_post_number, @created_at, @updated_at
-    )
+    INSERT INTO posts (id, salon_id, stylist_name, image_url, base_caption, final_caption,
+                       post_type, status, vendor_campaign_id, scheduled_for, salon_post_number, created_at, updated_at)
+    VALUES (@id, @salon_id, @stylist_name, @image_url, @base_caption, @final_caption,
+            @post_type, @status, @vendor_campaign_id, @scheduled_for, @salon_post_number, @created_at, @updated_at)
   `).run({
-    id:                  postId,
-    salon_id:            salonId,
-    stylist_name:        `${campaign.vendor_name} (Campaign)`,
-    image_url:           resolveUrl(campaign.photo_url),
-    base_caption:        caption,          // AI text only, no hashtags
-    final_caption:       trackedCaption,  // AI text + locked hashtag block + tracked URL
-    post_type:           "standard_post",
-    status,
-    vendor_campaign_id:  campaign.id,
+    id: postId, salon_id: salonId,
+    stylist_name: `${campaign.vendor_name} (Campaign)`,
+    image_url: resolveUrl(campaign.photo_url),
+    base_caption: caption, final_caption: trackedCaption,
+    post_type: "standard_post",
+    status: "vendor_scheduled",
+    vendor_campaign_id: campaign.id,
+    scheduled_for: scheduledFor,
     salon_post_number,
-    created_at:          now,
-    updated_at:          now,
+    created_at: now, updated_at: now,
   });
 
-  // 10. Log to vendor_post_log
+  // 11. Log to vendor_post_log — use month of scheduled_for (not today)
+  const postedMonth = scheduledFor.slice(0, 7); // "YYYY-MM"
   db.prepare(`
     INSERT INTO vendor_post_log (id, salon_id, campaign_id, post_id, posted_month, created_at)
     VALUES (@id, @salon_id, @campaign_id, @post_id, @posted_month, @created_at)
-  `).run({
-    id:           crypto.randomUUID(),
-    salon_id:     salonId,
-    campaign_id:  campaign.id,
-    post_id:      postId,
-    posted_month: thisMonth,
-    created_at:   now,
-  });
+  `).run({ id: crypto.randomUUID(), salon_id: salonId, campaign_id: campaign.id, post_id: postId, posted_month: postedMonth, created_at: now });
 
-  // 11. If auto-enqueue (no manager approval required), schedule it
-  if (status === "manager_approved") {
-    try {
-      const postRow = db.prepare(`SELECT * FROM posts WHERE id = ?`).get(postId);
-      if (postRow) enqueuePost(postRow);
-    } catch (err) {
-      log.warn(`  enqueuePost failed for vendor post ${postId}: ${err.message}`);
-    }
-  }
-
-  log.info(`  ✅ Created vendor post ${postId} (${status}) for salon ${salonId} from campaign "${campaign.campaign_name}"`);
+  log.info(`  ✅ Created vendor_scheduled post ${postId} for salon ${salonId} → ${scheduledFor}`);
   return true;
 }
