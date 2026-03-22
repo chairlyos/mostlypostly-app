@@ -3,7 +3,7 @@ import express from "express";
 import Stripe from "stripe";
 import db from "../../db.js";
 import pageShell from "../ui/pageShell.js";
-import { sendCancellationEmail } from "../core/email.js";
+import { sendCancellationEmail, sendEmail } from "../core/email.js";
 
 const router = express.Router();
 
@@ -601,6 +601,39 @@ export async function stripeWebhookHandler(req, res) {
           WHERE slug = ?
         `).run(obj.customer, obj.subscription, plan, cycle, salon_id);
         console.log(`[Stripe] checkout.session.completed: ${salon_id} → plan=${plan} status=${newStatus}`);
+
+        // Notify troy of every new paid signup
+        try {
+          const salon = db.prepare("SELECT name, city, state FROM salons WHERE slug = ?").get(salon_id);
+          const owner = db.prepare("SELECT name, email FROM managers WHERE salon_id = ? AND role = 'owner' LIMIT 1").get(salon_id);
+          const couponName = obj.total_details?.breakdown?.discounts?.[0]?.discount?.coupon?.name
+            || obj.discount?.coupon?.name
+            || null;
+          const amountPaid = typeof obj.amount_total === "number" ? `$${(obj.amount_total / 100).toFixed(2)}` : "—";
+          await sendEmail({
+            to: "troy@mostlypostly.com",
+            subject: `New signup: ${salon?.name || salon_id} — ${plan} (${cycle})`,
+            html: `<!DOCTYPE html><html><body style="font-family:sans-serif;padding:32px;background:#F8FAFC;">
+              <div style="max-width:520px;margin:0 auto;background:#fff;border:1px solid #E2E8F0;border-radius:12px;overflow:hidden;">
+                <div style="background:#3B72B9;padding:20px 28px;">
+                  <p style="margin:0;font-size:17px;font-weight:800;color:#fff;">New MostlyPostly Signup</p>
+                </div>
+                <table style="width:100%;border-collapse:collapse;font-size:14px;" cellpadding="0" cellspacing="0">
+                  <tr><td style="padding:12px 28px;border-bottom:1px solid #E2E8F0;color:#6B7280;width:40%;">Salon</td><td style="padding:12px 28px;border-bottom:1px solid #E2E8F0;font-weight:600;color:#1F2933;">${salon?.name || salon_id}</td></tr>
+                  <tr><td style="padding:12px 28px;border-bottom:1px solid #E2E8F0;color:#6B7280;">Location</td><td style="padding:12px 28px;border-bottom:1px solid #E2E8F0;color:#1F2933;">${[salon?.city, salon?.state].filter(Boolean).join(", ") || "—"}</td></tr>
+                  <tr><td style="padding:12px 28px;border-bottom:1px solid #E2E8F0;color:#6B7280;">Owner</td><td style="padding:12px 28px;border-bottom:1px solid #E2E8F0;color:#1F2933;">${owner?.name || "—"}</td></tr>
+                  <tr><td style="padding:12px 28px;border-bottom:1px solid #E2E8F0;color:#6B7280;">Email</td><td style="padding:12px 28px;border-bottom:1px solid #E2E8F0;"><a href="mailto:${owner?.email}" style="color:#3B72B9;">${owner?.email || obj.customer_email || "—"}</a></td></tr>
+                  <tr><td style="padding:12px 28px;border-bottom:1px solid #E2E8F0;color:#6B7280;">Plan</td><td style="padding:12px 28px;border-bottom:1px solid #E2E8F0;color:#1F2933;font-weight:700;text-transform:capitalize;">${plan} · ${cycle}</td></tr>
+                  <tr><td style="padding:12px 28px;border-bottom:1px solid #E2E8F0;color:#6B7280;">Status</td><td style="padding:12px 28px;border-bottom:1px solid #E2E8F0;color:#1F2933;">${newStatus}</td></tr>
+                  <tr><td style="padding:12px 28px;border-bottom:1px solid #E2E8F0;color:#6B7280;">Amount</td><td style="padding:12px 28px;border-bottom:1px solid #E2E8F0;color:#1F2933;">${amountPaid}</td></tr>
+                  <tr><td style="padding:12px 28px;color:#6B7280;">Coupon Used</td><td style="padding:12px 28px;color:#1F2933;">${couponName ? `<strong>${couponName}</strong>` : "None"}</td></tr>
+                </table>
+              </div>
+            </body></html>`,
+          });
+        } catch (notifyErr) {
+          console.error("[billing] Failed to send signup notification:", notifyErr.message);
+        }
         break;
       }
 

@@ -370,9 +370,12 @@ router.get("/", requireAuth, (req, res) => {
       var titleEl    = document.getElementById('day-panel-title');
       var MONTHS     = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
+      window.currentDayPanelDate = null;
+
       window.closeDayPanel = function() {
         panelEl.classList.add('hidden');
         backdropEl.classList.add('hidden');
+        window.currentDayPanelDate = null;
       };
 
       document.addEventListener('click', function(e) {
@@ -385,6 +388,7 @@ router.get("/", requireAuth, (req, res) => {
         contentEl.textContent = 'Loading\u2026';
         panelEl.classList.remove('hidden');
         backdropEl.classList.remove('hidden');
+        window.currentDayPanelDate = date;
 
         fetch('/manager/calendar/day/' + encodeURIComponent(date))
           .then(function(r) { return r.text(); })
@@ -427,7 +431,17 @@ router.get("/", requireAuth, (req, res) => {
                 })
                 .then(function(r) { return r.json(); })
                 .then(function(data) {
-                  if (!data.ok) evt.from.insertBefore(evt.item, evt.from.firstChild);
+                  if (!data.ok) {
+                    evt.from.insertBefore(evt.item, evt.from.firstChild);
+                  } else {
+                    // Refresh day panel if it's showing the source or destination date
+                    var fromDate = evt.from.dataset.date;
+                    var toDate   = evt.to.dataset.date;
+                    var panelDate = window.currentDayPanelDate;
+                    if (panelDate && (panelDate === fromDate || panelDate === toDate)) {
+                      if (typeof window.openDayPanel === 'function') window.openDayPanel(panelDate);
+                    }
+                  }
                 })
                 .catch(function() { evt.from.insertBefore(evt.item, evt.from.firstChild); });
               },
@@ -1181,11 +1195,16 @@ router.post("/reschedule", requireAuth, (req, res) => {
     return res.json({ ok: false, error: "Post not found or not scheduled" });
   }
 
-  // Parse as UTC, replace date portion only (preserves time-of-day component)
-  const original = DateTime.fromSQL(post.scheduled_for, { zone: "utc" });
+  const salon = db.prepare("SELECT timezone FROM salons WHERE slug = ?").get(salon_id);
+  const tz = salon?.timezone || "America/Indiana/Indianapolis";
+
+  // Convert original UTC to local salon time, replace the local date portion, convert back to UTC.
+  // newDate is already a local salon date (from the calendar grid), so we must swap in local space
+  // to avoid cross-midnight posts landing on the wrong calendar day.
+  const original = DateTime.fromSQL(post.scheduled_for, { zone: "utc" }).setZone(tz);
   const [y, mo, d] = newDate.split("-").map(Number);
   const updated = original.set({ year: y, month: mo, day: d });
-  const newTimestamp = updated.toFormat("yyyy-LL-dd HH:mm:ss");
+  const newTimestamp = updated.toUTC().toFormat("yyyy-LL-dd HH:mm:ss");
 
   db.prepare("UPDATE posts SET scheduled_for = ? WHERE id = ? AND salon_id = ?")
     .run(newTimestamp, postId, salon_id);

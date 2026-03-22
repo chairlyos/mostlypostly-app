@@ -95,6 +95,7 @@ import teamPerformanceRoute from "./src/routes/teamPerformance.js";
 import leaderboardRoute from "./src/routes/leaderboard.js";
 import internalRouter from "./src/routes/internal.js";
 import trackingRouter from "./src/routes/tracking.js";
+import demoRequestRouter from "./src/routes/demoRequest.js";
 import { lookupStylist } from "./src/core/salonLookup.js";
 
 // Scheduler
@@ -369,6 +370,7 @@ function restoreManagerSession(req, res, next) {
 // Must come before auth middleware so redirect links work unauthenticated.
 // -------------------------------------------------------
 app.use("/t", trackingRouter);
+app.use("/api/demo-request", demoRequestRouter);
 
 // -------------------------------------------------------
 // 1. MANAGER AUTH (login/signup) — MUST COME FIRST

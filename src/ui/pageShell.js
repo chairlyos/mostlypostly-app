@@ -111,19 +111,11 @@ export default function pageShell({
   <!-- ══════════════════════════════════════════════════
        TOP BAR (blue, full width, fixed)
   ══════════════════════════════════════════════════ -->
-  <header class="fixed top-0 inset-x-0 z-40 h-14 flex items-center justify-between px-4 bg-[#3B72B9] border-b border-[#2E5E9E]">
+  <header class="fixed top-0 inset-x-0 z-40 h-14 flex items-start justify-between px-4 pt-1.5 bg-[#3B72B9] border-b border-[#2E5E9E]">
     <!-- Logo -->
     ${navLocked
-      ? `<img src="/public/logo/logo-trimmed.png" alt="MostlyPostly" class="h-7 w-auto" style="filter:brightness(0) invert(1);" />`
-      : `<a href="/manager${qs}"><img src="/public/logo/logo-trimmed.png" alt="MostlyPostly" class="h-7 w-auto" style="filter:brightness(0) invert(1);" /></a>`}
-
-    <!-- Active location chip (top bar) -->
-    ${(!navLocked && activeSalonName) ? `
-    <div class="hidden md:flex items-center gap-2 text-white/80 text-sm">
-      <span class="text-white/50">|</span>
-      <span class="font-medium">${activeSalonName}</span>
-      ${salonPlan ? `<span class="inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold bg-white/20 text-white uppercase tracking-wide">${salonPlan}</span>` : ""}
-    </div>` : ""}
+      ? `<img src="/public/logo/logo-trimmed.png" alt="MostlyPostly" class="h-10 w-auto" style="filter:brightness(0) invert(1);" />`
+      : `<a href="/manager${qs}"><img src="/public/logo/logo-trimmed.png" alt="MostlyPostly" class="h-10 w-auto" style="filter:brightness(0) invert(1);" /></a>`}
 
     <!-- Mobile hamburger -->
     ${navLocked ? "" : `<button id="mobileNavBtn" class="md:hidden text-white text-2xl leading-none" aria-label="Open menu">&#9776;</button>`}
