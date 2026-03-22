@@ -48,8 +48,8 @@ export default function pageShell({
   function navItem(href, icon, label, key) {
     const active = isActive(key);
     const linkClasses = active
-      ? "bg-mpAccentLight text-mpAccent"
-      : "text-mpMuted hover:bg-mpBg hover:text-mpCharcoal";
+      ? "bg-white/25 text-white"
+      : "text-white/70 hover:bg-white/15 hover:text-white";
     return `
       <div class="group relative w-full flex justify-center px-3">
         <a href="${href}${qs}" aria-label="${label}"
@@ -122,23 +122,23 @@ export default function pageShell({
        LEFT SIDEBAR (desktop)
   ══════════════════════════════════════════════════ -->
   <aside id="app-sidebar"
-    class="fixed inset-y-0 left-0 z-30 hidden md:flex w-16 flex-col border-r border-mpBorder bg-white">
+    class="fixed inset-y-0 left-0 z-30 hidden md:flex w-16 flex-col border-r border-[#2E5E9E] bg-[#3B72B9]">
 
     <!-- Logo mark -->
     ${navLocked
-      ? `<div class="flex h-16 w-16 shrink-0 items-center justify-center border-b border-mpBorder">
-        <img src="/public/logo/logo-mark.png" alt="MostlyPostly" class="h-5 w-auto" />
+      ? `<div class="flex h-16 w-16 shrink-0 items-center justify-center border-b border-[#2E5E9E]">
+        <img src="/public/logo/logo-mark.png" alt="MostlyPostly" class="h-5 w-auto" style="filter:brightness(0) invert(1);" />
       </div>`
       : `<a href="/manager${qs}"
-         class="flex h-16 w-16 shrink-0 items-center justify-center border-b border-mpBorder">
-        <img src="/public/logo/logo-mark.png" alt="MostlyPostly" class="h-5 w-auto" />
+         class="flex h-16 w-16 shrink-0 items-center justify-center border-b border-[#2E5E9E]">
+        <img src="/public/logo/logo-mark.png" alt="MostlyPostly" class="h-5 w-auto" style="filter:brightness(0) invert(1);" />
       </a>`}
 
     <!-- Active location indicator -->
     ${(!navLocked && locationInitials) ? `
     <div class="group relative w-full flex justify-center pt-3 pb-1">
       <a href="/manager/locations"
-         class="flex h-7 w-7 items-center justify-center rounded-lg bg-mpAccentLight text-mpAccent text-xs font-bold leading-none">
+         class="flex h-7 w-7 items-center justify-center rounded-lg bg-white/25 text-white text-xs font-bold leading-none">
         ${locationInitials}
       </a>
       <div class="pointer-events-none absolute left-[calc(100%-4px)] top-1/2 -translate-y-1/2 z-50
@@ -167,7 +167,7 @@ export default function pageShell({
     </nav>
 
     <!-- Profile + Logout at bottom -->
-    <div class="border-t border-mpBorder py-3">
+    <div class="border-t border-[#2E5E9E] py-3">
       ${navLocked ? "" : navItem("/manager/profile", ICONS.profile, "My Profile", "profile")}
       ${navItem("/manager/logout",  ICONS.logout,  "Logout",     "logout")}
     </div>
