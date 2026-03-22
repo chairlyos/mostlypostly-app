@@ -53,6 +53,7 @@ function platformIcons(salon, size = "md") {
 // Solid color class for the left bar on grid mini-cards
 function calendarCardBarClass(post) {
   if (post.status === "failed") return "bg-red-500";
+  if (post.status === "vendor_scheduled") return "bg-purple-300";
   if (post.vendor_campaign_id) return "bg-purple-500";
   const map = {
     standard_post:     "bg-blue-500",
@@ -71,6 +72,7 @@ function calendarCardBarClass(post) {
 // Color-coded pill class per post type (failed overrides, vendor overrides type)
 function calendarPillClass(post) {
   if (post.status === "failed") return "bg-red-100 text-red-700";
+  if (post.status === "vendor_scheduled") return "bg-white text-purple-600 border border-purple-300 border-dashed";
   if (post.vendor_campaign_id) return "bg-purple-100 text-purple-700 border-purple-200";
   const map = {
     standard_post:     "bg-blue-100 text-blue-700",
@@ -111,6 +113,7 @@ function statusBadge(status) {
     manager_approved: { label: "Scheduled",        color: "bg-gray-100 text-gray-600" },
     published:        { label: "✓ Published",      color: "bg-green-100 text-green-700" },
     failed:           { label: "Failed",            color: "bg-red-100 text-red-700" },
+    vendor_scheduled: { label: "Vendor Scheduled",  color: "bg-purple-100 text-purple-700" },
   };
   const s = map[status] || { label: status, color: "bg-gray-100 text-gray-600" };
   return `<span class="inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold ${s.color}">${safe(s.label)}</span>`;
@@ -210,7 +213,7 @@ router.get("/", requireAuth, (req, res) => {
       for (const p of visible) {
         const lbl = calendarPillLabel(p);
         const barClass = calendarCardBarClass(p);
-        const isDraggable = p.status === "manager_approved" && !!p.scheduled_for;
+        const isDraggable = (p.status === "manager_approved" || p.status === "vendor_scheduled") && !!p.scheduled_for;
         const iconsHtml = platformIcons(salon, "sm");
         const postTypeNorm = normalizePostType(p);
 
@@ -342,6 +345,7 @@ router.get("/", requireAuth, (req, res) => {
         <button data-filter-type="celebration" class="filter-chip inline-flex px-2.5 py-1 rounded-full text-[11px] font-semibold bg-pink-100 text-pink-700 border border-pink-200 transition-opacity">Celeb</button>
         <button data-filter-type="reel" class="filter-chip inline-flex px-2.5 py-1 rounded-full text-[11px] font-semibold bg-indigo-100 text-indigo-700 border border-indigo-200 transition-opacity">Reel</button>
         <button data-filter-type="vendor" class="filter-chip inline-flex px-2.5 py-1 rounded-full text-[11px] font-semibold bg-purple-100 text-purple-700 border border-purple-200 transition-opacity">Vendor</button>
+        <button data-filter-status="vendor_scheduled" class="filter-chip inline-flex px-2.5 py-1 rounded-full text-[11px] font-semibold bg-white text-purple-600 border border-purple-300 border-dashed transition-opacity">Vendor Sched</button>
         <span class="mx-1 text-mpBorder self-center">|</span>
         <button data-filter-status="manager_pending" class="filter-chip inline-flex px-2.5 py-1 rounded-full text-[11px] font-semibold bg-orange-100 text-orange-700 border border-orange-200 transition-opacity">Pending</button>
         <button data-filter-status="manager_approved" class="filter-chip inline-flex px-2.5 py-1 rounded-full text-[11px] font-semibold bg-gray-100 text-gray-600 border border-gray-200 transition-opacity">Scheduled</button>
@@ -459,7 +463,7 @@ router.get("/", requireAuth, (req, res) => {
 
       var DEFAULT_FILTERS = {
         types:    { standard_post: true, before_after: true, promotion: true, availability: true, celebration: true, reel: true, vendor: true },
-        statuses: { manager_pending: true, manager_approved: true, published: true, failed: true }
+        statuses: { manager_pending: true, manager_approved: true, published: true, failed: true, vendor_scheduled: true }
       };
       var DEFAULT_CARD = { showStylist: true, showPlatforms: true, showTime: true, showCaption: true };
 
@@ -794,7 +798,7 @@ router.get("/week", requireAuth, (req, res) => {
     for (const p of dayPosts) {
       const lbl         = calendarPillLabel(p);
       const barClass    = calendarCardBarClass(p);
-      const isDraggable = p.status === "manager_approved" && !!p.scheduled_for;
+      const isDraggable = (p.status === "manager_approved" || p.status === "vendor_scheduled") && !!p.scheduled_for;
       const iconsHtml   = platformIcons(salon, "sm");
       const postTypeNorm = normalizePostType(p);
 
@@ -1188,7 +1192,7 @@ router.post("/reschedule", requireAuth, (req, res) => {
   }
 
   const post = db.prepare(
-    "SELECT scheduled_for FROM posts WHERE id = ? AND salon_id = ? AND status = 'manager_approved'"
+    "SELECT scheduled_for FROM posts WHERE id = ? AND salon_id = ? AND status IN ('manager_approved', 'vendor_scheduled')"
   ).get(postId, salon_id);
 
   if (!post?.scheduled_for) {
