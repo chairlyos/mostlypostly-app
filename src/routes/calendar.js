@@ -518,6 +518,27 @@ router.get("/", requireAuth, (req, res) => {
         });
       });
 
+      // Week nav delegation — innerHTML doesn't execute fragment scripts,
+      // so handle .week-nav-btn clicks from the parent page.
+      document.addEventListener('click', function(e) {
+        var btn = e.target.closest('.week-nav-btn');
+        if (!btn) return;
+        var weekISO = btn.dataset.weekNav;
+        if (!weekISO) return;
+        fetch('/manager/calendar/week?week=' + encodeURIComponent(weekISO))
+          .then(function(r) { return r.text(); })
+          .then(function(html) {
+            var body = document.getElementById('calendar-view-body');
+            if (body) body.innerHTML = html; // eslint-disable-line no-unsanitized/property
+            applyFilters();
+            applyCardSettings();
+          })
+          .catch(function() {
+            var body = document.getElementById('calendar-view-body');
+            if (body) body.textContent = 'Failed to load week.';
+          });
+      });
+
       // Initialize view state on page load
       setActiveViewBtn(activeView);
       if (activeView === 'agenda' || activeView === 'week') {
@@ -800,13 +821,13 @@ router.get("/week", requireAuth, (req, res) => {
 
   const fragment = `
     <!-- Week navigation row -->
-    <div class="mb-4 flex items-center justify-between gap-3">
+    <div class="mb-4 flex items-center justify-center gap-3">
       <button type="button" class="week-nav-btn flex h-8 w-8 items-center justify-center rounded-lg border border-mpBorder text-mpMuted hover:bg-mpBg hover:text-mpCharcoal transition-colors" data-week-nav="${prevWeekISO}" aria-label="Previous week">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
         </svg>
       </button>
-      <span class="text-base font-semibold text-mpCharcoal">${safe(weekLabel)}</span>
+      <span class="text-base font-semibold text-mpCharcoal min-w-[180px] text-center">${safe(weekLabel)}</span>
       <button type="button" class="week-nav-btn flex h-8 w-8 items-center justify-center rounded-lg border border-mpBorder text-mpMuted hover:bg-mpBg hover:text-mpCharcoal transition-colors" data-week-nav="${nextWeekISO}" aria-label="Next week">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
