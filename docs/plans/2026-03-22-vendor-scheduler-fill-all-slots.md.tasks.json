@@ -1,0 +1,10 @@
+{
+  "planPath": "docs/plans/2026-03-22-vendor-scheduler-fill-all-slots.md",
+  "tasks": [
+    {"id": 7, "subject": "Task 1: Add vendorScheduler unit tests for pure helpers", "status": "pending"},
+    {"id": 8, "subject": "Task 2: Change processCampaign to fill all empty intervals per run", "status": "pending", "blockedBy": [7]},
+    {"id": 9, "subject": "Task 3: Manual verification via DB queries and scheduler dry-run", "status": "pending", "blockedBy": [8]},
+    {"id": 10, "subject": "Task 4: Deploy to staging and smoke-test calendar view", "status": "pending", "blockedBy": [9]}
+  ],
+  "lastUpdated": "2026-03-22T00:00:00Z"
+}
