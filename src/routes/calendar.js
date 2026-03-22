@@ -193,12 +193,14 @@ router.get("/", requireAuth, (req, res) => {
       const dateStr = cursor.toFormat("yyyy-LL-dd");
       const isCurrentMonth = cursor.month === monthStart.month;
       const isToday = dateStr === today;
+      const isPast = dateStr < today;
       const dayPosts = byDate.get(dateStr) || [];
 
       const dayNumClass = isCurrentMonth
         ? "text-xs font-semibold text-mpCharcoal"
         : "text-xs font-semibold text-gray-300";
 
+      const cellBg = isPast ? "bg-gray-50" : "bg-white";
       const cellBorder = isToday
         ? "ring-2 ring-mpAccent ring-inset"
         : "border border-mpBorder";
@@ -237,7 +239,7 @@ router.get("/", requireAuth, (req, res) => {
       }
 
       cells += `
-        <div class="calendar-day-cell relative min-h-[110px] p-1.5 rounded-xl bg-white ${cellBorder} cursor-pointer hover:border-mpAccent/40 transition-colors"
+        <div class="calendar-day-cell relative min-h-[110px] p-1.5 rounded-xl ${cellBg} ${cellBorder} cursor-pointer hover:border-mpAccent/40 transition-colors"
              data-date="${dateStr}">
           <div class="${dayNumClass} mb-1 select-none">${cursor.day}</div>
           ${pills}
@@ -751,8 +753,10 @@ router.get("/week", requireAuth, (req, res) => {
     const cursor  = weekStart.plus({ days: i });
     const dateStr = cursor.toFormat("yyyy-LL-dd");
     const isToday = dateStr === today;
+    const isPast = dateStr < today;
     const dayPosts = byDate.get(dateStr) || [];
 
+    const cellBg = isPast ? "bg-gray-50" : "bg-white";
     const cellBorder = isToday ? "ring-2 ring-mpAccent ring-inset" : "border border-mpBorder";
 
     let pills = "";
@@ -789,7 +793,7 @@ router.get("/week", requireAuth, (req, res) => {
     }
 
     cells += `
-      <div class="calendar-day-cell relative min-h-[calc(100vh-220px)] p-1.5 rounded-xl bg-white ${cellBorder} cursor-pointer hover:border-mpAccent/40 transition-colors"
+      <div class="calendar-day-cell relative min-h-[calc(100vh-220px)] p-1.5 rounded-xl ${cellBg} ${cellBorder} cursor-pointer hover:border-mpAccent/40 transition-colors"
            data-date="${dateStr}">
         ${pills}
       </div>`;
@@ -935,10 +939,13 @@ router.get("/agenda", requireAuth, (req, res) => {
 
   let html = "";
 
+  const todayStr = now.toFormat("yyyy-LL-dd");
+
   for (const dateStr of dateOrder) {
     const datePosts = byDate.get(dateStr);
     const dt = DateTime.fromISO(dateStr, { zone: tz });
-    const dateLabel = dt.toFormat("EEEE, MMMM d");
+    const isAgendaToday = dateStr === todayStr;
+    const dateLabel = isAgendaToday ? `Today — ${dt.toFormat("EEEE, MMMM d")}` : dt.toFormat("EEEE, MMMM d");
 
     let cards = "";
     for (const p of datePosts) {
@@ -994,7 +1001,7 @@ router.get("/agenda", requireAuth, (req, res) => {
 
     html += `
     <div class="mb-6">
-      <h3 class="text-sm font-bold text-mpCharcoal mb-2 sticky top-0 bg-[#F8FAFC] py-1 z-10">${safe(dateLabel)}</h3>
+      <h3 class="text-sm font-bold mb-2 sticky top-0 py-1 z-10 ${isAgendaToday ? "text-mpAccent bg-[#F8FAFC]" : "text-mpCharcoal bg-[#F8FAFC]"}">${safe(dateLabel)}</h3>
       ${cards}
     </div>`;
   }
