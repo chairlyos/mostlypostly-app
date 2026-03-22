@@ -1,4 +1,4 @@
-// src/ui/pageShell.js — Left sidebar navigation
+// src/ui/pageShell.js — Top bar + grouped sidebar navigation
 
 import { db } from "../../db.js";
 
@@ -26,7 +26,7 @@ export default function pageShell({
   const isPro = salonPlan === "pro";
 
   // Role-based nav visibility
-  let isOwner = true; // default to showing everything when role unknown
+  let isOwner = true;
   let isCoordinator = false;
   if (manager_id) {
     try {
@@ -37,36 +37,29 @@ export default function pageShell({
       }
     } catch (_) {}
   }
-  const locationInitials = activeSalonName
-    ? activeSalonName.split(/\s+/).slice(0, 2).map(w => w[0]).join("").toUpperCase()
-    : "";
 
-  function isActive(key) {
-    return current === key;
-  }
+  function isActive(key) { return current === key; }
 
+  // Sidebar nav item: icon + text
   function navItem(href, icon, label, key) {
     const active = isActive(key);
-    const linkClasses = active
-      ? "bg-white/25 text-white"
-      : "text-white/70 hover:bg-white/15 hover:text-white";
+    const cls = active
+      ? "bg-white/15 text-white"
+      : "text-white/60 hover:bg-white/10 hover:text-white";
     return `
-      <div class="group relative w-full flex justify-center px-3">
-        <a href="${href}${qs}" aria-label="${label}"
-           class="flex h-10 w-10 items-center justify-center rounded-xl transition-colors ${linkClasses}">
-          ${icon}
-        </a>
-        <div class="pointer-events-none absolute left-[calc(100%-4px)] top-1/2 -translate-y-1/2 z-50
-                    whitespace-nowrap rounded-lg bg-mpCharcoal px-2.5 py-1.5 text-xs font-semibold text-white
-                    opacity-0 group-hover:opacity-100 transition-opacity shadow-lg ml-3">
-          ${label}
-          <div class="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-mpCharcoal"></div>
-        </div>
-      </div>`;
+      <a href="${href}${qs}"
+         class="flex items-center gap-3 px-4 py-2 rounded-lg transition-colors ${cls}">
+        <span class="flex-shrink-0 w-5">${icon}</span>
+        <span class="text-sm font-medium leading-none">${label}</span>
+      </a>`;
   }
 
+  // Section header label
+  function navSection(label) {
+    return `<p class="px-4 pt-5 pb-1 text-[10px] font-semibold tracking-widest uppercase text-white/35 select-none">${label}</p>`;
+  }
 
-  // Mobile nav link (full-width with label)
+  // Mobile nav link
   function mobileNavLink(href, label, key) {
     const active = isActive(key);
     return `<a href="${href}${qs}"
@@ -110,105 +103,118 @@ export default function pageShell({
   </script>
   <style>
     body { font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif; }
-    /* Ensure sidebar flyout tooltips/menus escape sidebar bounds */
-    #app-sidebar { overflow: visible; }
-    .group:hover .group-hover\\:opacity-100 { opacity: 1; }
   </style>
 </head>
 
 <body class="${bodyBg} text-mpCharcoal antialiased">
 
   <!-- ══════════════════════════════════════════════════
-       LEFT SIDEBAR (desktop)
+       TOP BAR (blue, full width, fixed)
   ══════════════════════════════════════════════════ -->
-  <aside id="app-sidebar"
-    class="fixed inset-y-0 left-0 z-30 hidden md:flex w-16 flex-col border-r border-[#2E5E9E] bg-[#3B72B9]">
-
-    <!-- Logo mark -->
+  <header class="fixed top-0 inset-x-0 z-40 h-14 flex items-center justify-between px-4 bg-[#3B72B9] border-b border-[#2E5E9E]">
+    <!-- Logo -->
     ${navLocked
-      ? `<div class="flex h-16 w-16 shrink-0 items-center justify-center border-b border-[#2E5E9E]">
-        <img src="/public/logo/logo-mark.png" alt="MostlyPostly" class="h-5 w-auto" />
-      </div>`
-      : `<a href="/manager${qs}"
-         class="flex h-16 w-16 shrink-0 items-center justify-center border-b border-[#2E5E9E]">
-        <img src="/public/logo/logo-mark.png" alt="MostlyPostly" class="h-5 w-auto" />
-      </a>`}
+      ? `<img src="/public/logo/logo-trimmed.png" alt="MostlyPostly" class="h-7 w-auto" style="filter:brightness(0) invert(1);" />`
+      : `<a href="/manager${qs}"><img src="/public/logo/logo-trimmed.png" alt="MostlyPostly" class="h-7 w-auto" style="filter:brightness(0) invert(1);" /></a>`}
 
-    <!-- Active location indicator -->
-    ${(!navLocked && locationInitials) ? `
-    <div class="group relative w-full flex justify-center pt-3 pb-1">
-      <a href="/manager/locations"
-         class="flex h-7 w-7 items-center justify-center rounded-lg bg-white/25 text-white text-xs font-bold leading-none">
-        ${locationInitials}
-      </a>
-      <div class="pointer-events-none absolute left-[calc(100%-4px)] top-1/2 -translate-y-1/2 z-50
-                  whitespace-nowrap rounded-lg bg-mpCharcoal px-2.5 py-1.5 text-xs font-semibold text-white
-                  opacity-0 group-hover:opacity-100 transition-opacity shadow-lg ml-3">
-        ${activeSalonName}
-        <div class="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-mpCharcoal"></div>
-      </div>
+    <!-- Active location chip (top bar) -->
+    ${(!navLocked && activeSalonName) ? `
+    <div class="hidden md:flex items-center gap-2 text-white/80 text-sm">
+      <span class="text-white/50">|</span>
+      <span class="font-medium">${activeSalonName}</span>
+      ${salonPlan ? `<span class="inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold bg-white/20 text-white uppercase tracking-wide">${salonPlan}</span>` : ""}
     </div>` : ""}
 
-    <!-- Primary nav -->
-    <nav class="flex flex-1 flex-col items-center py-3 gap-0.5">
-      ${navLocked ? "" : navItem("/manager",            ICONS.home,      "Dashboard",    "manager")}
-      ${navLocked ? "" : navItem("/manager/queue",      ICONS.queue,     "Post Queue",   "queue")}
-      ${navLocked ? "" : navItem("/manager/calendar",   ICONS.calendar,  "Calendar",     "calendar")}
-      ${navLocked ? "" : navItem("/analytics",          ICONS.chart,     "Analytics",    "analytics")}
-      ${(!navLocked && !isCoordinator) ? navItem("/manager/stylists",   ICONS.team,      "Team",         "team") : ""}
-      ${navLocked ? "" : navItem("/manager/performance", ICONS.trophy,   "Performance",  "performance")}
-      ${(!navLocked && !isCoordinator) ? navItem("/manager/scheduler",  ICONS.clock,     "Scheduler",    "scheduler") : ""}
-      ${(!navLocked && !isCoordinator) ? navItem("/dashboard",          ICONS.database,  "Database",     "database") : ""}
-      ${(!navLocked && !isCoordinator) ? navItem("/manager/vendors",       ICONS.tag,          "Vendors",       "vendors") : ""}
-      ${(!navLocked && !isCoordinator && isPro) ? navItem("/manager/integrations", ICONS.integration,  "Integrations",  "integrations") : ""}
-      ${(!navLocked && !isCoordinator) ? navItem("/manager/locations",    ICONS.building,     "Locations",     "locations") : ""}
+    <!-- Mobile hamburger -->
+    ${navLocked ? "" : `<button id="mobileNavBtn" class="md:hidden text-white text-2xl leading-none" aria-label="Open menu">&#9776;</button>`}
+    <div class="hidden md:block w-6"></div><!-- spacer to balance logo -->
+  </header>
+
+  <!-- ══════════════════════════════════════════════════
+       LEFT SIDEBAR (desktop, charcoal, grouped)
+  ══════════════════════════════════════════════════ -->
+  <aside id="app-sidebar"
+    class="fixed top-14 left-0 bottom-0 z-30 hidden md:flex w-56 flex-col bg-[#2B2D35] border-r border-white/10 overflow-y-auto">
+
+    <!-- Salon switcher -->
+    ${(!navLocked && activeSalonName) ? `
+    <a href="/manager/locations${qs}"
+       class="flex items-center gap-2.5 px-4 py-3 border-b border-white/10 hover:bg-white/5 transition-colors">
+      <span class="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md bg-[#3B72B9] text-white text-xs font-bold leading-none">
+        ${activeSalonName.split(/\s+/).slice(0,2).map(w=>w[0]).join("").toUpperCase()}
+      </span>
+      <div class="min-w-0">
+        <p class="text-xs font-semibold text-white truncate">${activeSalonName}</p>
+        <p class="text-[10px] text-white/40 capitalize">${salonPlan || "trial"}</p>
+      </div>
+    </a>` : ""}
+
+    <!-- Nav groups -->
+    <nav class="flex-1 px-2 py-2">
+
+      ${!navLocked ? navSection("Overview") : ""}
+      ${!navLocked ? navItem("/manager",     ICONS.home,  "Dashboard",   "manager") : ""}
+      ${!navLocked ? navItem("/analytics",   ICONS.chart, "Analytics",   "analytics") : ""}
+
+      ${!navLocked ? navSection("Content") : ""}
+      ${!navLocked ? navItem("/manager/queue",    ICONS.queue,    "Post Queue", "queue") : ""}
+      ${!navLocked ? navItem("/manager/calendar", ICONS.calendar, "Calendar",   "calendar") : ""}
+      ${(!navLocked && !isCoordinator) ? navItem("/manager/scheduler", ICONS.clock, "Scheduler", "scheduler") : ""}
+      ${(!navLocked && !isCoordinator) ? navItem("/dashboard", ICONS.database, "Database", "database") : ""}
+
+      ${(!navLocked && !isCoordinator) ? navSection("Team") : ""}
+      ${(!navLocked && !isCoordinator) ? navItem("/manager/stylists",    ICONS.team,   "Team",        "team") : ""}
+      ${!navLocked ? navItem("/manager/performance", ICONS.trophy, "Performance", "performance") : ""}
+
+      ${(!navLocked && !isCoordinator) ? navSection("Brand") : ""}
+      ${(!navLocked && !isCoordinator) ? navItem("/manager/vendors",      ICONS.tag,         "Vendors",      "vendors") : ""}
+      ${(!navLocked && !isCoordinator && isPro) ? navItem("/manager/integrations", ICONS.integration, "Integrations", "integrations") : ""}
+
+      ${(!navLocked && !isCoordinator) ? navSection("Settings") : ""}
+      ${(!navLocked && !isCoordinator) ? navItem("/manager/locations", ICONS.building, "Locations", "locations") : ""}
+      ${(!navLocked && !isCoordinator) ? navItem("/manager/admin",     ICONS.cog,      "Admin",     "admin") : ""}
       ${isOwner ? navItem("/manager/billing", ICONS.card, "Billing", "billing") : ""}
-      ${(!navLocked && !isCoordinator) ? navItem("/manager/admin",        ICONS.cog,          "Admin",         "admin") : ""}
+
     </nav>
 
     <!-- Profile + Logout at bottom -->
-    <div class="border-t border-[#2E5E9E] py-3">
-      ${navLocked ? "" : navItem("/manager/profile", ICONS.profile, "My Profile", "profile")}
-      ${navItem("/manager/logout",  ICONS.logout,  "Logout",     "logout")}
+    <div class="border-t border-white/10 px-2 py-2">
+      ${!navLocked ? navItem("/manager/profile", ICONS.profile, "My Profile", "profile") : ""}
+      ${navItem("/manager/logout", ICONS.logout, "Logout", "logout")}
     </div>
   </aside>
 
   <!-- ══════════════════════════════════════════════════
-       MOBILE TOP BAR
-  ══════════════════════════════════════════════════ -->
-  <header class="md:hidden fixed top-0 inset-x-0 z-30 flex h-14 items-center justify-between
-                 px-4 bg-white border-b border-mpBorder">
-    ${navLocked
-      ? `<img src="/public/logo/logo-trimmed.png" alt="MostlyPostly" class="h-7 w-auto" />`
-      : `<a href="/manager${qs}"><img src="/public/logo/logo-trimmed.png" alt="MostlyPostly" class="h-7 w-auto" /></a>`}
-    ${navLocked ? "" : `<button id="mobileNavBtn" class="text-mpMuted text-2xl leading-none" aria-label="Open menu">&#9776;</button>`}
-  </header>
-
-  <!-- ══════════════════════════════════════════════════
        MOBILE OVERLAY NAV
   ══════════════════════════════════════════════════ -->
-  <div id="mobileNav" class="hidden fixed inset-0 z-40 flex-col bg-white md:hidden">
-    <div class="flex items-center justify-between px-5 py-4 border-b border-mpBorder">
-      <img src="/public/logo/logo-mark.png" alt="MostlyPostly" class="h-10 w-auto" />
-      <button id="mobileNavClose" class="text-mpMuted text-3xl leading-none">&times;</button>
+  <div id="mobileNav" class="hidden fixed inset-0 z-50 flex-col bg-[#2B2D35] md:hidden">
+    <div class="flex items-center justify-between px-5 py-4 border-b border-white/10 bg-[#3B72B9]">
+      <img src="/public/logo/logo-trimmed.png" alt="MostlyPostly" class="h-7 w-auto" style="filter:brightness(0) invert(1);" />
+      <button id="mobileNavClose" class="text-white text-3xl leading-none">&times;</button>
     </div>
-    <nav class="flex-1 px-5 py-4 space-y-0.5 overflow-y-auto">
-      ${navLocked ? "" : mobileNavLink("/manager",            "Dashboard",  "manager")}
-      ${navLocked ? "" : mobileNavLink("/manager/queue",      "Post Queue", "queue")}
-      ${navLocked ? "" : mobileNavLink("/manager/calendar",   "Calendar",   "calendar")}
-      ${navLocked ? "" : mobileNavLink("/analytics",          "Analytics",  "analytics")}
-      ${(!navLocked && !isCoordinator) ? mobileNavLink("/manager/stylists",   "Team",        "team") : ""}
-      ${navLocked ? "" : mobileNavLink("/manager/performance", "Performance", "performance")}
-      ${(!navLocked && !isCoordinator) ? mobileNavLink("/manager/scheduler",  "Scheduler",   "scheduler") : ""}
-      ${(!navLocked && !isCoordinator) ? mobileNavLink("/dashboard",          "Database",   "database") : ""}
-      ${(!navLocked && !isCoordinator) ? mobileNavLink("/manager/vendors",       "Vendors",       "vendors") : ""}
-      ${(!navLocked && !isCoordinator && isPro) ? mobileNavLink("/manager/integrations", "Integrations",  "integrations") : ""}
-      ${(!navLocked && !isCoordinator) ? mobileNavLink("/manager/locations",    "Locations",     "locations") : ""}
+    <nav class="flex-1 px-4 py-4 space-y-0.5 overflow-y-auto text-white">
+      ${!navLocked ? `<p class="pt-2 pb-1 text-[10px] font-semibold tracking-widest uppercase text-white/35">Overview</p>` : ""}
+      ${!navLocked ? mobileNavLink("/manager",   "Dashboard",  "manager") : ""}
+      ${!navLocked ? mobileNavLink("/analytics", "Analytics",  "analytics") : ""}
+      ${!navLocked ? `<p class="pt-4 pb-1 text-[10px] font-semibold tracking-widest uppercase text-white/35">Content</p>` : ""}
+      ${!navLocked ? mobileNavLink("/manager/queue",    "Post Queue", "queue") : ""}
+      ${!navLocked ? mobileNavLink("/manager/calendar", "Calendar",   "calendar") : ""}
+      ${(!navLocked && !isCoordinator) ? mobileNavLink("/manager/scheduler", "Scheduler", "scheduler") : ""}
+      ${(!navLocked && !isCoordinator) ? mobileNavLink("/dashboard",         "Database",  "database") : ""}
+      ${(!navLocked && !isCoordinator) ? `<p class="pt-4 pb-1 text-[10px] font-semibold tracking-widest uppercase text-white/35">Team</p>` : ""}
+      ${(!navLocked && !isCoordinator) ? mobileNavLink("/manager/stylists",    "Team",        "team") : ""}
+      ${!navLocked ? mobileNavLink("/manager/performance", "Performance", "performance") : ""}
+      ${(!navLocked && !isCoordinator) ? `<p class="pt-4 pb-1 text-[10px] font-semibold tracking-widest uppercase text-white/35">Brand</p>` : ""}
+      ${(!navLocked && !isCoordinator) ? mobileNavLink("/manager/vendors",      "Vendors",      "vendors") : ""}
+      ${(!navLocked && !isCoordinator && isPro) ? mobileNavLink("/manager/integrations", "Integrations", "integrations") : ""}
+      ${(!navLocked && !isCoordinator) ? `<p class="pt-4 pb-1 text-[10px] font-semibold tracking-widest uppercase text-white/35">Settings</p>` : ""}
+      ${(!navLocked && !isCoordinator) ? mobileNavLink("/manager/locations", "Locations", "locations") : ""}
+      ${(!navLocked && !isCoordinator) ? mobileNavLink("/manager/admin",     "Admin",     "admin") : ""}
       ${isOwner ? mobileNavLink("/manager/billing", "Billing", "billing") : ""}
-      ${(!navLocked && !isCoordinator) ? mobileNavLink("/manager/admin",        "Admin",         "admin") : ""}
-      ${navLocked ? "" : mobileNavLink("/manager/profile", "My Profile", "profile")}
+      <p class="pt-4 pb-1 text-[10px] font-semibold tracking-widest uppercase text-white/35">Account</p>
+      ${!navLocked ? mobileNavLink("/manager/profile", "My Profile", "profile") : ""}
       <a href="/manager/logout"
-         class="block py-2.5 text-sm font-medium text-mpMuted hover:text-mpCharcoal transition-colors">
+         class="block py-2.5 border-b border-white/10 text-sm font-medium text-white/60 hover:text-white transition-colors">
         Logout
       </a>
     </nav>
@@ -217,7 +223,7 @@ export default function pageShell({
   <!-- ══════════════════════════════════════════════════
        MAIN CONTENT
   ══════════════════════════════════════════════════ -->
-  <div class="md:pl-16 pt-14 md:pt-0 min-h-screen">
+  <div class="md:ml-56 pt-14 min-h-screen">
     <main class="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
       ${body}
     </main>
