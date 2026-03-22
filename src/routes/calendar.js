@@ -358,20 +358,6 @@ router.get("/", requireAuth, (req, res) => {
         <!-- Calendar grid rows -->
         ${rows}
 
-        <!-- Color legend -->
-        <div class="mt-4 flex flex-wrap gap-2 items-center">
-          <span class="text-[11px] text-mpMuted font-semibold mr-1">Key:</span>
-          ${[
-            ["bg-blue-100 text-blue-700",    "Post"],
-            ["bg-teal-100 text-teal-700",    "Before/After"],
-            ["bg-amber-100 text-amber-700",  "Promo"],
-            ["bg-green-100 text-green-700",  "Avail"],
-            ["bg-pink-100 text-pink-700",    "Celeb"],
-            ["bg-indigo-100 text-indigo-700","Reel"],
-            ["bg-purple-100 text-purple-700","Vendor"],
-            ["bg-red-100 text-red-700",      "Failed"],
-          ].map(([cls, lbl]) => `<span class="inline-flex px-2 py-0.5 rounded text-[10px] font-semibold ${cls}">${lbl}</span>`).join("")}
-        </div>
       </div>
     </div>
 
