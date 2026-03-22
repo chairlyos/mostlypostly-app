@@ -480,7 +480,7 @@ router.get("/", requireAuth, (req, res) => {
         setActiveViewBtn(view);
         var navArrows = document.getElementById('nav-arrows');
         if (navArrows) {
-          if (view === 'agenda') {
+          if (view === 'agenda' || view === 'week') {
             navArrows.classList.add('hidden');
           } else {
             navArrows.classList.remove('hidden');
@@ -520,7 +520,7 @@ router.get("/", requireAuth, (req, res) => {
 
       // Initialize view state on page load
       setActiveViewBtn(activeView);
-      if (activeView === 'agenda') {
+      if (activeView === 'agenda' || activeView === 'week') {
         var navArrows = document.getElementById('nav-arrows');
         if (navArrows) navArrows.classList.add('hidden');
       }
