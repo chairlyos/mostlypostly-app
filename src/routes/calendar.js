@@ -397,37 +397,46 @@ router.get("/", requireAuth, (req, res) => {
           });
       };
 
-      document.querySelectorAll('.calendar-day-cell').forEach(function(cell) {
-        cell.addEventListener('click', function(e) {
-          if (e.target.closest('.calendar-post-card')) return;
-          openDayPanel(cell.dataset.date);
-        });
-      });
+      // ── Day cell init (click + drag) — called after every fragment swap ──────
+      function initCalendarCells() {
+        document.querySelectorAll('#calendar-view-body .calendar-day-cell').forEach(function(cell) {
+          // skip cells already initialised
+          if (cell._calInit) return;
+          cell._calInit = true;
 
-      document.querySelectorAll('.calendar-day-cell').forEach(function(cell) {
-        Sortable.create(cell, {
-          group: { name: 'calendar-posts', pull: true, put: true },
-          draggable: '.calendar-post-card[data-draggable="true"]',
-          animation: 0,
-          ghostClass: 'opacity-40',
-          onEnd: function(evt) {
-            if (evt.from === evt.to) return;
-            var postId    = evt.item.dataset.id;
-            var newDate   = evt.to.dataset.date;
-            var csrfToken = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
-            fetch('/manager/calendar/reschedule', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
-              body: JSON.stringify({ postId: postId, newDate: newDate }),
-            })
-            .then(function(r) { return r.json(); })
-            .then(function(data) {
-              if (!data.ok) evt.from.insertBefore(evt.item, evt.from.firstChild);
-            })
-            .catch(function() { evt.from.insertBefore(evt.item, evt.from.firstChild); });
-          },
+          cell.addEventListener('click', function(e) {
+            if (e.target.closest('.calendar-post-card')) return;
+            openDayPanel(cell.dataset.date);
+          });
+
+          if (typeof Sortable !== 'undefined') {
+            Sortable.create(cell, {
+              group: { name: 'calendar-posts', pull: true, put: true },
+              draggable: '.calendar-post-card[data-draggable="true"]',
+              animation: 0,
+              ghostClass: 'opacity-40',
+              onEnd: function(evt) {
+                if (evt.from === evt.to) return;
+                var postId    = evt.item.dataset.id;
+                var newDate   = evt.to.dataset.date;
+                var csrfToken = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
+                fetch('/manager/calendar/reschedule', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
+                  body: JSON.stringify({ postId: postId, newDate: newDate }),
+                })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                  if (!data.ok) evt.from.insertBefore(evt.item, evt.from.firstChild);
+                })
+                .catch(function() { evt.from.insertBefore(evt.item, evt.from.firstChild); });
+              },
+            });
+          }
         });
-      });
+      }
+      window.initCalendarCells = initCalendarCells;
+      initCalendarCells();
 
       // ── localStorage keys and defaults ──────────────────────────────────────
       var LS_VIEW    = 'calendar_view';
@@ -489,6 +498,7 @@ router.get("/", requireAuth, (req, res) => {
             if (body) {
               body.innerHTML = html; // eslint-disable-line no-unsanitized/property
             }
+            initCalendarCells();
             applyFilters();
             applyCardSettings();
           })
@@ -516,6 +526,7 @@ router.get("/", requireAuth, (req, res) => {
           .then(function(html) {
             var body = document.getElementById('calendar-view-body');
             if (body) body.innerHTML = html; // eslint-disable-line no-unsanitized/property
+            initCalendarCells();
             applyFilters();
             applyCardSettings();
           })
