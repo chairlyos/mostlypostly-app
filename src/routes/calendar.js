@@ -200,7 +200,7 @@ router.get("/", requireAuth, (req, res) => {
         ? "text-xs font-semibold text-mpCharcoal"
         : "text-xs font-semibold text-gray-300";
 
-      const cellBg = isPast ? "bg-gray-50" : "bg-white";
+      const cellBg = isPast ? "bg-gray-100" : "bg-white";
       const cellBorder = isToday
         ? "ring-2 ring-mpAccent ring-inset"
         : "border border-mpBorder";
@@ -755,7 +755,7 @@ router.get("/week", requireAuth, (req, res) => {
     const isPast = dateStr < today;
     const dayPosts = byDate.get(dateStr) || [];
 
-    const cellBg = isPast ? "bg-gray-50" : "bg-white";
+    const cellBg = isPast ? "bg-gray-100" : "bg-white";
     const cellBorder = isToday ? "ring-2 ring-mpAccent ring-inset" : "border border-mpBorder";
 
     let pills = "";
