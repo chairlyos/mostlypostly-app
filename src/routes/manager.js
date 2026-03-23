@@ -158,8 +158,9 @@ router.get("/", requireAuth, async (req, res) => {
   const salonName = getSalonName(salon_id) || "Your Salon";
 
   // Plan usage stats + booking URL for approve preview
-  const salonRow = db.prepare("SELECT plan, plan_status, booking_url, phone, google_location_id FROM salons WHERE slug = ?").get(salon_id);
+  const salonRow = db.prepare("SELECT plan, plan_status, booking_url, phone, google_location_id, timezone FROM salons WHERE slug = ?").get(salon_id);
   const salonBookingUrl = salonRow?.booking_url || "";
+  const tz = salonRow?.timezone || "America/Indiana/Indianapolis";
   const planLimits = PLAN_LIMITS[salonRow?.plan] || PLAN_LIMITS.trial;
   const monthStart = DateTime.utc().startOf("month").toFormat("yyyy-LL-dd");
   const postsThisMonth = db.prepare(
@@ -221,7 +222,7 @@ router.get("/", requireAuth, async (req, res) => {
   const fmt = (iso) => {
     try {
       if (!iso) return "—";
-      return DateTime.fromISO(iso, { zone: "utc" }).toFormat(
+      return DateTime.fromISO(iso, { zone: "utc" }).setZone(tz).toFormat(
         "MMM d, yyyy • h:mm a"
       );
     } catch {
@@ -395,7 +396,7 @@ router.get("/", requireAuth, async (req, res) => {
         const scheduledLocal = p.scheduled_for
           ? (() => {
               try {
-                return DateTime.fromSQL(p.scheduled_for, { zone: "utc" }).toFormat("MMM d, yyyy 'at' h:mm a");
+                return DateTime.fromSQL(p.scheduled_for, { zone: "utc" }).setZone(tz).toFormat("MMM d, yyyy 'at' h:mm a");
               } catch { return p.scheduled_for; }
             })()
           : null;
