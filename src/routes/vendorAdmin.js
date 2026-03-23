@@ -2157,7 +2157,15 @@ router.get("/brands/:name", requireSecret, requirePin, (req, res) => {
       </td>
       <td class="px-4 py-3">${statusBadge}</td>
       <td class="px-4 py-3 text-xs text-gray-500">${safe(c.expires_at || "—")}</td>
-      <td class="px-4 py-3 text-xs text-gray-500">${safe(c.frequency_cap || 4)}/mo</td>
+      <td class="px-4 py-3">
+        <div class="flex items-center gap-1" data-cap-cell="${safe(c.id)}">
+          <input type="number" min="1" max="6" value="${c.frequency_cap || 4}"
+                 class="w-12 border rounded px-1.5 py-0.5 text-xs text-center" data-cap-input="${safe(c.id)}" />
+          <span class="text-xs text-gray-500">/mo</span>
+          <button type="button" data-action="reset-cap" data-campaign-id="${safe(c.id)}"
+                  class="text-xs text-orange-500 hover:text-orange-700 font-medium ml-1 hidden" data-cap-btn="${safe(c.id)}">Reset</button>
+        </div>
+      </td>
       <td class="px-4 py-3">
         <div class="flex items-center gap-2">
           <a href="/internal/vendors/campaign/${safe(c.id)}/edit${qs(req)}"
@@ -2423,6 +2431,40 @@ function syncVendor(btn, name) {
     .then(function(d) { btn.textContent = d.status === 'started' ? 'Started — refresh in 2min' : 'Error'; })
     .catch(function() { btn.textContent = 'Error'; btn.disabled = false; });
 }
+
+// Show Reset button when cap value changes from original
+document.addEventListener('input', function(e) {
+  var inp = e.target.closest('[data-cap-input]');
+  if (!inp) return;
+  var id = inp.getAttribute('data-cap-input');
+  var btn = document.querySelector('[data-cap-btn="' + id + '"]');
+  if (btn) btn.classList.toggle('hidden', false);
+});
+
+// Reset cap via fetch
+document.addEventListener('click', function(e) {
+  var btn = e.target.closest('[data-action="reset-cap"]');
+  if (!btn) return;
+  var campaignId = btn.dataset.campaignId;
+  var inp = document.querySelector('[data-cap-input="' + campaignId + '"]');
+  var newCap = parseInt(inp.value, 10);
+  if (!newCap || newCap < 1 || newCap > 6) { alert('Cap must be 1-6'); return; }
+  if (!confirm('Set cap to ' + newCap + '/mo and clear this month\'s post log?')) return;
+  btn.disabled = true;
+  btn.textContent = 'Saving...';
+  var secret = new URLSearchParams(window.location.search).get('secret') || '';
+  fetch('/internal/vendors/campaign/' + campaignId + '/reset-cap?secret=' + encodeURIComponent(secret), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.content || '' },
+    body: JSON.stringify({ frequency_cap: newCap })
+  })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d.ok) { btn.textContent = 'Done'; btn.classList.add('text-green-600'); setTimeout(function() { btn.classList.add('hidden'); btn.textContent = 'Reset'; btn.classList.remove('text-green-600'); btn.disabled = false; }, 1500); }
+      else { alert(d.error || 'Error'); btn.textContent = 'Reset'; btn.disabled = false; }
+    })
+    .catch(function() { alert('Network error'); btn.textContent = 'Reset'; btn.disabled = false; });
+});
 </script>
 
 </body></html>`);
@@ -2620,6 +2662,25 @@ router.post("/campaign/renew", requireSecret, requirePin, (req, res) => {
   db.prepare(`DELETE FROM vendor_post_log WHERE campaign_id = ? AND posted_month = ?`).run(campaign_id, thisMonth);
 
   res.redirect(`/internal/vendors${qs(req)}&renewed=1`);
+});
+
+// ── POST /campaign/:id/reset-cap — Update frequency cap and clear current month's post log ──
+router.post("/campaign/:id/reset-cap", requireSecret, requirePin, (req, res) => {
+  const { id } = req.params;
+  const newCap = parseInt(req.body.frequency_cap, 10);
+  if (!newCap || newCap < 1 || newCap > 6) {
+    return res.status(400).json({ error: "frequency_cap must be 1-6" });
+  }
+
+  const campaign = db.prepare(`SELECT id, vendor_name FROM vendor_campaigns WHERE id = ?`).get(id);
+  if (!campaign) return res.status(404).json({ error: "Campaign not found" });
+
+  db.prepare(`UPDATE vendor_campaigns SET frequency_cap = ? WHERE id = ?`).run(newCap, id);
+
+  const thisMonth = new Date().toISOString().slice(0, 7);
+  db.prepare(`DELETE FROM vendor_post_log WHERE campaign_id = ? AND posted_month = ?`).run(id, thisMonth);
+
+  res.json({ ok: true, frequency_cap: newCap });
 });
 
 // ── POST /sync/:vendorName — Trigger on-demand vendor sync ────────────────────
