@@ -235,7 +235,7 @@ async function processCampaign(campaign, salon, windowStart, windowEnd, affiliat
   // 4. Require a photo
   if (!campaign.photo_url) {
     log.warn(`  Skipping campaign ${campaign.id} ("${campaign.campaign_name}") — no photo_url set`);
-    return false;
+    return 0;
   }
 
   // 5. Count existing vendor posts from this campaign in the 30-day window
@@ -253,7 +253,7 @@ async function processCampaign(campaign, salon, windowStart, windowEnd, affiliat
 
   if (existingCount >= cap) {
     log.info(`  Salon ${salonId} / campaign ${campaign.id}: window full (${existingCount}/${cap}) — skipping`);
-    return false;
+    return 0;
   }
 
   // 6. Divide 30-day window into cap equal intervals; fill ALL empty intervals this run
