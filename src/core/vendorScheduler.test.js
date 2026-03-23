@@ -1,6 +1,6 @@
 // src/core/vendorScheduler.test.js
-// Tests for vendorScheduler fill-all-slots behavior.
-// Uses an in-memory SQLite DB seeded with minimal fixtures.
+// Tests for vendorScheduler pure helper functions.
+// No DB or network required — tests exported functions directly.
 
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
@@ -31,6 +31,7 @@ describe("buildVendorHashtagBlock", () => {
       productHashtag: "#product",
     });
     const tags = block.split(" ");
+    assert.equal(tags.length, 7, "should have exactly 3 salon + 2 brand + 1 product + #MostlyPostly (7 total)");
     assert.ok(tags.includes("#a"));
     assert.ok(tags.includes("#b"));
     assert.ok(tags.includes("#c"));
