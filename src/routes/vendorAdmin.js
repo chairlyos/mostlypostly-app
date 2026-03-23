@@ -2947,7 +2947,12 @@ router.post("/salon/:slug/reset-vendor-month", requireSecret, requirePin, (req, 
       AND status = 'vendor_scheduled'
   `).run(slug);
 
-  console.log(`[vendorAdmin] Reset vendor month for ${slug}: deleted ${changes} vendor_scheduled post(s)`);
+  // Also clear vendor_post_log — this drives the per-campaign "Monthly cap reached"
+  // check and the counter shown on the salon's Preview Content page.
+  const thisMonth = new Date().toISOString().slice(0, 7);
+  db.prepare(`DELETE FROM vendor_post_log WHERE salon_id = ? AND posted_month = ?`).run(slug, thisMonth);
+
+  console.log(`[vendorAdmin] Reset vendor for ${slug}: deleted ${changes} vendor_scheduled post(s) + cleared vendor_post_log for ${thisMonth}`);
   res.redirect(`/internal/vendors/salon/${slug}${qs(req)}&reset=1`);
 });
 
