@@ -218,12 +218,13 @@ async function processSalon(salon, windowStart, windowEnd) {
 
   if (enabledVendors.length === 0) return 0;
 
-  // 3. For each enabled vendor, get active non-expired campaigns (with optional category filter)
-  let budgetRemaining = monthlyBudgetRemaining;
+  // 3. Collect ALL campaigns across ALL enabled vendors into a flat list,
+  //    then sort by last-scheduled timestamp (oldest first) so the campaign
+  //    that was used most recently gets its NEXT slot after others.
+  //    This promotes alternation: A → B → A → B rather than A A A → B B B.
+  const allCampaignItems = [];
 
   for (const vendor of enabledVendors) {
-    if (budgetRemaining <= 0) break;
-
     const vendorName      = vendor.vendor_name;
     const affiliateUrl    = vendor.affiliate_url || null;
     const categoryFilters = (() => {
@@ -244,16 +245,43 @@ async function processSalon(salon, windowStart, windowEnd) {
     campaignSql += " ORDER BY created_at ASC";
 
     const campaigns = db.prepare(campaignSql).all(...queryParams);
-
     for (const campaign of campaigns) {
-      if (budgetRemaining <= 0) break;
-      try {
-        const count = await processCampaign(campaign, salon, windowStart, windowEnd, affiliateUrl, vendorName, vendor.min_gap_days, budgetRemaining);
-        created += count;
-        budgetRemaining -= count;
-      } catch (err) {
-        log.warn(`Error processing campaign ${campaign.id} for salon ${salonId}: ${err.message}`);
-      }
+      allCampaignItems.push({ campaign, vendor, vendorName, affiliateUrl });
+    }
+  }
+
+  // Look up each campaign's most recently scheduled/published post time
+  for (const item of allCampaignItems) {
+    const lastPost = db.prepare(`
+      SELECT scheduled_for FROM posts
+      WHERE salon_id = ? AND vendor_campaign_id = ?
+        AND status IN ('vendor_scheduled','manager_pending','manager_approved','published')
+        AND scheduled_for IS NOT NULL
+      ORDER BY scheduled_for DESC LIMIT 1
+    `).get(salonId, item.campaign.id);
+    item.lastScheduledMs = lastPost?.scheduled_for
+      ? new Date(lastPost.scheduled_for.replace(" ", "T") + "Z").getTime()
+      : 0;
+  }
+
+  // Sort: campaign used least recently goes first → it gets earlier time slots
+  allCampaignItems.sort((a, b) => a.lastScheduledMs - b.lastScheduledMs);
+
+  if (allCampaignItems.length > 1) {
+    const names = allCampaignItems.map(i => `"${i.campaign.campaign_name}" (last: ${i.lastScheduledMs ? new Date(i.lastScheduledMs).toISOString().slice(0,10) : 'never'})`);
+    log.info(`Salon ${salonId}: campaign processing order → ${names.join(", ")}`);
+  }
+
+  let budgetRemaining = monthlyBudgetRemaining;
+
+  for (const { campaign, vendor, vendorName, affiliateUrl } of allCampaignItems) {
+    if (budgetRemaining <= 0) break;
+    try {
+      const count = await processCampaign(campaign, salon, windowStart, windowEnd, affiliateUrl, vendorName, vendor.min_gap_days, budgetRemaining);
+      created += count;
+      budgetRemaining -= count;
+    } catch (err) {
+      log.warn(`Error processing campaign ${campaign.id} for salon ${salonId}: ${err.message}`);
     }
   }
 
