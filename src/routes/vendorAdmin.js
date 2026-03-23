@@ -2640,4 +2640,43 @@ router.post("/sync/:vendorName", requireSecret, requirePin, (req, res) => {
   res.json({ status: "started", vendor: vendorName, message: "Sync started — refresh page in a few minutes to see results" });
 });
 
+// ── POST /resequence-posts — Renumber salon_post_number from 1 in chronological order ──
+router.post("/resequence-posts", requireSecret, requirePin, (req, res) => {
+  const { salon } = req.query;
+  if (!salon) return res.status(400).json({ error: "salon query param required" });
+
+  try {
+    const posts = db.prepare(`
+      SELECT id, salon_post_number
+      FROM posts
+      WHERE salon_id = ?
+        AND status NOT IN ('cancelled', 'draft')
+      ORDER BY COALESCE(published_at, scheduled_for) ASC, id ASC
+    `).all(salon);
+
+    if (posts.length === 0) {
+      return res.json({ salon, updated: 0, mappings: [] });
+    }
+
+    const mappings = [];
+    const update = db.prepare(
+      "UPDATE posts SET salon_post_number = ? WHERE id = ?"
+    );
+
+    const resequence = db.transaction(() => {
+      posts.forEach((post, idx) => {
+        const newNum = idx + 1;
+        mappings.push({ id: post.id, old: post.salon_post_number, new: newNum });
+        update.run(newNum, post.id);
+      });
+    });
+
+    resequence();
+
+    return res.json({ salon, updated: posts.length, mappings });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 export default router;
