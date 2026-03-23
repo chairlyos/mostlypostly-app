@@ -141,7 +141,7 @@ Remember: this is for ${salonName} — write in their voice (${tone}), not the b
 // =====================================================
 
 export async function runVendorScheduler() {
-  const LOOKAHEAD_DAYS = 30;
+  const LOOKAHEAD_DAYS = 14;
   const windowStart = new Date();
   windowStart.setHours(0, 0, 0, 0);
   const windowEnd = new Date(windowStart.getTime() + LOOKAHEAD_DAYS * 24 * 60 * 60 * 1000);

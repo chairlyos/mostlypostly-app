@@ -1549,6 +1549,18 @@ document.addEventListener('change', function(e) {
   if (sel) { var f = sel.closest('form'); if (f) f.submit(); }
 });
 
+document.addEventListener('change', function(e) {
+  var input = e.target;
+  if (!input.hasAttribute || !input.hasAttribute('data-apply-all')) return;
+  var plat = input.getAttribute('data-apply-all');
+  var checked = input.checked;
+  document.querySelectorAll('input.col-' + plat).forEach(function(cb) {
+    if (cb.checked !== checked) {
+      cb.checked = checked;
+    }
+  });
+});
+
 // Top-level Add Campaign: load brand categories when vendor name changes
 (function() {
   var vendorInput = document.getElementById('top-form-vendor-name');
