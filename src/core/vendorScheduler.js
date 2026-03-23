@@ -274,21 +274,30 @@ async function processSalon(salon, windowStart, windowEnd) {
 
   let budgetRemaining = monthlyBudgetRemaining;
 
-  for (const { campaign, vendor, vendorName, affiliateUrl } of allCampaignItems) {
-    if (budgetRemaining <= 0) break;
-    try {
-      const count = await processCampaign(campaign, salon, windowStart, windowEnd, affiliateUrl, vendorName, vendor.min_gap_days, budgetRemaining);
-      created += count;
-      budgetRemaining -= count;
-    } catch (err) {
-      log.warn(`Error processing campaign ${campaign.id} for salon ${salonId}: ${err.message}`);
+  // Round-robin: each campaign fills ONE slot per pass before any campaign gets a second.
+  // This ensures true alternation (A → B → C → A) rather than (A A A → B B B).
+  let anyCreated;
+  do {
+    anyCreated = false;
+    for (const { campaign, vendor, vendorName, affiliateUrl } of allCampaignItems) {
+      if (budgetRemaining <= 0) break;
+      try {
+        const count = await processCampaign(campaign, salon, windowStart, windowEnd, affiliateUrl, vendorName, vendor.min_gap_days, budgetRemaining, 1);
+        if (count > 0) {
+          created += count;
+          budgetRemaining -= count;
+          anyCreated = true;
+        }
+      } catch (err) {
+        log.warn(`Error processing campaign ${campaign.id} for salon ${salonId}: ${err.message}`);
+      }
     }
-  }
+  } while (anyCreated && budgetRemaining > 0);
 
   return created;
 }
 
-async function processCampaign(campaign, salon, windowStart, windowEnd, affiliateUrl, vendorName, minGapDays, monthlyBudget) {
+async function processCampaign(campaign, salon, windowStart, windowEnd, affiliateUrl, vendorName, minGapDays, monthlyBudget, maxNewPosts = Infinity) {
   const salonId = salon.slug;
   const tz = salon.timezone || "America/Indiana/Indianapolis";
   const cap = Math.min(campaign.frequency_cap ?? 3, monthlyBudget ?? Infinity);
@@ -471,6 +480,7 @@ async function processCampaign(campaign, salon, windowStart, windowEnd, affiliat
     lastScheduledMs = candidateMs;
     log.info(`  ✅ Created vendor_scheduled post ${postId} for salon ${salonId} → ${scheduledFor} (interval ${i})`);
     created++;
+    if (created >= maxNewPosts) break; // yield to other campaigns in round-robin
   }
 
   if (created === 0) {
