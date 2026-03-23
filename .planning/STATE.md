@@ -176,9 +176,10 @@ None yet.
 | 260321-v47 | Calendar layout polish: full-height week columns, 2-row controls, funnel filter icon, view toggle spacing | 2026-03-22 | 0f5724a | [260321-v47-calendar-layout-polish-full-height-week-](./quick/260321-v47-calendar-layout-polish-full-height-week-/) |
 | 260322-sl4 | Fix recent activity and upcoming promos timestamps to display in salon local timezone | 2026-03-22 | 4a34237 | [260322-sl4-fix-recent-activity-showing-incorrect-lo](./quick/260322-sl4-fix-recent-activity-showing-incorrect-lo/) |
 | 260322-sq7 | Add POST /internal/vendors/resequence-posts to fix salon_post_number gaps in production | 2026-03-22 | 35e695b | [260322-sq7-resequence-salon-post-number-starting-fr](./quick/260322-sq7-resequence-salon-post-number-starting-fr/) |
+| 260322-tew | Add inline frequency cap editor and reset-cap endpoint on brand detail page | 2026-03-22 | 6df87f5 | [260322-tew-add-vendor-campaign-frequency-cap-reset-](./quick/260322-tew-add-vendor-campaign-frequency-cap-reset-/) |
 
 ## Session Continuity
 
-Last session: 2026-03-22T02:24:15.235Z
-Stopped at: Completed quick task 260322-sq7: resequence salon post numbers
+Last session: 2026-03-23T01:14:25Z
+Stopped at: Completed quick task 260322-tew: add vendor campaign frequency cap reset
 Resume file: None
