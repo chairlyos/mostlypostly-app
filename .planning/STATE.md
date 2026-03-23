@@ -175,9 +175,10 @@ None yet.
 | 260321-o2q | Rename placeholder vendor brands to Aveda, Redken, Olaplex with brand-specific hashtags and categories | 2026-03-21 | dd5f809 | [260321-o2q-update-the-stock-vendor-brands-locally-t](./quick/260321-o2q-update-the-stock-vendor-brands-locally-t/) |
 | 260321-v47 | Calendar layout polish: full-height week columns, 2-row controls, funnel filter icon, view toggle spacing | 2026-03-22 | 0f5724a | [260321-v47-calendar-layout-polish-full-height-week-](./quick/260321-v47-calendar-layout-polish-full-height-week-/) |
 | 260322-sl4 | Fix recent activity and upcoming promos timestamps to display in salon local timezone | 2026-03-22 | 4a34237 | [260322-sl4-fix-recent-activity-showing-incorrect-lo](./quick/260322-sl4-fix-recent-activity-showing-incorrect-lo/) |
+| 260322-sq7 | Add POST /internal/vendors/resequence-posts to fix salon_post_number gaps in production | 2026-03-22 | 35e695b | [260322-sq7-resequence-salon-post-number-starting-fr](./quick/260322-sq7-resequence-salon-post-number-starting-fr/) |
 
 ## Session Continuity
 
 Last session: 2026-03-22T02:24:15.235Z
-Stopped at: Completed quick task 260322-sl4: fix recent activity timezone
+Stopped at: Completed quick task 260322-sq7: resequence salon post numbers
 Resume file: None
