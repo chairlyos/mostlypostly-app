@@ -150,7 +150,8 @@ export async function runVendorScheduler() {
 
   const proSalons = db.prepare(`
     SELECT slug, name, tone, default_hashtags, require_manager_approval,
-           posting_start_time, posting_end_time, timezone
+           posting_start_time, posting_end_time, timezone,
+           COALESCE(vendor_monthly_cap, 8) AS vendor_monthly_cap
     FROM salons
     WHERE plan IN ('pro')
       AND plan_status IN ('active', 'trialing')
@@ -173,7 +174,34 @@ export async function runVendorScheduler() {
 
 async function processSalon(salon, windowStart, windowEnd) {
   const salonId = salon.slug;
+  const monthlyCapTotal = salon.vendor_monthly_cap ?? 8;
   let created = 0;
+
+  // 1. Count all vendor posts this month (any status including published) —
+  //    this is the global throttle regardless of which campaign produced them.
+  const monthStart = new Date(windowStart.getFullYear(), windowStart.getMonth(), 1);
+  const monthEnd   = new Date(windowStart.getFullYear(), windowStart.getMonth() + 1, 1);
+  const monthStartSql = monthStart.toISOString().replace("T", " ").slice(0, 19);
+  const monthEndSql   = monthEnd.toISOString().replace("T", " ").slice(0, 19);
+
+  const { vendorMonthCount } = db.prepare(`
+    SELECT COUNT(*) AS vendorMonthCount
+    FROM posts
+    WHERE salon_id = ?
+      AND vendor_campaign_id IS NOT NULL
+      AND status IN ('vendor_scheduled','manager_pending','manager_approved','published')
+      AND scheduled_for >= ?
+      AND scheduled_for < ?
+  `).get(salonId, monthStartSql, monthEndSql);
+
+  const monthlyBudgetRemaining = monthlyCapTotal - vendorMonthCount;
+
+  if (monthlyBudgetRemaining <= 0) {
+    log.info(`Salon ${salonId}: monthly vendor cap reached (${vendorMonthCount}/${monthlyCapTotal}) — skipping all campaigns`);
+    return 0;
+  }
+
+  log.info(`Salon ${salonId}: monthly vendor budget ${vendorMonthCount}/${monthlyCapTotal} used, ${monthlyBudgetRemaining} remaining`);
 
   // 2. Get enabled vendor feeds for this salon (Pro plan is the gate)
   //    JOIN vendor_brands to get platform-level frequency controls.
@@ -191,7 +219,11 @@ async function processSalon(salon, windowStart, windowEnd) {
   if (enabledVendors.length === 0) return 0;
 
   // 3. For each enabled vendor, get active non-expired campaigns (with optional category filter)
+  let budgetRemaining = monthlyBudgetRemaining;
+
   for (const vendor of enabledVendors) {
+    if (budgetRemaining <= 0) break;
+
     const vendorName      = vendor.vendor_name;
     const affiliateUrl    = vendor.affiliate_url || null;
     const categoryFilters = (() => {
@@ -214,9 +246,11 @@ async function processSalon(salon, windowStart, windowEnd) {
     const campaigns = db.prepare(campaignSql).all(...queryParams);
 
     for (const campaign of campaigns) {
+      if (budgetRemaining <= 0) break;
       try {
-        const count = await processCampaign(campaign, salon, windowStart, windowEnd, affiliateUrl, vendorName, vendor.min_gap_days);
+        const count = await processCampaign(campaign, salon, windowStart, windowEnd, affiliateUrl, vendorName, vendor.min_gap_days, budgetRemaining);
         created += count;
+        budgetRemaining -= count;
       } catch (err) {
         log.warn(`Error processing campaign ${campaign.id} for salon ${salonId}: ${err.message}`);
       }
@@ -226,11 +260,10 @@ async function processSalon(salon, windowStart, windowEnd) {
   return created;
 }
 
-async function processCampaign(campaign, salon, windowStart, windowEnd, affiliateUrl, vendorName, minGapDays) {
+async function processCampaign(campaign, salon, windowStart, windowEnd, affiliateUrl, vendorName, minGapDays, monthlyBudget) {
   const salonId = salon.slug;
   const tz = salon.timezone || "America/Indiana/Indianapolis";
-  const cap = campaign.frequency_cap ?? 3;
-  const lookaheadDays = 30;
+  const cap = Math.min(campaign.frequency_cap ?? 3, monthlyBudget ?? Infinity);
 
   // 4. Require a photo
   if (!campaign.photo_url) {
@@ -238,9 +271,26 @@ async function processCampaign(campaign, salon, windowStart, windowEnd, affiliat
     return 0;
   }
 
-  // 5. Count existing vendor posts from this campaign in the 30-day window
+  // Clamp effective window end to campaign expiration date (end of that day, salon timezone)
+  let effectiveWindowEnd = windowEnd;
+  if (campaign.expires_at) {
+    const expiryEndOfDay = DateTime.fromISO(campaign.expires_at, { zone: tz }).endOf("day").toJSDate();
+    if (expiryEndOfDay < effectiveWindowEnd) {
+      effectiveWindowEnd = expiryEndOfDay;
+      log.info(`  Campaign ${campaign.id} expires ${campaign.expires_at} — clamping window to ${expiryEndOfDay.toISOString().slice(0, 10)}`);
+    }
+    if (effectiveWindowEnd <= windowStart) {
+      log.info(`  Campaign ${campaign.id} expires before window start — skipping`);
+      return 0;
+    }
+  }
+
+  // Recalculate lookahead based on clamped window
+  const effectiveLookaheadMs = effectiveWindowEnd.getTime() - windowStart.getTime();
+
+  // 5. Count existing vendor posts from this campaign in the effective window
   const windowStartSql = windowStart.toISOString().replace("T", " ").slice(0, 19);
-  const windowEndSql   = windowEnd.toISOString().replace("T", " ").slice(0, 19);
+  const windowEndSql   = effectiveWindowEnd.toISOString().replace("T", " ").slice(0, 19);
 
   const { existingCount } = db.prepare(`
     SELECT COUNT(*) AS existingCount
@@ -256,9 +306,23 @@ async function processCampaign(campaign, salon, windowStart, windowEnd, affiliat
     return 0;
   }
 
-  // 6. Divide 30-day window into cap equal intervals; fill ALL empty intervals this run
-  const intervalMs = (lookaheadDays * 24 * 60 * 60 * 1000) / cap;
+  // 6. Divide effective window into cap equal intervals; fill ALL empty intervals this run
+  const intervalMs = effectiveLookaheadMs / cap;
+  const minGapMs   = minGapDays * 24 * 60 * 60 * 1000;
   let created = 0;
+
+  // Track latest scheduled time across ALL vendor campaigns for this salon (cross-campaign gap).
+  // Includes published posts so manually-published vendor content is counted too.
+  const latestExistingRow = db.prepare(`
+    SELECT scheduled_for FROM posts
+    WHERE salon_id = ?
+      AND vendor_campaign_id IS NOT NULL
+      AND status IN ('vendor_scheduled','manager_pending','manager_approved','published')
+    ORDER BY scheduled_for DESC LIMIT 1
+  `).get(salonId);
+  let lastScheduledMs = latestExistingRow?.scheduled_for
+    ? new Date(latestExistingRow.scheduled_for.replace(" ", "T") + "Z").getTime()
+    : null;
 
   // 8. Build locked hashtag block (campaign-level constant — computed once, outside the loop)
   const brandCfg = db.prepare(`SELECT brand_hashtags FROM vendor_brands WHERE vendor_name = ?`).get(campaign.vendor_name);
@@ -268,7 +332,7 @@ async function processCampaign(campaign, salon, windowStart, windowEnd, affiliat
 
   for (let i = 0; i < cap; i++) {
     const intStart = new Date(windowStart.getTime() + i * intervalMs);
-    const intEnd   = new Date(windowStart.getTime() + (i + 1) * intervalMs);
+    const intEnd   = new Date(Math.min(windowStart.getTime() + (i + 1) * intervalMs, effectiveWindowEnd.getTime()));
     const intStartSql = intStart.toISOString().replace("T", " ").slice(0, 19);
     const intEndSql   = intEnd.toISOString().replace("T", " ").slice(0, 19);
 
@@ -300,7 +364,15 @@ async function processCampaign(campaign, salon, windowStart, windowEnd, affiliat
         hour: postHour, minute: postMinute, second: 0 },
       { zone: tz }
     );
+    const candidateMs  = localDt.toMillis();
     const scheduledFor = localDt.toUTC().toFormat("yyyy-LL-dd HH:mm:ss");
+
+    // Enforce minimum gap between vendor posts for this campaign
+    if (lastScheduledMs !== null && candidateMs - lastScheduledMs < minGapMs) {
+      const gapDays = ((candidateMs - lastScheduledMs) / 86_400_000).toFixed(1);
+      log.info(`  Skipping interval ${i} — gap ${gapDays}d < required ${minGapDays}d minimum`);
+      continue;
+    }
 
     // 7. Generate AI caption for this slot
     let caption;
@@ -365,6 +437,7 @@ async function processCampaign(campaign, salon, windowStart, windowEnd, affiliat
       VALUES (@id, @salon_id, @campaign_id, @post_id, @posted_month, @created_at)
     `).run({ id: crypto.randomUUID(), salon_id: salonId, campaign_id: campaign.id, post_id: postId, posted_month: postedMonth, created_at: now });
 
+    lastScheduledMs = candidateMs;
     log.info(`  ✅ Created vendor_scheduled post ${postId} for salon ${salonId} → ${scheduledFor} (interval ${i})`);
     created++;
   }
