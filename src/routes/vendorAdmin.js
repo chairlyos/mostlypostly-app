@@ -207,7 +207,8 @@ router.post("/reset-routing", requireSecret, requirePin, (req, res) => {
   if (!salonSlug) return res.status(400).send('salon param required');
   db.prepare(`UPDATE salons SET platform_routing = NULL WHERE slug = ?`).run(salonSlug);
   console.log(`[vendorAdmin] Reset platform_routing for ${salonSlug} to NULL`);
-  res.redirect(`/internal/vendors${qs(req)}&routing_reset=${encodeURIComponent(salonSlug)}`);
+  const redirectTo = req.body.redirect_to;
+  res.redirect(redirectTo ? `${redirectTo}${qs(req)}&saved=1` : `/internal/vendors${qs(req)}&routing_reset=${encodeURIComponent(salonSlug)}`);
 });
 
 // ── POST /set-standard-routing — Apply a routing config to all (or unset) salons ─
@@ -2736,6 +2737,7 @@ router.get("/salon/:slug", requireSecret, requirePin, (req, res) => {
   const salon = db.prepare(`
     SELECT s.slug, s.name, s.plan, s.plan_status, s.created_at, s.city, s.state,
            COALESCE(s.vendor_monthly_cap, 8) AS vendor_monthly_cap,
+           s.platform_routing,
            m.email, m.name AS manager_name
     FROM salons s
     LEFT JOIN managers m ON m.salon_id = s.slug AND m.role = 'owner'
@@ -2847,6 +2849,60 @@ router.get("/salon/:slug", requireSecret, requirePin, (req, res) => {
       </div>
     </div>
 
+    <!-- Platform Routing -->
+    ${(() => {
+      const POST_TYPES = { availability:"Availability", before_after:"Before & After", celebration:"Celebration", celebration_story:"Celebration Story", standard_post:"Standard Post", reel:"Reel / Video", promotions:"Promotions", product_education:"Product Education" };
+      const PLATFORMS = ["facebook","instagram","gmb","tiktok"];
+      const salonRouting = mergeRoutingDefaults(salon.platform_routing);
+      const isCustom = !!salon.platform_routing;
+      return `
+    <div class="border rounded-2xl bg-white overflow-hidden mb-6">
+      <div class="px-6 py-4 border-b flex items-center justify-between">
+        <div>
+          <h2 class="font-bold text-sm">Platform Routing</h2>
+          <p class="text-xs text-gray-500 mt-0.5">${isCustom ? "Custom rules active for this salon." : "Using platform defaults — no custom rules set."}</p>
+        </div>
+        ${isCustom ? `
+        <form method="POST" action="/internal/vendors/reset-routing${qs(req)}"
+              onsubmit="return confirm('Reset to all-enabled defaults?')">
+          <input type="hidden" name="salon" value="${safe(salon.slug)}" />
+          <input type="hidden" name="redirect_to" value="/internal/vendors/salon/${safe(salon.slug)}" />
+          <button type="submit" class="text-xs border border-red-200 text-red-500 rounded-lg px-3 py-1.5 hover:bg-red-50">Reset to defaults</button>
+        </form>` : ""}
+      </div>
+      <div class="px-6 py-5">
+        <form method="POST" action="/internal/vendors/salon/${safe(salon.slug)}/routing${qs(req)}">
+          <div class="overflow-x-auto mb-4">
+            <table class="text-sm border-collapse w-full">
+              <thead>
+                <tr class="text-xs text-gray-500 uppercase tracking-wide">
+                  <th class="text-left pr-6 pb-2 font-medium"></th>
+                  ${PLATFORMS.map(plat => `<th class="text-center px-3 pb-2 font-medium">${plat === "gmb" ? "GMB" : plat.charAt(0).toUpperCase()+plat.slice(1)}</th>`).join("")}
+                </tr>
+              </thead>
+              <tbody>
+                ${Object.entries(POST_TYPES).map(([pt, label]) => `
+                  <tr class="border-t border-gray-100">
+                    <td class="text-sm text-gray-700 py-2 pr-6 font-medium">${label}</td>
+                    ${PLATFORMS.map(plat => {
+                      const checked = salonRouting[pt]?.[plat] !== false;
+                      return `<td class="text-center py-2 px-3">
+                        <label class="relative inline-flex items-center cursor-pointer">
+                          <input type="checkbox" name="routing_${pt}_${plat}" value="1"${checked ? " checked" : ""} class="sr-only peer">
+                          <div class="w-10 h-5 rounded-full transition-colors peer-checked:bg-blue-500 bg-gray-200 relative after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:w-4 after:h-4 after:rounded-full after:bg-white after:shadow after:transition-all peer-checked:after:translate-x-5"></div>
+                        </label>
+                      </td>`;
+                    }).join("")}
+                  </tr>`).join("")}
+              </tbody>
+            </table>
+          </div>
+          <button type="submit" class="text-sm bg-gray-900 text-white rounded-lg px-3 py-1.5 hover:bg-gray-700">Save Routing</button>
+        </form>
+      </div>
+    </div>`;
+    })()}
+
   </body></html>`);
 });
 
@@ -2858,6 +2914,23 @@ router.post("/salon/:slug/config", requireSecret, requirePin, (req, res) => {
 
   db.prepare(`UPDATE salons SET vendor_monthly_cap = ? WHERE slug = ?`).run(cap, slug);
   console.log(`[vendorAdmin] Set vendor_monthly_cap=${cap} for salon ${slug}`);
+  res.redirect(`/internal/vendors/salon/${slug}${qs(req)}&saved=1`);
+});
+
+// ── POST /salon/:slug/routing — Save custom platform routing for one salon ──────
+router.post("/salon/:slug/routing", requireSecret, requirePin, (req, res) => {
+  const { slug } = req.params;
+  const POST_TYPES = ["availability","before_after","celebration","celebration_story","standard_post","reel","promotions","product_education"];
+  const PLATFORMS  = ["facebook","instagram","gmb","tiktok"];
+  const routing = {};
+  for (const pt of POST_TYPES) {
+    routing[pt] = {};
+    for (const plat of PLATFORMS) {
+      routing[pt][plat] = [].concat(req.body[`routing_${pt}_${plat}`] ?? []).includes("1");
+    }
+  }
+  db.prepare(`UPDATE salons SET platform_routing = ? WHERE slug = ?`).run(JSON.stringify(routing), slug);
+  console.log(`[vendorAdmin] Saved custom routing for ${slug}`);
   res.redirect(`/internal/vendors/salon/${slug}${qs(req)}&saved=1`);
 });
 
