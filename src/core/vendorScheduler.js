@@ -260,6 +260,12 @@ async function processCampaign(campaign, salon, windowStart, windowEnd, affiliat
   const intervalMs = (lookaheadDays * 24 * 60 * 60 * 1000) / cap;
   let created = 0;
 
+  // 8. Build locked hashtag block (campaign-level constant — computed once, outside the loop)
+  const brandCfg = db.prepare(`SELECT brand_hashtags FROM vendor_brands WHERE vendor_name = ?`).get(campaign.vendor_name);
+  const brandHashtags = (() => { try { return JSON.parse(brandCfg?.brand_hashtags || "[]"); } catch { return []; } })();
+  const salonDefaultTags = (() => { try { return JSON.parse(salon.default_hashtags || "[]"); } catch { return []; } })();
+  const lockedBlock = buildVendorHashtagBlock({ salonHashtags: salonDefaultTags, brandHashtags, productHashtag: campaign.product_hashtag || null });
+
   for (let i = 0; i < cap; i++) {
     const intStart = new Date(windowStart.getTime() + i * intervalMs);
     const intEnd   = new Date(windowStart.getTime() + (i + 1) * intervalMs);
@@ -309,12 +315,6 @@ async function processCampaign(campaign, salon, windowStart, windowEnd, affiliat
       log.warn(`  Skipping interval ${i} for campaign ${campaign.id} — no caption available`);
       continue; // skip this slot, try next interval
     }
-
-    // 8. Build locked hashtag block
-    const brandCfg = db.prepare(`SELECT brand_hashtags FROM vendor_brands WHERE vendor_name = ?`).get(campaign.vendor_name);
-    const brandHashtags = (() => { try { return JSON.parse(brandCfg?.brand_hashtags || "[]"); } catch { return []; } })();
-    const salonDefaultTags = (() => { try { return JSON.parse(salon.default_hashtags || "[]"); } catch { return []; } })();
-    const lockedBlock = buildVendorHashtagBlock({ salonHashtags: salonDefaultTags, brandHashtags, productHashtag: campaign.product_hashtag || null });
 
     // 9. salon_post_number
     const { maxnum } = db.prepare(`SELECT MAX(salon_post_number) AS maxnum FROM posts WHERE salon_id = ?`).get(salonId) || {};
@@ -370,7 +370,7 @@ async function processCampaign(campaign, salon, windowStart, windowEnd, affiliat
   }
 
   if (created === 0) {
-    log.info(`  Salon ${salonId} / campaign ${campaign.id}: all ${cap} slots filled — skipping`);
+    log.info(`  Salon ${salonId} / campaign ${campaign.id}: no new slots to fill (all taken or captions unavailable)`);
   }
 
   return created;
