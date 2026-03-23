@@ -358,7 +358,12 @@ router.get("/", requireAuth, async (req, res) => {
                       Cancel
                     </a>` : ""}
                 </div>
-                <p class="text-xs text-mpMuted mb-2">${esc(fmt(p.created_at))}</p>
+                <p class="text-xs text-mpMuted mb-2">
+                  ${p.status === 'published' && p.published_at
+                    ? `Published: ${esc(fmt(p.published_at))}`
+                    : `Approved: ${esc(fmt(p.updated_at || p.created_at))}`}
+                  ${p.scheduled_for ? ` &nbsp;·&nbsp; Scheduled: ${esc(fmt(p.scheduled_for))}` : ""}
+                </p>
 
                 <!-- Collapsed Caption -->
                 <p class="caption-preview text-sm text-mpMuted leading-relaxed line-clamp-2">
