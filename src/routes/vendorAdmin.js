@@ -2841,8 +2841,8 @@ router.get("/salon/:slug", requireSecret, requirePin, (req, res) => {
               <div class="text-xs text-gray-500 mt-0.5">${vendorMonthCount} of ${salon.vendor_monthly_cap} used — resets on the 1st of each month</div>
             </div>
             <form method="POST" action="/internal/vendors/salon/${safe(salon.slug)}/reset-vendor-month${qs(req)}"
-                  onsubmit="return confirm('Delete all vendor_scheduled posts for this salon this month and reset the counter? The scheduler will refill on its next run.')">
-              <button type="submit" class="text-xs border border-red-200 text-red-500 rounded-lg px-3 py-1.5 hover:bg-red-50">Reset Month</button>
+                  onsubmit="return confirm('Delete ALL pending vendor_scheduled posts for this salon (across all future dates) so the scheduler can refill from scratch? Published/approved posts are not affected.')">
+              <button type="submit" class="text-xs border border-red-200 text-red-500 rounded-lg px-3 py-1.5 hover:bg-red-50">Reset &amp; Refill</button>
             </form>
           </div>
         </div>
@@ -2937,19 +2937,15 @@ router.post("/salon/:slug/routing", requireSecret, requirePin, (req, res) => {
 // ── POST /salon/:slug/reset-vendor-month — Delete this month's vendor_scheduled posts ──
 router.post("/salon/:slug/reset-vendor-month", requireSecret, requirePin, (req, res) => {
   const { slug } = req.params;
-  const now = new Date();
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().replace("T", " ").slice(0, 19);
-  const monthEnd   = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString().replace("T", " ").slice(0, 19);
-
-  // Only delete vendor_scheduled posts — leave manager_approved/published untouched
+  // Delete ALL vendor_scheduled posts for this salon (any future date) —
+  // the scheduler uses a 30-day lookahead window so posts land in future months,
+  // not just the current calendar month. Leave manager_approved/published untouched.
   const { changes } = db.prepare(`
     DELETE FROM posts
     WHERE salon_id = ?
       AND vendor_campaign_id IS NOT NULL
       AND status = 'vendor_scheduled'
-      AND scheduled_for >= ?
-      AND scheduled_for < ?
-  `).run(slug, monthStart, monthEnd);
+  `).run(slug);
 
   console.log(`[vendorAdmin] Reset vendor month for ${slug}: deleted ${changes} vendor_scheduled post(s)`);
   res.redirect(`/internal/vendors/salon/${slug}${qs(req)}&reset=1`);
