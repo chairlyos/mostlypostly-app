@@ -962,14 +962,16 @@ router.get("/", requireSecret, requirePin, (req, res) => {
                 <span class="inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${statusColor(s.plan_status)}">${safe(s.plan_status || "trialing")}</span>
               </td>
               <td class="px-4 py-3 text-xs text-gray-400">${safe((s.created_at || "").slice(0, 10))}</td>
-              <td class="px-4 py-3 flex items-center gap-3">
-                <a href="/internal/vendors/salon/${safe(s.slug)}${qs(req)}"
-                   class="text-xs bg-gray-900 text-white rounded px-2.5 py-1 hover:bg-gray-700 whitespace-nowrap">Settings →</a>
-                <form method="POST" action="/internal/vendors/delete-salon${qs(req)}"
-                      data-confirm="Permanently delete ${safe(s.name)} and all associated data? This cannot be undone.">
-                  <input type="hidden" name="salon_slug" value="${safe(s.slug)}" />
-                  <button type="submit" class="text-xs text-red-400 hover:text-red-600">Delete</button>
-                </form>
+              <td class="px-4 py-3">
+                <div class="flex items-center gap-3">
+                  <a href="/internal/vendors/salon/${safe(s.slug)}${qs(req)}"
+                     class="text-xs bg-gray-900 text-white rounded px-2.5 py-1 hover:bg-gray-700 whitespace-nowrap">Settings →</a>
+                  <form method="POST" action="/internal/vendors/delete-salon${qs(req)}"
+                        data-confirm="Permanently delete ${safe(s.name)} and all associated data? This cannot be undone.">
+                    <input type="hidden" name="salon_slug" value="${safe(s.slug)}" />
+                    <button type="submit" class="text-xs text-red-400 hover:text-red-600">Delete</button>
+                  </form>
+                </div>
               </td>
             </tr>`).join("")}
           </tbody>

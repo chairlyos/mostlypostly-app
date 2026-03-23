@@ -222,11 +222,14 @@ router.get("/", requireAuth, async (req, res) => {
   const fmt = (iso) => {
     try {
       if (!iso) return "—";
-      return DateTime.fromISO(iso, { zone: "utc" }).setZone(tz).toFormat(
+      // SQLite stores datetimes as "YYYY-MM-DD HH:MM:SS" (space, no T, no Z).
+      // Normalize to ISO before parsing so Luxon doesn't return Invalid DateTime.
+      const normalized = String(iso).replace(" ", "T").replace(/(\d{2}:\d{2}:\d{2})$/, "$1Z");
+      return DateTime.fromISO(normalized, { zone: "utc" }).setZone(tz).toFormat(
         "MMM d, yyyy • h:mm a"
       );
     } catch {
-      return iso;
+      return String(iso);
     }
   };
 
