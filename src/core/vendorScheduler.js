@@ -347,10 +347,13 @@ async function processCampaign(campaign, salon, windowStart, windowEnd, affiliat
 
     if (slotTaken > 0) continue; // manager moved a post here — respect it
 
-    // Pick a random day within this interval, at a random time within posting hours
-    const intervalDays = Math.max(1, Math.floor(intervalMs / (24 * 60 * 60 * 1000)));
-    const randDayOffset = Math.floor(Math.random() * intervalDays);
-    const candidateDay = new Date(intStart.getTime() + randDayOffset * 24 * 60 * 60 * 1000);
+    // Pin to interval midpoint ± 1 day jitter — keeps posts evenly spaced
+    // rather than randomly distributed across the full interval (which causes large gaps).
+    const dayMs = 24 * 60 * 60 * 1000;
+    const midpointMs = intStart.getTime() + intervalMs / 2;
+    const jitterMs = (Math.random() * 2 - 1) * dayMs; // -1 to +1 day
+    const candidateDayMs = Math.max(intStart.getTime(), Math.min(intEnd.getTime() - dayMs, midpointMs + jitterMs));
+    const candidateDay = new Date(candidateDayMs);
 
     const [startH, startM] = (salon.posting_start_time || "09:00").split(":").map(Number);
     const [endH,   endM]   = (salon.posting_end_time   || "20:00").split(":").map(Number);
