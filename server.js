@@ -394,12 +394,6 @@ app.use("/stylist", stylistPortal);
 app.use("/onboarding", onboardingRoutes);
 
 // -------------------------------------------------------
-// 4b. BILLING ROUTES (checkout, success, manager/billing)
-// -------------------------------------------------------
-app.use("/billing", billingRoutes);
-app.use(billingRoutes); // also handles /manager/billing
-
-// -------------------------------------------------------
 // 4. ONBOARDING GUARD (must run AFTER onboarding)
 // -------------------------------------------------------
 app.use(onboardingGuard);
@@ -413,6 +407,13 @@ app.use(tenantFromLink()); // FIX: remove "()"
 // 6. RESTORE MANAGER BEFORE ADMIN ROUTES
 // -------------------------------------------------------
 app.use(restoreManagerSession);
+
+// -------------------------------------------------------
+// 6b. BILLING ROUTES (checkout, success, manager/billing)
+// Must come AFTER restoreManagerSession so req.manager is set for auth checks.
+// -------------------------------------------------------
+app.use("/billing", billingRoutes);
+app.use(billingRoutes); // also handles /manager/billing
 
 // -------------------------------------------------------
 // 7. ADMIN ROUTES
