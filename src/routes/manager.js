@@ -16,6 +16,7 @@ import { PLAN_LIMITS } from "./billing.js";
 import { translatePostError } from "../core/postErrorTranslator.js";
 import { savePost } from "../core/storage.js";
 import { UPLOADS_DIR, toUploadUrl } from "../core/uploadPath.js";
+import { requireRole } from "../middleware/auth.js";
 
 // Multer config for coordinator photo uploads
 const coordinatorUpload = multer({
@@ -142,6 +143,7 @@ function requireAuth(req, res, next) {
     salon_id: req.session.salon_id || row.salon_id,
     phone: row.phone,
     name: row.name || "Manager",
+    role: row.role,
   };
 
   next();
@@ -510,7 +512,7 @@ router.get("/", requireAuth, async (req, res) => {
   const body = `
       <div class="flex items-center justify-between mb-2">
         <h1 class="text-2xl font-extrabold text-mpCharcoal">
-          Manager Dashboard
+          Dashboard
         </h1>
         <div class="flex items-center gap-2">
           <a href="/manager/coordinator/upload"
@@ -645,7 +647,7 @@ router.get("/", requireAuth, async (req, res) => {
 
   return res.send(
     pageShell({
-      title: "Manager Dashboard",
+      title: "Dashboard",
       current: "manager",
       salon_id,
       manager_id: req.manager.id,
@@ -657,7 +659,7 @@ router.get("/", requireAuth, async (req, res) => {
 /* -------------------------------------------------------------
    APPROVE
 ------------------------------------------------------------- */
-router.get("/approve", requireAuth, async (req, res) => {
+router.get("/approve", requireAuth, requireRole("owner", "manager"), async (req, res) => {
   const id = req.query.post;
   if (!id) return res.redirect("/manager");
 
@@ -712,7 +714,7 @@ router.get("/approve", requireAuth, async (req, res) => {
 /* -------------------------------------------------------------
    POST NOW
 ------------------------------------------------------------- */
-router.get("/post-now", requireAuth, (req, res) => {
+router.get("/post-now", requireAuth, requireRole("owner", "manager"), (req, res) => {
   const id = req.query.post;
   const salon_id = req.manager.salon_id;
 
@@ -734,7 +736,7 @@ router.get("/post-now", requireAuth, (req, res) => {
 /* -------------------------------------------------------------
    CANCEL
 ------------------------------------------------------------- */
-router.get("/cancel", requireAuth, (req, res) => {
+router.get("/cancel", requireAuth, requireRole("owner", "manager"), (req, res) => {
   const id = req.query.post;
   const salon_id = req.manager.salon_id;
   if (id) {
@@ -751,7 +753,7 @@ router.get("/cancel", requireAuth, (req, res) => {
 /* -------------------------------------------------------------
    DENY — FORM
 ------------------------------------------------------------- */
-router.get("/cancel-post", requireAuth, (req, res) => {
+router.get("/cancel-post", requireAuth, requireRole("owner", "manager"), (req, res) => {
   const id = req.query.post;
   const salon_id = req.manager.salon_id;
   if (id) {
@@ -766,7 +768,7 @@ router.get("/cancel-post", requireAuth, (req, res) => {
 /* -------------------------------------------------------------
    RETRY FAILED POST (Layer 4)
 ------------------------------------------------------------- */
-router.post("/retry-post", requireAuth, (req, res) => {
+router.post("/retry-post", requireAuth, requireRole("owner", "manager"), (req, res) => {
   const { post_id } = req.body;
   const salon_id = req.manager.salon_id;
   if (post_id) {
@@ -781,7 +783,7 @@ router.post("/retry-post", requireAuth, (req, res) => {
   return res.redirect(returnToRetry);
 });
 
-router.get("/deny", requireAuth, (req, res) => {
+router.get("/deny", requireAuth, requireRole("owner", "manager"), (req, res) => {
   const id = req.query.post;
 
   const body = `
@@ -820,7 +822,7 @@ router.get("/deny", requireAuth, (req, res) => {
 /* -------------------------------------------------------------
    DENY — SAVE
 ------------------------------------------------------------- */
-router.post("/deny", requireAuth, async (req, res) => {
+router.post("/deny", requireAuth, requireRole("owner", "manager"), async (req, res) => {
   const { post_id, reason } = req.body;
   const salon_id = req.manager.salon_id;
 
@@ -861,7 +863,7 @@ router.post("/deny", requireAuth, async (req, res) => {
 /* -------------------------------------------------------------
    EDIT — FORM
 ------------------------------------------------------------- */
-router.get("/edit/:id", requireAuth, (req, res) => {
+router.get("/edit/:id", requireAuth, requireRole("owner", "manager"), (req, res) => {
   const id = req.params.id;
   const salon_id = req.manager.salon_id;
 
@@ -903,7 +905,7 @@ router.get("/edit/:id", requireAuth, (req, res) => {
 /* -------------------------------------------------------------
    EDIT — SAVE
 ------------------------------------------------------------- */
-router.post("/edit/:id", requireAuth, (req, res) => {
+router.post("/edit/:id", requireAuth, requireRole("owner", "manager"), (req, res) => {
   const id = req.params.id;
   const { caption } = req.body;
 
@@ -928,7 +930,7 @@ router.post("/edit/:id", requireAuth, (req, res) => {
 /* -------------------------------------------------------------
    PROMOTION — FORM
 ------------------------------------------------------------- */
-router.get("/promotion/new", requireAuth, (req, res) => {
+router.get("/promotion/new", requireAuth, requireRole("owner", "manager"), (req, res) => {
   const salon_id = req.manager.salon_id;
 
   const body = `
@@ -1015,7 +1017,7 @@ router.get("/promotion/new", requireAuth, (req, res) => {
 /* -------------------------------------------------------------
    PROMOTION — CREATE (POST)
 ------------------------------------------------------------- */
-router.post("/promotion/create", requireAuth, async (req, res) => {
+router.post("/promotion/create", requireAuth, requireRole("owner", "manager"), async (req, res) => {
   const salon_id   = req.manager.salon_id;
   const manager_id = req.manager.id;
 
