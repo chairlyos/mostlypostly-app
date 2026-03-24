@@ -4,8 +4,11 @@ import Stripe from "stripe";
 import db from "../../db.js";
 import pageShell from "../ui/pageShell.js";
 import { sendCancellationEmail, sendEmail } from "../core/email.js";
+import { requireAuth, requireRole } from "../middleware/auth.js";
 
 const router = express.Router();
+
+router.use(requireAuth, requireRole("owner", "manager"));
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
@@ -79,24 +82,9 @@ export function enforceStaffLimits(salon_id) {
   console.log(`[enforceStaffLimits] ${salon_id} → plan=${salon.plan} stylists=${stylists.length}/${limits.stylists ?? "∞"} portalUsers=${portalUsers.length}/${limits.managers ?? "∞"}`);
 }
 
-function requireAuth(req, res, next) {
-  if (!req.session?.manager_id || !req.session?.salon_id) {
-    return res.redirect("/manager/login");
-  }
-  next();
-}
-
-function requireOwner(req, res, next) {
-  const mgr = db.prepare("SELECT role FROM managers WHERE id = ?").get(req.session.manager_id);
-  if (!mgr || mgr.role !== "owner") {
-    return res.redirect("/manager?notice=Billing+is+only+accessible+to+account+owners.");
-  }
-  next();
-}
-
 // ─── GET /billing/checkout?plan=starter&cycle=monthly ─────────────────────
 
-router.get("/checkout", requireAuth, async (req, res) => {
+router.get("/checkout", async (req, res) => {
   const { plan = "starter", cycle = "monthly" } = req.query;
   const { manager_id, salon_id } = req.session;
 
@@ -150,7 +138,7 @@ router.get("/checkout", requireAuth, async (req, res) => {
 
 // ─── GET /billing/success ──────────────────────────────────────────────────
 
-router.get("/success", requireAuth, (req, res) => {
+router.get("/success", (req, res) => {
   const { salon_id, manager_id } = req.session;
   const isNew   = req.query.new === "1";
   const hasTrial = req.query.trial === "1";
@@ -197,7 +185,7 @@ router.get("/success", requireAuth, (req, res) => {
 
 // ─── GET /manager/billing ──────────────────────────────────────────────────
 
-router.get("/manager/billing", requireAuth, requireOwner, async (req, res) => {
+router.get("/manager/billing", requireRole("owner"), async (req, res) => {
   const { manager_id, salon_id } = req.session;
   const isNewAccount = req.query.new === "1";
   const planHint = ["starter","growth","pro"].includes(req.query.plan) ? req.query.plan : null;

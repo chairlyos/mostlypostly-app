@@ -5,18 +5,14 @@ import express from "express";
 import db from "../../db.js";
 import { PLAN_LIMITS } from "./billing.js";
 import pageShell from "../ui/pageShell.js";
+import { requireAuth, requireRole } from "../middleware/auth.js";
 
 const router = express.Router();
 
-function requireAuth(req, res, next) {
-  if (!req.session?.manager_id || !req.session?.salon_id) {
-    return res.redirect("/manager/login");
-  }
-  next();
-}
+router.use(requireAuth, requireRole("owner", "manager"));
 
 // ─── GET /manager/locations ────────────────────────────────────────────────────
-router.get("/", requireAuth, (req, res) => {
+router.get("/", (req, res) => {
   const { salon_id, group_id } = req.session;
 
   if (!group_id) {
@@ -104,7 +100,7 @@ router.get("/", requireAuth, (req, res) => {
 });
 
 // ─── POST /manager/locations/switch ───────────────────────────────────────────
-router.post("/switch", requireAuth, (req, res) => {
+router.post("/switch", (req, res) => {
   const { slug } = req.body;
   const { group_id } = req.session;
 
@@ -122,7 +118,7 @@ router.post("/switch", requireAuth, (req, res) => {
 });
 
 // ─── POST /manager/locations/add ──────────────────────────────────────────────
-router.post("/add", requireAuth, (req, res) => {
+router.post("/add", (req, res) => {
   const { name } = req.body;
   const { group_id, salon_id } = req.session;
 

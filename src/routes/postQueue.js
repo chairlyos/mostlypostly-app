@@ -8,13 +8,11 @@ import express from "express";
 import { db } from "../../db.js";
 import pageShell from "../ui/pageShell.js";
 import { DateTime } from "luxon";
+import { requireAuth, requireRole } from "../middleware/auth.js";
 
 const router = express.Router();
 
-function requireAuth(req, res, next) {
-  if (!req.session?.manager_id || !req.session?.salon_id) return res.redirect("/manager/login");
-  next();
-}
+router.use(requireAuth, requireRole("owner", "manager"));
 
 function toProxyUrl(url) {
   if (!url) return null;
@@ -48,7 +46,7 @@ function vendorBadge(stylistName) {
 }
 
 // ── GET / — Queue page ────────────────────────────────────────────────────────
-router.get("/", requireAuth, (req, res) => {
+router.get("/", (req, res) => {
   const salon_id = req.session.salon_id;
   const salon = db.prepare("SELECT timezone FROM salons WHERE slug = ?").get(salon_id);
   const tz = salon?.timezone || "America/Indiana/Indianapolis";
@@ -240,7 +238,7 @@ router.get("/", requireAuth, (req, res) => {
 });
 
 // ── POST /reorder — Reassign time slots to new order ─────────────────────────
-router.post("/reorder", requireAuth, (req, res) => {
+router.post("/reorder", (req, res) => {
   const salon_id = req.session.salon_id;
   const { ids } = req.body;
 

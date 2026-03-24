@@ -20,6 +20,7 @@ import { generateCelebrationCaption } from "../core/celebrationCaption.js";
 import { TEMPLATE_META } from "../core/postTemplates.js";
 import { buildAvailabilityImage } from "../core/buildAvailabilityImage.js";
 import { resolveDisplayName } from "../core/salonLookup.js";
+import { requireAuth, requireRole } from "../middleware/auth.js";
 
 const managerPhotoUpload = multer({
   storage: multer.diskStorage({
@@ -79,15 +80,7 @@ const salonLogoUpload = multer({
 
 const router = express.Router();
 
-// ───────────────────────────────────────────────────────────
-// Auth middleware (your existing requireAuth)
-// ───────────────────────────────────────────────────────────
-function requireAuth(req, res, next) {
-  if (!req.manager || !req.manager.manager_phone) {
-    return res.redirect("/manager/login");
-  }
-  next();
-}
+router.use(requireAuth, requireRole("owner", "manager"));
 
 // Helper: Format times into human-readable format
 function fmtTime(val) {
@@ -110,7 +103,7 @@ router.get("/templates", (req, res) => {
 // ───────────────────────────────────────────────────────────
 // GET /manager/admin — Render Admin Page
 // ───────────────────────────────────────────────────────────
-router.get("/", requireAuth, (req, res) => {
+router.get("/", (req, res) => {
   const salon_id = req.manager?.salon_id;
   const manager_phone = req.manager?.manager_phone;
 
@@ -1101,7 +1094,7 @@ router.get("/", requireAuth, (req, res) => {
 // -------------------------------------------------------
 // GET: Re-extract brand palette from website
 // -------------------------------------------------------
-router.get("/extract-brand", requireAuth, async (req, res) => {
+router.get("/extract-brand", async (req, res) => {
   const salon_id = req.manager.salon_id;
   const salon = db.prepare("SELECT website FROM salons WHERE slug = ?").get(salon_id);
   if (!salon?.website) {
@@ -1150,7 +1143,7 @@ All values must be hex color codes. No markdown, no explanation.`,
 // -------------------------------------------------------
 // GET: Edit Business Info page
 // -------------------------------------------------------
-router.get("/edit/business-info", requireAuth, (req, res) => {
+router.get("/edit/business-info", (req, res) => {
   const salon_id = req.manager.salon_id;
   const manager_phone = req.manager?.manager_phone;
   const row = db.prepare(`SELECT * FROM salons WHERE slug = ?`).get(salon_id);
@@ -1282,7 +1275,7 @@ router.get("/edit/business-info", requireAuth, (req, res) => {
 // -------------------------------------------------------
 // GET: Edit Manager Rules page
 // -------------------------------------------------------
-router.get("/edit/manager-rules", requireAuth, (req, res) => {
+router.get("/edit/manager-rules", (req, res) => {
   const salon_id = req.manager.salon_id;
   const manager_phone = req.manager?.manager_phone;
   const row = db.prepare(`SELECT * FROM salons WHERE slug = ?`).get(salon_id);
@@ -1362,7 +1355,7 @@ router.get("/edit/manager-rules", requireAuth, (req, res) => {
 // -------------------------------------------------------
 // POST: Update Salon Info
 // -------------------------------------------------------
-router.post("/update-salon-info", requireAuth, (req, res) => {
+router.post("/update-salon-info", (req, res) => {
   const salon_id = req.manager.salon_id; // Always use session — never trust req.body.salon_id
   const {
     name,
@@ -1448,7 +1441,7 @@ router.post("/update-salon-info", requireAuth, (req, res) => {
 // -------------------------------------------------------
 // POST: Update Salon Logo
 // -------------------------------------------------------
-router.post("/update-salon-logo", requireAuth, salonLogoUpload.single("logo"), (req, res) => {
+router.post("/update-salon-logo", salonLogoUpload.single("logo"), (req, res) => {
   const salon_id = req.manager.salon_id; // Always use session — never trust req.body.salon_id
   if (!req.file) {
     return res.redirect(`/manager/admin?salon=${encodeURIComponent(salon_id)}`);
@@ -1462,7 +1455,7 @@ router.post("/update-salon-logo", requireAuth, salonLogoUpload.single("logo"), (
 // -------------------------------------------------------
 // POST: Update Posting Rules  (ONLY posting window + spacing)
 // -------------------------------------------------------
-router.post("/update-posting-rules", requireAuth, (req, res) => {
+router.post("/update-posting-rules", (req, res) => {
   try {
     const salon_id = req.manager.salon_id; // Always use session — never trust req.body.salon_id
     const {
@@ -1523,7 +1516,7 @@ router.post("/update-posting-rules", requireAuth, (req, res) => {
 // -------------------------------------------------------
 // POST: Update Manager Rules (ONLY approval, publish, notify)
 // -------------------------------------------------------
-router.post("/update-manager-rules", requireAuth, (req, res) => {
+router.post("/update-manager-rules", (req, res) => {
   try {
     const salon_id = req.manager.salon_id; // Always use session — never trust req.body.salon_id
     const {
@@ -1573,7 +1566,7 @@ router.post("/update-manager-rules", requireAuth, (req, res) => {
 // POST: Update Hashtags
 //   - Receives hashtags_json — the full merged array (salon tag + custom tags)
 // -------------------------------------------------------
-router.post("/update-hashtags", requireAuth, (req, res) => {
+router.post("/update-hashtags", (req, res) => {
   const salon_id = req.manager.salon_id;
   const { hashtags_json } = req.body;
 
@@ -1748,7 +1741,7 @@ router.post("/update-stylist", (req, res) => {
   }
 });
 
-router.get("/delete-stylist", requireAuth, (req, res) => {
+router.get("/delete-stylist", (req, res) => {
   const id = req.query.id;
   const salon_id = req.manager.salon_id; // Always use session — never trust URL params
 
@@ -1769,7 +1762,7 @@ router.get("/delete-stylist", requireAuth, (req, res) => {
 // ───────────────────────────────────────────────────────────
 // MY PROFILE — Save manager stylist profile
 // ───────────────────────────────────────────────────────────
-router.post("/update-my-profile", requireAuth, managerPhotoUpload.single("manager_photo"), (req, res) => {
+router.post("/update-my-profile", managerPhotoUpload.single("manager_photo"), (req, res) => {
   const salon_id  = req.query.salon || req.manager?.salon_id;
   const manager_id = req.manager?.id;
   if (!manager_id) return res.redirect(`/manager/admin?salon=${salon_id}`);
@@ -1802,7 +1795,7 @@ router.post("/update-my-profile", requireAuth, managerPhotoUpload.single("manage
 // ───────────────────────────────────────────────────────────
 // STOCK PHOTOS — Upload
 // ───────────────────────────────────────────────────────────
-router.post("/stock-photos/upload", requireAuth, stockPhotoUpload.single("stock_photo"), (req, res) => {
+router.post("/stock-photos/upload", stockPhotoUpload.single("stock_photo"), (req, res) => {
   const salon_id = req.query.salon || req.manager?.salon_id;
   if (!req.file) return res.redirect(`/manager/admin?salon=${salon_id}`);
 
@@ -1824,7 +1817,7 @@ router.post("/stock-photos/upload", requireAuth, stockPhotoUpload.single("stock_
 // ───────────────────────────────────────────────────────────
 // STOCK PHOTOS — Delete
 // ───────────────────────────────────────────────────────────
-router.post("/stock-photos/delete", requireAuth, (req, res) => {
+router.post("/stock-photos/delete", (req, res) => {
   const salon_id = req.manager.salon_id; // Always use session
   const { photo_id } = req.body;
 
@@ -1846,7 +1839,7 @@ router.post("/stock-photos/delete", requireAuth, (req, res) => {
 // ───────────────────────────────────────────────────────────
 // GET /manager/admin/stylist/:id — JSON for edit modal
 // ───────────────────────────────────────────────────────────
-router.get("/stylist/:id", requireAuth, (req, res) => {
+router.get("/stylist/:id", (req, res) => {
   const { id } = req.params;
   const salon_id = req.manager.salon_id;
 
@@ -1879,7 +1872,7 @@ router.get("/stylist/:id", requireAuth, (req, res) => {
 // ───────────────────────────────────────────────────────────
 // POST /manager/admin/update-stylist-full — profile + photo upload
 // ───────────────────────────────────────────────────────────
-router.post("/update-stylist-full", requireAuth, stylistPhotoUpload.single("stylist_photo"), (req, res) => {
+router.post("/update-stylist-full", stylistPhotoUpload.single("stylist_photo"), (req, res) => {
   const { id, name, phone, instagram_handle } = req.body;
   const salon_id = req.manager.salon_id;
 
@@ -1922,7 +1915,7 @@ router.post("/update-stylist-full", requireAuth, stylistPhotoUpload.single("styl
 // ───────────────────────────────────────────────────────────
 // POST: Resend Welcome SMS to a stylist
 // ───────────────────────────────────────────────────────────
-router.post("/resend-welcome/:stylistId", requireAuth, async (req, res) => {
+router.post("/resend-welcome/:stylistId", async (req, res) => {
   const { stylistId } = req.params;
   const salon_id = req.manager.salon_id;
 
@@ -1948,7 +1941,7 @@ router.post("/resend-welcome/:stylistId", requireAuth, async (req, res) => {
 // ───────────────────────────────────────────────────────────
 // POST /feedback — Unified issue/feature submission form
 // ───────────────────────────────────────────────────────────
-router.post("/feedback", requireAuth, (req, res) => {
+router.post("/feedback", (req, res) => {
   const salon_id = req.manager?.salon_id;
   const { feedback_type, title, description } = req.body;
   if (!title?.trim() || !feedback_type) return res.redirect("/manager/admin#feedback");
@@ -1980,7 +1973,7 @@ router.post("/feedback", requireAuth, (req, res) => {
 // ───────────────────────────────────────────────────────────
 // POST /feature-requests — Submit new feature request
 // ───────────────────────────────────────────────────────────
-router.post("/feature-requests", requireAuth, (req, res) => {
+router.post("/feature-requests", (req, res) => {
   const salon_id = req.manager?.salon_id;
   const { title, description } = req.body;
   if (!title?.trim()) return res.redirect("/manager/admin#feedback");
@@ -2006,7 +1999,7 @@ router.post("/feature-requests", requireAuth, (req, res) => {
 // ───────────────────────────────────────────────────────────
 // POST /feature-requests/:id/vote — Toggle vote on a request
 // ───────────────────────────────────────────────────────────
-router.post("/feature-requests/:id/vote", requireAuth, (req, res) => {
+router.post("/feature-requests/:id/vote", (req, res) => {
   const salon_id = req.manager?.salon_id;
   const { id } = req.params;
   try {
@@ -2027,7 +2020,7 @@ router.post("/feature-requests/:id/vote", requireAuth, (req, res) => {
 // ───────────────────────────────────────────────────────────
 // GET /manager/admin/test-celebration — Generate a test celebration post
 // ───────────────────────────────────────────────────────────
-router.get("/test-celebration", requireAuth, async (req, res) => {
+router.get("/test-celebration", async (req, res) => {
   const salon_id = req.manager.salon_id;
   const { stylist: stylistId, type: celebType = "birthday" } = req.query;
 
@@ -2121,7 +2114,7 @@ router.get("/test-celebration", requireAuth, async (req, res) => {
 });
 
 // GET: Celebration template preview (opens image in new tab, no post created)
-router.get("/celebration-preview", requireAuth, async (req, res) => {
+router.get("/celebration-preview", async (req, res) => {
   const salon_id = req.manager.salon_id;
   const validTemplates = Object.keys(TEMPLATE_META.celebration);
   const rawTemplate = req.query.template;
@@ -2173,7 +2166,7 @@ router.get("/celebration-preview", requireAuth, async (req, res) => {
 });
 
 // POST: Save celebration template selection
-router.post("/celebration-template", requireAuth, (req, res) => {
+router.post("/celebration-template", (req, res) => {
   const salon_id = req.manager.salon_id;
   const valid = Object.keys(TEMPLATE_META.celebration);
   const template = valid.includes(req.body.template) ? req.body.template : "script";
@@ -2182,7 +2175,7 @@ router.post("/celebration-template", requireAuth, (req, res) => {
 });
 
 // GET: Availability template preview (opens image in new tab, no post created)
-router.get("/availability-preview", requireAuth, async (req, res) => {
+router.get("/availability-preview", async (req, res) => {
   const salon_id = req.manager.salon_id;
   const validTemplates = Object.keys(TEMPLATE_META.availability);
   const rawTemplate = req.query.template;
@@ -2216,7 +2209,7 @@ router.get("/availability-preview", requireAuth, async (req, res) => {
 });
 
 // POST: Save availability template selection
-router.post("/availability-template", requireAuth, (req, res) => {
+router.post("/availability-template", (req, res) => {
   const salon_id = req.manager.salon_id;
   const valid    = Object.keys(TEMPLATE_META.availability);
   const template = valid.includes(req.body.template) ? req.body.template : "script";

@@ -5,8 +5,11 @@ import db from "../../db.js";
 import pageShell from "../ui/pageShell.js";
 import { DateTime } from "luxon";
 import { getSchedulerStats, DEFAULT_PRIORITY } from "../scheduler.js";
+import { requireAuth, requireRole } from "../middleware/auth.js";
 
 const router = express.Router();
+
+router.use(requireAuth, requireRole("owner", "manager"));
 
 // ─────────────────────────────────────────────────────────
 // Plan definitions — posts/month limit and max daily cap per platform.
@@ -23,11 +26,6 @@ const PLAN_LIMITS = {
 
 function getPlanDef(plan) {
   return PLAN_LIMITS[plan] || PLAN_LIMITS.starter;
-}
-
-function requireAuth(req, res, next) {
-  if (!req.manager?.manager_phone) return res.redirect("/manager/login");
-  next();
 }
 
 function fmtScheduled(iso) {
@@ -75,7 +73,7 @@ const MIX_DEFAULTS = {
 // ─────────────────────────────────────────────────────────
 // GET /manager/scheduler
 // ─────────────────────────────────────────────────────────
-router.get("/", requireAuth, (req, res) => {
+router.get("/", (req, res) => {
   const salon_id = req.manager.salon_id;
 
   const salon = db.prepare(`SELECT * FROM salons WHERE slug=?`).get(salon_id);
@@ -671,7 +669,7 @@ router.get("/", requireAuth, (req, res) => {
 // ─────────────────────────────────────────────────────────
 // POST /manager/scheduler/update
 // ─────────────────────────────────────────────────────────
-router.post("/update", requireAuth, (req, res) => {
+router.post("/update", (req, res) => {
   const salon_id = req.manager.salon_id;
 
   // Re-fetch plan to enforce server-side cap maximums

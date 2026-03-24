@@ -13,21 +13,69 @@ import { calculateOpenBlocks, formatBlocksAsSlots, categoriesForBlock, formatBlo
 import { buildAvailabilityImage } from "../core/buildAvailabilityImage.js";
 import { getZenotiClientForSalon, fetchStylistSlots, generateAndSaveAvailabilityPost } from "../core/zenotiSync.js";
 import { DEFAULT_ROUTING, mergeRoutingDefaults } from "../core/platformRouting.js";
+import { requireAuth, requireRole } from "../middleware/auth.js";
 
 const router = express.Router();
 
 // ─────────────────────────────────────────────────────────────────
-// Auth guard (same pattern used across all manager routes)
+// Public webhook — must be registered BEFORE router.use auth guard
+// so Zenoti can POST without a session cookie.
 // ─────────────────────────────────────────────────────────────────
-function requireAuth(req, res, next) {
-  if (!req.manager) return res.redirect("/manager/login");
-  next();
-}
+router.post("/webhook/zenoti/:salon_id", express.json(), async (req, res) => {
+  const { salon_id } = req.params;
+
+  // Look up the integration row to get webhook_secret (optional)
+  const integration = db
+    .prepare(`SELECT * FROM salon_integrations WHERE salon_id = ? AND platform = 'zenoti'`)
+    .get(salon_id);
+
+  if (!integration) {
+    console.warn(`[Zenoti Webhook] No integration found for salon=${salon_id}`);
+    return res.status(404).json({ error: "Integration not configured" });
+  }
+
+  if (!integration.sync_enabled) {
+    return res.status(200).json({ ok: true, skipped: "sync disabled" });
+  }
+
+  // Optional HMAC verification using stored webhook_secret
+  if (integration.webhook_secret) {
+    const signature = req.headers["x-zenoti-signature"] || req.headers["x-hub-signature-256"] || "";
+    const rawBody = JSON.stringify(req.body);
+    const expected = "sha256=" + crypto
+      .createHmac("sha256", integration.webhook_secret)
+      .update(rawBody)
+      .digest("hex");
+    if (signature !== expected) {
+      console.warn(`[Zenoti Webhook] Signature mismatch for salon=${salon_id}`);
+      return res.status(401).json({ error: "Invalid signature" });
+    }
+  }
+
+  // Determine event type from payload or header
+  const eventType =
+    req.headers["x-zenoti-event"] ||
+    req.body?.event_type ||
+    req.body?.event ||
+    req.body?.type ||
+    "unknown";
+
+  // Respond immediately — process async
+  res.status(200).json({ received: true });
+
+  try {
+    await handleZenotiEvent(salon_id, eventType, req.body);
+  } catch (err) {
+    console.error(`[Zenoti Webhook] Handler error salon=${salon_id}:`, err.message);
+  }
+});
+
+router.use(requireAuth, requireRole("owner", "manager"));
 
 // ─────────────────────────────────────────────────────────────────
 // GET /manager/integrations — collapsible card layout
 // ─────────────────────────────────────────────────────────────────
-router.get("/", requireAuth, (req, res) => {
+router.get("/", (req, res) => {
   const salon_id = req.manager?.salon_id;
   const manager_phone = req.manager?.manager_phone;
 
@@ -619,7 +667,7 @@ router.get("/", requireAuth, (req, res) => {
 // ─────────────────────────────────────────────────────────────────
 // POST /manager/integrations/routing-update — save per-salon platform routing
 // ─────────────────────────────────────────────────────────────────
-router.post("/routing-update", requireAuth, (req, res) => {
+router.post("/routing-update", (req, res) => {
   const salon_id = req.manager?.salon_id;
 
   // Post types and platforms (must match platformRouting.js constants)
@@ -651,7 +699,7 @@ router.post("/routing-update", requireAuth, (req, res) => {
 // ─────────────────────────────────────────────────────────────────
 // POST /manager/integrations/gmb-toggle — toggle gmb_enabled on/off
 // ─────────────────────────────────────────────────────────────────
-router.post("/gmb-toggle", requireAuth, (req, res) => {
+router.post("/gmb-toggle", (req, res) => {
   const salon_id = req.manager?.salon_id;
   const salon = db.prepare("SELECT gmb_enabled FROM salons WHERE slug = ?").get(salon_id);
   const newVal = salon && salon.gmb_enabled ? 0 : 1;
@@ -662,7 +710,7 @@ router.post("/gmb-toggle", requireAuth, (req, res) => {
 // ─────────────────────────────────────────────────────────────────
 // GET /manager/integrations/zenoti — Zenoti setup / update form
 // ─────────────────────────────────────────────────────────────────
-router.get("/zenoti", requireAuth, (req, res) => {
+router.get("/zenoti", (req, res) => {
   const salon_id      = req.manager?.salon_id;
   const manager_phone = req.manager?.manager_phone;
   const manager_id    = req.manager?.id;
@@ -776,7 +824,7 @@ router.get("/zenoti", requireAuth, (req, res) => {
 // POST /manager/integrations/zenoti/connect
 // Saves app_id + encrypted secret + center_id
 // ─────────────────────────────────────────────────────────────────
-router.post("/zenoti/connect", requireAuth, (req, res) => {
+router.post("/zenoti/connect", (req, res) => {
   const salon_id = req.manager?.salon_id;
   const { app_id, app_secret, api_key, center_id } = req.body;
 
@@ -844,7 +892,7 @@ router.post("/zenoti/connect", requireAuth, (req, res) => {
 // ─────────────────────────────────────────────────────────────────
 // POST /manager/integrations/zenoti/test — test API connectivity
 // ─────────────────────────────────────────────────────────────────
-router.post("/zenoti/test", requireAuth, async (req, res) => {
+router.post("/zenoti/test", async (req, res) => {
   const salon_id = req.manager?.salon_id;
   const row = db.prepare(
     `SELECT * FROM salon_integrations WHERE salon_id = ? AND platform = 'zenoti'`
@@ -878,7 +926,7 @@ router.post("/zenoti/test", requireAuth, async (req, res) => {
 // Fetches Zenoti employees, auto-matches to stylists by name.
 // Updates integration_employee_id — NO availability posts created.
 // ─────────────────────────────────────────────────────────────────
-router.post("/zenoti/sync-staff", requireAuth, async (req, res) => {
+router.post("/zenoti/sync-staff", async (req, res) => {
   const salon_id = req.manager?.salon_id;
 
   try {
@@ -949,7 +997,7 @@ router.post("/zenoti/sync-staff", requireAuth, async (req, res) => {
 // ─────────────────────────────────────────────────────────────────
 // POST /manager/integrations/zenoti/sync — manual availability sync
 // ─────────────────────────────────────────────────────────────────
-router.post("/zenoti/sync", requireAuth, async (req, res) => {
+router.post("/zenoti/sync", async (req, res) => {
   const salon_id = req.manager?.salon_id;
   const row = db.prepare(
     `SELECT * FROM salon_integrations WHERE salon_id = ? AND platform = 'zenoti'`
@@ -1027,7 +1075,7 @@ router.post("/zenoti/sync", requireAuth, async (req, res) => {
 // ─────────────────────────────────────────────────────────────────
 // POST /manager/integrations/zenoti/disconnect
 // ─────────────────────────────────────────────────────────────────
-router.post("/zenoti/disconnect", requireAuth, (req, res) => {
+router.post("/zenoti/disconnect", (req, res) => {
   const salon_id = req.manager?.salon_id;
   db.prepare(`DELETE FROM salon_integrations WHERE salon_id = ? AND platform = 'zenoti'`).run(salon_id);
   console.log(`[Integrations] Zenoti disconnected for salon=${salon_id}`);
@@ -1038,7 +1086,7 @@ router.post("/zenoti/disconnect", requireAuth, (req, res) => {
 // POST /manager/integrations/zenoti/map-employees
 // Saves Zenoti employee UUIDs onto each stylist row
 // ─────────────────────────────────────────────────────────────────
-router.post("/zenoti/map-employees", requireAuth, (req, res) => {
+router.post("/zenoti/map-employees", (req, res) => {
   const salon_id = req.manager?.salon_id;
   // qs (extended:true) strips [] from field names; querystring keeps them — handle both
   const stylistIds  = [].concat(req.body.stylist_id  || req.body["stylist_id[]"]  || []);
@@ -1055,60 +1103,6 @@ router.post("/zenoti/map-employees", requireAuth, (req, res) => {
   update();
 
   res.redirect("/manager/integrations?saved=mappings");
-});
-
-// ─────────────────────────────────────────────────────────────────
-// POST /integrations/webhook/zenoti/:salon_id
-// Public webhook endpoint — Zenoti calls this when events fire.
-// No session auth — uses webhook secret for verification.
-// ─────────────────────────────────────────────────────────────────
-router.post("/webhook/zenoti/:salon_id", express.json(), async (req, res) => {
-  const { salon_id } = req.params;
-
-  // Look up the integration row to get webhook_secret (optional)
-  const integration = db
-    .prepare(`SELECT * FROM salon_integrations WHERE salon_id = ? AND platform = 'zenoti'`)
-    .get(salon_id);
-
-  if (!integration) {
-    console.warn(`[Zenoti Webhook] No integration found for salon=${salon_id}`);
-    return res.status(404).json({ error: "Integration not configured" });
-  }
-
-  if (!integration.sync_enabled) {
-    return res.status(200).json({ ok: true, skipped: "sync disabled" });
-  }
-
-  // Optional HMAC verification using stored webhook_secret
-  if (integration.webhook_secret) {
-    const signature = req.headers["x-zenoti-signature"] || req.headers["x-hub-signature-256"] || "";
-    const rawBody = JSON.stringify(req.body);
-    const expected = "sha256=" + crypto
-      .createHmac("sha256", integration.webhook_secret)
-      .update(rawBody)
-      .digest("hex");
-    if (signature !== expected) {
-      console.warn(`[Zenoti Webhook] Signature mismatch for salon=${salon_id}`);
-      return res.status(401).json({ error: "Invalid signature" });
-    }
-  }
-
-  // Determine event type from payload or header
-  const eventType =
-    req.headers["x-zenoti-event"] ||
-    req.body?.event_type ||
-    req.body?.event ||
-    req.body?.type ||
-    "unknown";
-
-  // Respond immediately — process async
-  res.status(200).json({ received: true });
-
-  try {
-    await handleZenotiEvent(salon_id, eventType, req.body);
-  } catch (err) {
-    console.error(`[Zenoti Webhook] Handler error salon=${salon_id}:`, err.message);
-  }
 });
 
 export default router;

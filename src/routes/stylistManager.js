@@ -13,10 +13,13 @@ import { TONE_GROUPS, TONE_VARIANT_MAP } from "../core/toneVariants.js";
 
 const router = express.Router();
 
+router.use(requireAuth, requireRole("owner", "manager"));
+
 import { UPLOADS_DIR, toUploadUrl } from "../core/uploadPath.js";
 import { PLAN_LIMITS } from "./billing.js";
 import { sendViaTwilio } from "./twilio.js";
 import { sendWelcomeSms, sendCoordinatorWelcomeSms } from "../core/stylistWelcome.js";
+import { requireAuth, requireRole } from "../middleware/auth.js";
 
 function normalizePhone(raw) {
   if (!raw) return null;
@@ -60,12 +63,6 @@ const libraryUpload = multer({
 });
 
 const csvUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 2 * 1024 * 1024 } });
-
-// ── Auth ─────────────────────────────────────────────────────────────────────
-function requireAuth(req, res, next) {
-  if (!req.manager?.manager_phone) return res.redirect("/manager/login");
-  next();
-}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function safe(s) {
@@ -144,7 +141,7 @@ const CSV_EXAMPLE = [
 ];
 
 // ── GET / — Team list ─────────────────────────────────────────────────────────
-router.get("/", requireAuth, (req, res) => {
+router.get("/", (req, res) => {
   const salon_id = req.manager.salon_id;
   const qs = `?salon=${encodeURIComponent(salon_id)}`;
 
@@ -402,7 +399,7 @@ router.get("/", requireAuth, (req, res) => {
 });
 
 // ── GET /add ──────────────────────────────────────────────────────────────────
-router.get("/add", requireAuth, (req, res) => {
+router.get("/add", (req, res) => {
   const salon_id = req.manager.salon_id;
   const salon = db.prepare("SELECT tone, plan FROM salons WHERE slug = ?").get(salon_id);
   const planLimits = PLAN_LIMITS[salon?.plan] || PLAN_LIMITS.trial;
@@ -419,7 +416,7 @@ router.get("/add", requireAuth, (req, res) => {
 });
 
 // ── POST /add ─────────────────────────────────────────────────────────────────
-router.post("/add", requireAuth, photoUpload.single("photo"), async (req, res) => {
+router.post("/add", photoUpload.single("photo"), async (req, res) => {
   const salon_id = req.manager.salon_id;
   const salon = db.prepare("SELECT tone FROM salons WHERE slug = ?").get(salon_id);
   const { role = "stylist", first_name, last_name, phone, instagram_handle, tone_variant,
@@ -536,7 +533,7 @@ router.post("/add", requireAuth, photoUpload.single("photo"), async (req, res) =
 });
 
 // ── GET /edit/:id ─────────────────────────────────────────────────────────────
-router.get("/edit/:id", requireAuth, (req, res) => {
+router.get("/edit/:id", (req, res) => {
   const salon_id = req.manager.salon_id;
   const salon = db.prepare("SELECT tone, name FROM salons WHERE slug = ?").get(salon_id);
   const stylist = db.prepare("SELECT * FROM stylists WHERE id = ? AND salon_id = ?").get(req.params.id, salon_id);
@@ -556,7 +553,7 @@ router.get("/edit/:id", requireAuth, (req, res) => {
 });
 
 // ── POST /edit/:id ────────────────────────────────────────────────────────────
-router.post("/edit/:id", requireAuth, photoUpload.single("photo"), (req, res) => {
+router.post("/edit/:id", photoUpload.single("photo"), (req, res) => {
   const salon_id = req.manager.salon_id;
   const { first_name, last_name, phone, instagram_handle, tiktok_handle, tone_variant,
           birthday_mmdd, hire_date, bio, profile_url, celebrations_enabled,
@@ -600,7 +597,7 @@ router.post("/edit/:id", requireAuth, photoUpload.single("photo"), (req, res) =>
 });
 
 // ── GET /edit/:id/photos — photo library page ─────────────────────────────────
-router.get("/edit/:id/photos", requireAuth, (req, res) => {
+router.get("/edit/:id/photos", (req, res) => {
   const salon_id = req.manager.salon_id;
   const stylist = db.prepare("SELECT id, name, photo_url FROM stylists WHERE id = ? AND salon_id = ?").get(req.params.id, salon_id);
   if (!stylist) return res.redirect(`/manager/stylists?salon=${encodeURIComponent(salon_id)}`);
@@ -747,7 +744,7 @@ router.get("/edit/:id/photos", requireAuth, (req, res) => {
 });
 
 // ── POST /edit/:id/photos/upload — multi-file ─────────────────────────────────
-router.post("/:id/photos/upload", requireAuth, libraryUpload.array("photos", 20), (req, res) => {
+router.post("/:id/photos/upload", libraryUpload.array("photos", 20), (req, res) => {
   const salon_id = req.manager.salon_id;
   const stylist = db.prepare("SELECT id FROM stylists WHERE id = ? AND salon_id = ?").get(req.params.id, salon_id);
   if (!stylist || !req.files?.length) return res.redirect(`/manager/stylists/edit/${req.params.id}/photos?salon=${encodeURIComponent(salon_id)}`);
@@ -778,7 +775,7 @@ router.post("/:id/photos/upload", requireAuth, libraryUpload.array("photos", 20)
 });
 
 // ── POST /:id/photos/delete ───────────────────────────────────────────────────
-router.post("/:id/photos/delete", requireAuth, (req, res) => {
+router.post("/:id/photos/delete", (req, res) => {
   const salon_id = req.manager.salon_id;
   const { photo_id } = req.body;
   if (photo_id) {
@@ -796,14 +793,14 @@ router.post("/:id/photos/delete", requireAuth, (req, res) => {
 });
 
 // ── POST /delete/:id ──────────────────────────────────────────────────────────
-router.post("/delete/:id", requireAuth, (req, res) => {
+router.post("/delete/:id", (req, res) => {
   const salon_id = req.manager.salon_id;
   db.prepare("DELETE FROM stylists WHERE id = ? AND salon_id = ?").run(req.params.id, salon_id);
   res.redirect(`/manager/stylists?salon=${encodeURIComponent(salon_id)}`);
 });
 
 // ── POST /resend-welcome/:id ───────────────────────────────────────────────────
-router.post("/resend-welcome/:id", requireAuth, async (req, res) => {
+router.post("/resend-welcome/:id", async (req, res) => {
   const salon_id = req.manager.salon_id;
   const stylist = db.prepare("SELECT * FROM stylists WHERE id = ? AND salon_id = ?").get(req.params.id, salon_id);
   if (!stylist) return res.redirect(`/manager/stylists?salon=${encodeURIComponent(salon_id)}`);
@@ -818,7 +815,7 @@ router.post("/resend-welcome/:id", requireAuth, async (req, res) => {
 });
 
 // ── GET /template — CSV download ──────────────────────────────────────────────
-router.get("/template", requireAuth, (_req, res) => {
+router.get("/template", (_req, res) => {
   const lines = [
     CSV_HEADERS.join(","),
     CSV_EXAMPLE.map(v => `"${v}"`).join(","),
@@ -829,7 +826,7 @@ router.get("/template", requireAuth, (_req, res) => {
 });
 
 // ── POST /import — CSV bulk import ────────────────────────────────────────────
-router.post("/import", requireAuth, csvUpload.single("csv"), (req, res) => {
+router.post("/import", csvUpload.single("csv"), (req, res) => {
   const salon_id = req.manager.salon_id;
   if (!req.file) return res.redirect(`/manager/stylists?salon=${encodeURIComponent(salon_id)}`);
 
@@ -1185,7 +1182,7 @@ function parseCSVLine(line) {
 }
 
 // ── POST /grant-access/:stylistId — Grant portal access to existing stylist ───
-router.post("/grant-access/:stylistId", requireAuth, async (req, res) => {
+router.post("/grant-access/:stylistId", async (req, res) => {
   const salon_id = req.manager.salon_id;
   const qs = `?salon=${encodeURIComponent(salon_id)}`;
   const stylist = db.prepare("SELECT * FROM stylists WHERE id = ? AND salon_id = ?").get(req.params.stylistId, salon_id);
@@ -1210,7 +1207,7 @@ router.post("/grant-access/:stylistId", requireAuth, async (req, res) => {
 });
 
 // ── GET /managers/edit/:id ────────────────────────────────────────────────────
-router.get("/managers/edit/:id", requireAuth, (req, res) => {
+router.get("/managers/edit/:id", (req, res) => {
   const salon_id = req.manager.salon_id;
   const qs = `?salon=${encodeURIComponent(salon_id)}`;
   const mgr = db.prepare("SELECT * FROM managers WHERE id = ? AND salon_id = ? AND role != 'owner'").get(req.params.id, salon_id);
@@ -1260,7 +1257,7 @@ router.get("/managers/edit/:id", requireAuth, (req, res) => {
 });
 
 // ── POST /managers/edit/:id ───────────────────────────────────────────────────
-router.post("/managers/edit/:id", requireAuth, async (req, res) => {
+router.post("/managers/edit/:id", async (req, res) => {
   const salon_id = req.manager.salon_id;
   const qs = `?salon=${encodeURIComponent(salon_id)}`;
   const mgr = db.prepare("SELECT id FROM managers WHERE id = ? AND salon_id = ? AND role != 'owner'").get(req.params.id, salon_id);
@@ -1286,7 +1283,7 @@ router.post("/managers/edit/:id", requireAuth, async (req, res) => {
 });
 
 // ── POST /managers/delete/:id ─────────────────────────────────────────────────
-router.post("/managers/delete/:id", requireAuth, (req, res) => {
+router.post("/managers/delete/:id", (req, res) => {
   const salon_id = req.manager.salon_id;
   const qs = `?salon=${encodeURIComponent(salon_id)}`;
   db.prepare("DELETE FROM managers WHERE id = ? AND salon_id = ? AND role != 'owner'").run(req.params.id, salon_id);
