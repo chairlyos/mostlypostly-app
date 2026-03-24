@@ -1034,12 +1034,7 @@ router.post("/forgot-password", async (req, res) => {
   const BASE_URL = process.env.BASE_URL || "http://localhost:3000";
   const resetLink = `${BASE_URL}/manager/reset-password?token=${token}`;
 
-  const smsBody = `🔐 MostlyPostly Password Reset
-
-  Tap to reset your password:
-  ${resetLink}
-
-  This link expires in 45 minutes.`;
+  const smsBody = `MostlyPostly Password Reset\n\nTap to reset your password:\n${resetLink}\n\nExpires in 45 minutes.`;
 
   console.log(`📤 Sending password reset SMS to: ${manager.phone}`);
   console.log(`🔐 Reset link: ${resetLink}`);
