@@ -1019,11 +1019,6 @@ router.post("/forgot-password", async (req, res) => {
   }
 
 
-  // Always respond success (prevents email enumeration)
-  if (!manager) {
-    return res.redirect("/manager/forgot-password?sent=1");
-  }
-
   const token = lowerHex();
   const expiresAt = new Date(
     Date.now() + 1000 * 60 * 45 // 45 minutes
@@ -1036,12 +1031,6 @@ router.post("/forgot-password", async (req, res) => {
     VALUES (?, ?, ?)
   `).run(token, manager.id, expiresAt);
 
-  // TODO: replace with email or SMS delivery
-  console.log(`
-🔐 PASSWORD RESET LINK
-https://yourdomain.com/manager/reset-password?token=${token}
-  `);
-
   const BASE_URL = process.env.BASE_URL || "http://localhost:3000";
   const resetLink = `${BASE_URL}/manager/reset-password?token=${token}`;
 
@@ -1052,7 +1041,8 @@ https://yourdomain.com/manager/reset-password?token=${token}
 
   This link expires in 45 minutes.`;
 
-  console.log("📤 Sending password reset SMS to:", manager.phone);
+  console.log(`📤 Sending password reset SMS to: ${manager.phone}`);
+  console.log(`🔐 Reset link: ${resetLink}`);
   await sendViaTwilio(manager.phone, smsBody);
   logSecurityEvent({ eventType: "password_reset_requested", managerId: manager.id, req });
 
