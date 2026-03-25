@@ -177,9 +177,10 @@ None yet.
 | 260322-sl4 | Fix recent activity and upcoming promos timestamps to display in salon local timezone | 2026-03-22 | 4a34237 | [260322-sl4-fix-recent-activity-showing-incorrect-lo](./quick/260322-sl4-fix-recent-activity-showing-incorrect-lo/) |
 | 260322-sq7 | Add POST /internal/vendors/resequence-posts to fix salon_post_number gaps in production | 2026-03-22 | 35e695b | [260322-sq7-resequence-salon-post-number-starting-fr](./quick/260322-sq7-resequence-salon-post-number-starting-fr/) |
 | 260322-tew | Add inline frequency cap editor and reset-cap endpoint on brand detail page | 2026-03-22 | 6df87f5 | [260322-tew-add-vendor-campaign-frequency-cap-reset-](./quick/260322-tew-add-vendor-campaign-frequency-cap-reset-/) |
+| 260325-kfa | Fix Apply All toggle on salon Content Routing card — col-{platform} class, Apply All row, cascade+submit guard | 2026-03-25 | 9023998 | [260325-kfa-fix-apply-all-toggle-on-salon-content-pl](./quick/260325-kfa-fix-apply-all-toggle-on-salon-content-pl/) |
 
 ## Session Continuity
 
-Last session: 2026-03-23T01:14:25Z
-Stopped at: Completed quick task 260322-tew: add vendor campaign frequency cap reset
+Last session: 2026-03-25T00:00:00Z
+Stopped at: Completed quick task 260325-kfa: fix Apply All toggle on salon Content Routing card
 Resume file: None
