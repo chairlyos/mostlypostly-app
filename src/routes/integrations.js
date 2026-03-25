@@ -228,7 +228,7 @@ router.get("/", (req, res) => {
       const inner = `
         <label class="relative inline-flex items-center cursor-pointer${disabled ? ' opacity-40 pointer-events-none cursor-not-allowed' : ''}">
           <input type="checkbox" name="${name}" value="1"${enabled ? ' checked' : ''}
-            class="sr-only peer" onchange="this.form.submit()">
+            class="sr-only peer col-${platform}" onchange="if(!window.__applyAllActive)this.form.submit()">
           <div class="w-11 h-6 rounded-full transition-colors peer-checked:bg-mpAccent bg-gray-200 relative
             after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:w-5 after:h-5 after:rounded-full after:bg-white after:shadow after:transition-all
             peer-checked:after:translate-x-5"></div>
@@ -603,6 +603,25 @@ router.get("/", (req, res) => {
                   <th class="text-center py-2 px-3 font-medium text-mpMuted w-24">TikTok</th>
                 </tr>
               </thead>
+              <tbody>
+                <tr class="bg-mpAccentLight border border-mpBorder rounded-lg">
+                  <td class="py-2 pr-4 pl-2 text-xs font-bold text-mpAccent uppercase tracking-wide rounded-l-lg">Apply All</td>
+                  ${["facebook","instagram","gmb","tiktok"].map(plat => {
+                    const allOn = Object.values(routing).every(r => (r || {})[plat] !== false);
+                    return `
+                      <td class="text-center py-2 px-3">
+                        <label class="relative inline-flex items-center cursor-pointer" title="Toggle all ${plat}">
+                          <input type="checkbox"${allOn ? ' checked' : ''}
+                            class="sr-only peer"
+                            data-apply-all="${plat}">
+                          <div class="w-11 h-6 rounded-full transition-colors peer-checked:bg-mpAccent bg-gray-300 relative
+                            after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:w-5 after:h-5 after:rounded-full after:bg-white after:shadow after:transition-all
+                            peer-checked:after:translate-x-5"></div>
+                        </label>
+                      </td>`;
+                  }).join("")}
+                </tr>
+              </tbody>
               <tbody class="divide-y divide-mpBorder">
                 ${buildRoutingRows(routing, fbConnected, gmbConnected, tiktokConnected)}
               </tbody>
@@ -734,6 +753,25 @@ router.get("/", (req, res) => {
             if (chevron) chevron.style.transform = open ? '' : 'rotate(180deg)';
           });
         });
+      });
+
+      // Apply All toggle — sets all col-{platform} checkboxes, then submits form once
+      document.addEventListener('change', function(e) {
+        var input = e.target;
+        if (!input.hasAttribute || !input.hasAttribute('data-apply-all')) return;
+        var plat = input.getAttribute('data-apply-all');
+        var checked = input.checked;
+        // Suppress individual onchange auto-submits during cascade
+        window.__applyAllActive = true;
+        document.querySelectorAll('input.col-' + plat).forEach(function(cb) {
+          if (cb.checked !== checked) {
+            cb.checked = checked;
+          }
+        });
+        window.__applyAllActive = false;
+        // Submit the routing form once
+        var form = document.querySelector('form[action="/manager/integrations/routing-update"]');
+        if (form) form.submit();
       });
     </script>
   `;
