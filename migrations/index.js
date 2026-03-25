@@ -58,6 +58,7 @@ import migrate054 from "./054_vendor_scheduled_status.js";
 import { run as run055 } from "./055_vendor_monthly_cap.js";
 import { run as run056 } from "./056_vendor_campaigns_dedup.js";
 import { run as run057 } from "./057_content_type_placement.js";
+import { run as run058 } from "./058_placement_routing.js";
 
 export const migrations = [
   { name: "001_baseline_patches",        run: run001 },
@@ -117,4 +118,5 @@ export const migrations = [
   { name: "055_vendor_monthly_cap",         run: run055 },
   { name: "056_vendor_campaigns_dedup",     run: run056 },
   { name: "057_content_type_placement",    run: run057 },
+  { name: "058_placement_routing",         run: run058 },
 ];
