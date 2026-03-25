@@ -379,6 +379,7 @@ router.get("/", requireAuth, (req, res) => {
     current: "performance",
     salon_id,
     manager_phone: req.manager.manager_phone,
+    manager_id: req.manager?.id,
   }));
 });
 

@@ -10,8 +10,8 @@ import shell from "../ui/pageShell.js";
 const router = express.Router();
 
 // Wrap shared shell with analytics-specific defaults
-function pageShell({ title, body, salon_id = "" }) {
-  return shell({ title, body, salon_id, current: "analytics" });
+function pageShell({ title, body, salon_id = "", manager_id = "" }) {
+  return shell({ title, body, salon_id, current: "analytics", manager_id });
 }
 
 function resolveSalonId(req) {
@@ -482,7 +482,7 @@ router.get("/", (req, res) => {
     </div>
   `;
 
-  res.send(pageShell({ title: "Analytics", body, salon_id }));
+  res.send(pageShell({ title: "Analytics", body, salon_id, manager_id: req.manager?.id || req.session?.manager_id }));
 });
 
 // ─── POST /analytics/reset-and-backfill-fb-ids ───────────────────────────────

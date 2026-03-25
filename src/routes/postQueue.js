@@ -234,7 +234,7 @@ router.get("/", (req, res) => {
     </script>
   `;
 
-  res.send(pageShell({ title: "Post Queue", body, salon_id, current: "queue" }));
+  res.send(pageShell({ title: "Post Queue", body, salon_id, current: "queue", manager_id: req.manager?.id || req.session?.manager_id }));
 });
 
 // ── POST /reorder — Reassign time slots to new order ─────────────────────────
