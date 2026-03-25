@@ -23,6 +23,7 @@ import { UPLOADS_DIR } from "../core/uploadPath.js";
 import { enforceStaffLimits } from "./billing.js";
 import { runVendorSync } from "../core/vendorSync.js";
 import { DEFAULT_ROUTING, mergeRoutingDefaults } from "../core/platformRouting.js";
+import { getSystemPlacementRouting } from "../core/placementRouting.js";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -241,6 +242,40 @@ router.post("/set-standard-routing", requireSecret, requirePin, (req, res) => {
   res.redirect(`/internal/vendors${qs(req)}&std_routing_saved=1`);
 });
 
+// ── POST /set-placement-routing — Save content_type→placement defaults to system_settings ─
+router.post("/set-placement-routing", requireSecret, requirePin, (req, res) => {
+  const CONTENT_TYPES = [
+    "standard_post", "before_after", "education",
+    "vendor_product", "vendor_promotion", "reviews",
+    "celebration", "stylist_availability",
+  ];
+  const VALID = ["reel", "story", "post"];
+
+  const routing = {};
+  for (const ct of CONTENT_TYPES) {
+    const val = req.body[`placement_${ct}`];
+    routing[ct] = VALID.includes(val) ? val : "post";
+  }
+
+  const json = JSON.stringify(routing);
+  const now = new Date().toISOString();
+
+  db.prepare(`
+    INSERT INTO system_settings (key, value, updated_at)
+    VALUES ('placement_routing', ?, ?)
+    ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
+  `).run(json, now);
+
+  // If push-to-all checkbox was checked, also clear all salon overrides
+  if (req.body.push_to_all === "1") {
+    db.prepare(`UPDATE salons SET placement_routing = NULL`).run();
+    console.log(`[vendorAdmin] Cleared all salon placement_routing overrides (push_to_all)`);
+  }
+
+  console.log(`[vendorAdmin] Updated system placement_routing:`, json);
+  res.redirect(`/internal/vendors${qs(req)}&placement_routing_saved=1`);
+});
+
 // ── GET / — Platform Console ───────────────────────────────────────────────────
 router.get("/", requireSecret, requirePin, (req, res) => {
   const brands = db.prepare(`
@@ -289,6 +324,10 @@ router.get("/", requireSecret, requirePin, (req, res) => {
   // Load the current standard routing from the DB (first salon with explicit routing set, or all-enabled defaults)
   const savedRoutingRow = db.prepare(`SELECT platform_routing FROM salons WHERE platform_routing IS NOT NULL LIMIT 1`).get();
   const currentRouting = savedRoutingRow ? mergeRoutingDefaults(savedRoutingRow.platform_routing) : DEFAULT_ROUTING;
+
+  // Load current placement routing defaults from system_settings
+  const currentPlacementRouting = getSystemPlacementRouting(db);
+  const placementRoutingSaved = req.query.placement_routing_saved === "1";
 
   // Feature requests across all salons
   const featureRequests = (() => {
@@ -366,6 +405,8 @@ router.get("/", requireSecret, requirePin, (req, res) => {
     ? `<div class="rounded-xl bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-800 font-medium mb-6">Routing reset for ${safe(req.query.routing_reset)}.</div>`
     : req.query.std_routing_saved
     ? `<div class="rounded-xl bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-800 font-medium mb-6">Standard routing applied.</div>`
+    : placementRoutingSaved
+    ? `<div class="rounded-xl bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-800 font-medium mb-6">Content placement defaults saved.</div>`
     : "";
 
   const today = new Date().toISOString().slice(0, 10);
@@ -976,6 +1017,63 @@ router.get("/", requireSecret, requirePin, (req, res) => {
             </tr>`).join("")}
           </tbody>
         </table>
+      </div>
+    </div>
+
+    <!-- Content Placement Defaults -->
+    <div class="border rounded-2xl bg-white overflow-hidden mt-8">
+      <div class="px-6 py-4 border-b">
+        <h2 class="font-bold">Content Placement Defaults</h2>
+        <p class="text-xs text-gray-500 mt-0.5">Set the default placement (Reel, Story, Post/Grid) for each content type. Salons can override individually from their Integrations page.</p>
+      </div>
+      <div class="px-6 py-5">
+        <form method="POST" action="/internal/vendors/set-placement-routing${qs(req)}">
+          <table class="text-sm w-full mb-4">
+            <thead>
+              <tr class="text-xs text-gray-500 uppercase tracking-wide border-b">
+                <th class="text-left pb-2 font-medium">Content Type</th>
+                <th class="text-left pb-2 font-medium pl-4">Default Placement</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${[
+                ["standard_post",        "Standard Post"],
+                ["before_after",         "Before &amp; After"],
+                ["education",            "Education / Tutorial"],
+                ["vendor_product",       "Vendor Product"],
+                ["vendor_promotion",     "Vendor Promotion"],
+                ["reviews",              "Review / Testimonial"],
+                ["celebration",          "Celebration"],
+                ["stylist_availability", "Stylist Availability"],
+              ].map(([ct, label]) => {
+                const current = currentPlacementRouting[ct] || "post";
+                return `
+                  <tr class="border-b border-gray-100 last:border-0">
+                    <td class="py-2 pr-6 font-medium text-gray-700">${label}</td>
+                    <td class="py-2 pl-4">
+                      <select name="placement_${ct}"
+                        class="border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white text-gray-700">
+                        <option value="post"${current === "post" ? " selected" : ""}>Post / Grid</option>
+                        <option value="reel"${current === "reel" ? " selected" : ""}>Reel</option>
+                        <option value="story"${current === "story" ? " selected" : ""}>Story</option>
+                      </select>
+                    </td>
+                  </tr>`;
+              }).join("")}
+            </tbody>
+          </table>
+          <div class="flex items-center gap-4 pt-2 border-t border-gray-100">
+            <label class="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+              <input type="checkbox" name="push_to_all" value="1"
+                class="rounded border-gray-300">
+              Clear all salon overrides (reset everyone to these defaults)
+            </label>
+            <button type="submit"
+              class="ml-auto px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700">
+              Save Defaults
+            </button>
+          </div>
+        </form>
       </div>
     </div>
 
