@@ -18,6 +18,7 @@ import { savePost } from "../core/storage.js";
 import { UPLOADS_DIR, toUploadUrl } from "../core/uploadPath.js";
 import { requireRole } from "../middleware/auth.js";
 import { getDefaultPlacement, getPlatformReach, deriveFromPostType } from "../core/contentType.js";
+import { getSystemPlacementRouting, mergePlacementRouting } from "../core/placementRouting.js";
 
 // Multer config for coordinator photo uploads
 const coordinatorUpload = multer({
@@ -263,6 +264,14 @@ router.get("/", requireAuth, async (req, res) => {
   /* -------------------------------------------------------------
      PENDING CARDS — exact original blue MostlyPostly UI
   ------------------------------------------------------------- */
+
+  // Load placement routing for label logic (salon override → system default)
+  const systemPlacementDefaults = getSystemPlacementRouting();
+  const salonPlacementRow = db.prepare("SELECT placement_routing FROM salons WHERE slug = ?").get(salon_id);
+  const salonPlacementOverrides = (() => {
+    try { return JSON.parse(salonPlacementRow?.placement_routing || "{}"); } catch { return {}; }
+  })();
+
   const pendingCards =
     pending.length === 0
       ? `<p class="text-mpMuted text-sm">No pending posts.</p>`
@@ -350,7 +359,13 @@ router.get("/", requireAuth, async (req, res) => {
                           </label>
                         `).join("")}
                       </div>
-                      <p id="mp-placement-label-${esc(p.id)}" class="text-xs text-gray-400 mt-1">${!p.placement_overridden ? "Recommended by MostlyPostly" : ""}</p>
+                      ${(() => {
+                        if (p.placement_overridden) return `<p id="mp-placement-label-${esc(p.id)}" class="text-xs text-gray-400 mt-1"></p>`;
+                        const ct = p.content_type || "standard_post";
+                        const isCustom = ct in salonPlacementOverrides;
+                        const labelText = isCustom ? "Your salon default" : "Recommended by MostlyPostly";
+                        return `<p id="mp-placement-label-${esc(p.id)}" class="text-xs text-gray-400 mt-1">${labelText}</p>`;
+                      })()}
                     </div>
                   </div>
                   <p class="text-xs text-gray-500">
