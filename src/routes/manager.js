@@ -355,12 +355,16 @@ router.get("/", requireAuth, async (req, res) => {
                 <div class="flex flex-wrap gap-3 mt-4">
 
                   <a href="/manager/approve?post=${p.id}"
-                     class="px-3 py-1.5 bg-green-600 hover:bg-green-700 rounded text-xs text-white">
+                     data-action-post-id="${esc(p.id)}"
+                     data-action-type="approve"
+                     class="mp-action-link px-3 py-1.5 bg-green-600 hover:bg-green-700 rounded text-xs text-white">
                     Approve
                   </a>
 
                   <a href="/manager/post-now?post=${p.id}"
-                     class="px-3 py-1.5 bg-mpCharcoal hover:bg-mpCharcoalDark rounded text-xs text-white">
+                     data-action-post-id="${esc(p.id)}"
+                     data-action-type="post-now"
+                     class="mp-action-link px-3 py-1.5 bg-mpCharcoal hover:bg-mpCharcoalDark rounded text-xs text-white">
                     Post Now
                   </a>
 
@@ -745,6 +749,37 @@ router.get("/", requireAuth, async (req, res) => {
     if (MP_GMB_OFFER.indexOf(ct) !== -1 && platforms.indexOf("Google Business") === -1) platforms.push("Google Business");
     document.getElementById('mp-reach-' + postId).textContent = platforms.join(" · ");
   }
+
+  // Intercept approve / post-now link clicks and submit as POST with content_type + placement
+  document.addEventListener('click', function(e) {
+    var link = e.target.closest('.mp-action-link');
+    if (!link) return;
+    e.preventDefault();
+    var postId = link.dataset.actionPostId;
+    var actionType = link.dataset.actionType;
+    if (!postId || !actionType) return;
+
+    var sel = document.querySelector('select[data-post-id="' + postId + '"]');
+    var ct = sel ? sel.value : 'standard_post';
+    var radio = document.querySelector('input[name="placement_' + postId + '"]:checked');
+    var placement = radio ? radio.value : (MP_CT_PLACEMENT[ct] || 'post');
+    var recommended = MP_CT_PLACEMENT[ct] || 'post';
+    var overridden = placement !== recommended ? '1' : '0';
+
+    var action = actionType === 'post-now' ? '/manager/post-now' : '/manager/approve';
+    var form = document.createElement('form');
+    form.method = 'POST';
+    form.action = action;
+    [['post_id', postId], ['content_type', ct], ['placement', placement], ['placement_overridden', overridden]].forEach(function(pair) {
+      var input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = pair[0];
+      input.value = pair[1];
+      form.appendChild(input);
+    });
+    document.body.appendChild(form);
+    form.submit();
+  });
   </script>
   `;
 
@@ -815,7 +850,70 @@ router.get("/approve", requireAuth, requireRole("owner", "manager"), async (req,
 });
 
 /* -------------------------------------------------------------
-   POST NOW
+   APPROVE (POST — from approval UI with content_type + placement)
+------------------------------------------------------------- */
+router.post("/approve", requireAuth, requireRole("owner", "manager"), async (req, res) => {
+  const id = req.body.post_id;
+  if (!id) return res.redirect("/manager");
+
+  const pendingPost = db.prepare(`
+    SELECT *
+    FROM posts
+    WHERE id = ?
+      AND status = 'manager_pending'
+  `).get(id);
+
+  if (!pendingPost) {
+    console.warn("⚠️ Dashboard approve (POST): post not found or not pending", id);
+    return res.redirect("/manager");
+  }
+
+  // Save content_type + placement before approving
+  const contentType = req.body.content_type || "standard_post";
+  const placement = req.body.placement || getDefaultPlacement(contentType);
+  const placementOverridden = parseInt(req.body.placement_overridden || "0", 10);
+
+  db.prepare(`
+    UPDATE posts SET content_type = ?, placement = ?, placement_overridden = ?
+    WHERE id = ? AND salon_id = ?
+  `).run(contentType, placement, placementOverridden, id, req.manager.salon_id);
+
+  // Look up salon settings for notification prefs
+  const salonSettings = db.prepare(
+    `SELECT notify_on_approval, timezone FROM salons WHERE slug = ?`
+  ).get(pendingPost.salon_id);
+
+  // Approve and enqueue
+  await handleManagerApproval(
+    req.manager.phone || "dashboard",
+    pendingPost,
+    async () => {} // suppress built-in SMS — we send below with correct content
+  );
+
+  // Notify stylist if setting is enabled and they have a phone
+  if (salonSettings?.notify_on_approval && pendingPost.stylist_phone) {
+    try {
+      const updated = db.prepare(`SELECT scheduled_for FROM posts WHERE id = ?`).get(pendingPost.id);
+      let timeNote = "";
+      if (updated?.scheduled_for) {
+        const tz = salonSettings.timezone || "America/Indiana/Indianapolis";
+        const localTime = DateTime.fromSQL(updated.scheduled_for, { zone: "utc" }).setZone(tz);
+        timeNote = ` Scheduled for ${localTime.toFormat("cccc, MMM d 'at' h:mm a")} (${localTime.offsetNameShort}).`;
+      }
+      await sendViaTwilio(
+        pendingPost.stylist_phone,
+        `✅ Your post was approved by your manager!${timeNote} It will publish automatically during your salon's posting window.`
+      );
+    } catch (err) {
+      console.error("[Manager] Approval notify failed:", err.message);
+    }
+  }
+
+  return res.redirect("/manager");
+});
+
+/* -------------------------------------------------------------
+   POST NOW (GET — legacy / direct links)
 ------------------------------------------------------------- */
 router.get("/post-now", requireAuth, requireRole("owner", "manager"), (req, res) => {
   const id = req.query.post;
@@ -834,6 +932,37 @@ router.get("/post-now", requireAuth, requireRole("owner", "manager"), (req, res)
 
   const returnToPostNow = req.query.return === "calendar" ? "/manager/calendar" : "/manager";
   return res.redirect(returnToPostNow);
+});
+
+/* -------------------------------------------------------------
+   POST NOW (POST — from approval UI with content_type + placement)
+------------------------------------------------------------- */
+router.post("/post-now", requireAuth, requireRole("owner", "manager"), (req, res) => {
+  const id = req.body.post_id;
+  const salon_id = req.manager.salon_id;
+
+  if (id) {
+    const contentType = req.body.content_type || "standard_post";
+    const placement = req.body.placement || getDefaultPlacement(contentType);
+    const placementOverridden = parseInt(req.body.placement_overridden || "0", 10);
+
+    db.prepare(`
+      UPDATE posts
+      SET content_type = ?, placement = ?, placement_overridden = ?
+      WHERE id = ? AND salon_id = ?
+    `).run(contentType, placement, placementOverridden, id, salon_id);
+
+    db.prepare(`
+      UPDATE posts
+      SET
+        status = 'manager_approved',
+        scheduled_for = datetime('now'),
+        approved_at = datetime('now','utc')
+      WHERE id = ? AND salon_id = ?
+    `).run(id, salon_id);
+  }
+
+  return res.redirect("/manager");
 });
 
 /* -------------------------------------------------------------
