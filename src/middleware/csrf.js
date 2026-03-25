@@ -16,6 +16,7 @@ const SKIP_PREFIXES = [
   "/inbound/twilio",
   "/inbound/telegram",
   "/integrations/webhook",
+  "/api/demo-request",
 ];
 
 function generateToken() {
