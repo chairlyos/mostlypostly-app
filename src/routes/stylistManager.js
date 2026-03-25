@@ -445,8 +445,8 @@ router.post("/add", photoUpload.single("photo"), async (req, res) => {
       const id = crypto.randomUUID();
       const name = [first_name, last_name].filter(Boolean).join(" ") || email;
       db.prepare(`
-        INSERT INTO managers (id, salon_id, name, phone, email, password_hash, role)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO managers (id, salon_id, name, phone, email, password_hash, role, email_verified)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 1)
       `).run(id, salon_id, name, normalizePhone(phone) || null, email.toLowerCase().trim(), password_hash, role);
       if (role === "coordinator" && normalizePhone(phone)) {
         const salonName = db.prepare("SELECT name FROM salons WHERE slug = ?").get(salon_id)?.name || salon_id;
@@ -1214,8 +1214,8 @@ router.post("/grant-access/:stylistId", async (req, res) => {
     const id = crypto.randomUUID();
     const name = [stylist.first_name, stylist.last_name].filter(Boolean).join(" ") || stylist.name;
     db.prepare(`
-      INSERT INTO managers (id, salon_id, name, phone, email, password_hash, role, stylist_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO managers (id, salon_id, name, phone, email, password_hash, role, stylist_id, email_verified)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
     `).run(id, salon_id, name, stylist.phone || null, email.toLowerCase().trim(), password_hash, portal_role, stylist.id);
     res.redirect(`/manager/stylists${qs}`);
   } catch (err) {
