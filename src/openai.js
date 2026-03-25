@@ -31,7 +31,7 @@ function fallbackCaption() {
     hashtags: ["#MostlyPostly"],
     cta: "Book your next visit today!",
     _classification: {
-      content_type: "other",
+      content_type: "standard_post",
       confidence: null,
     },
   };
@@ -108,7 +108,7 @@ Your reply MUST be a single JSON object. No comments. No code fences.
 ## PART 2 — Content Classification (Shadow Mode):
 - This is NOT used for posting yet. Just return the classification fields.
 - "content_type" must be one of:
-    "feed_photo", "reel", "story", "availability_card", "promo_graphic", "other"
+    "standard_post", "before_after", "education"
 - "content_confidence" must be a number from 0 to 1
 
 ## REQUIRED JSON FORMAT
@@ -117,7 +117,7 @@ Your reply MUST be a single JSON object. No comments. No code fences.
   "caption": "...",
   "hashtags": ["#..."],
   "cta": "...",
-  "content_type": "feed_photo",
+  "content_type": "standard_post",
   "content_confidence": 0.82
 }
 `;
@@ -190,7 +190,7 @@ Your reply MUST be a single JSON object. No comments. No code fences.
         : ["#MostlyPostly"];
     const cta = parsed.cta || fallbackCaption().cta;
 
-    const content_type = parsed.content_type || "other";
+    const content_type = parsed.content_type || "standard_post";
     const content_confidence =
       typeof parsed.content_confidence === "number"
         ? Math.max(0, Math.min(1, parsed.content_confidence))
