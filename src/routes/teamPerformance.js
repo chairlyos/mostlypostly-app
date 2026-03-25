@@ -20,6 +20,8 @@ import {
   DEFAULT_POINTS,
 } from "../core/gamification.js";
 
+import { requireRole } from "../middleware/auth.js";
+
 const router = express.Router();
 
 function requireAuth(req, res, next) {
@@ -59,6 +61,7 @@ const POST_TYPE_LABELS = {
 // ─── GET /manager/performance ─────────────────────────────────────────────────
 router.get("/", requireAuth, (req, res) => {
   const salon_id = req.manager.salon_id;
+  const isCoordinator = req.manager?.role === "coordinator";
   const period   = ["week","month","quarter","year","all"].includes(req.query.period)
     ? req.query.period : "month";
   const view = req.query.view === "coordinators" ? "coordinators" : "stylists";
@@ -280,7 +283,7 @@ router.get("/", requireAuth, (req, res) => {
     <div class="grid gap-6 lg:grid-cols-2">
 
       <!-- Point values -->
-      <div class="rounded-2xl border border-mpBorder bg-white p-5">
+      <div class="rounded-2xl border border-mpBorder bg-white p-5${isCoordinator ? " opacity-50 pointer-events-none" : ""}">
         <h2 class="text-base font-bold text-mpCharcoal mb-1">Point Values</h2>
         <p class="text-xs text-mpMuted mb-4">Customize how many points each post type earns. Changes apply to future calculations for the current period.</p>
         <form method="POST" action="/manager/performance/settings">
@@ -292,9 +295,10 @@ router.get("/", requireAuth, (req, res) => {
             </div>
             <input type="number" name="shortage_threshold"
               value="${settings?.shortage_threshold ?? 5}" min="1" max="99"
+              ${isCoordinator ? "disabled" : ""}
               class="w-16 rounded-lg border border-mpBorder px-2 py-1 text-sm text-center text-mpCharcoal focus:border-mpAccent focus:outline-none" />
           </div>
-          <button type="submit"
+          <button type="submit" ${isCoordinator ? "disabled" : ""}
             class="mt-4 w-full rounded-full bg-mpCharcoal py-2.5 text-sm font-semibold text-white hover:bg-mpCharcoalDark transition-colors">
             Save Settings
           </button>
@@ -316,7 +320,7 @@ router.get("/", requireAuth, (req, res) => {
             </button>
           </div>
           <form id="regen-token-form" method="POST" action="/manager/performance/regenerate-token">
-            <button class="text-xs text-mpMuted hover:text-red-500 underline transition-colors">
+            <button ${isCoordinator ? "disabled" : ""} class="text-xs text-mpMuted ${isCoordinator ? "opacity-50 cursor-not-allowed" : "hover:text-red-500"} underline transition-colors">
               Regenerate URL (breaks current link)
             </button>
           </form>
@@ -384,7 +388,7 @@ router.get("/", requireAuth, (req, res) => {
 });
 
 // ─── POST /manager/performance/settings ──────────────────────────────────────
-router.post("/settings", requireAuth, (req, res) => {
+router.post("/settings", requireAuth, requireRole("owner", "manager"), (req, res) => {
   const salon_id = req.manager.salon_id;
   getOrCreateSettings(salon_id);
 
@@ -421,7 +425,7 @@ router.post("/bonus/deactivate", requireAuth, (req, res) => {
 });
 
 // ─── POST /manager/performance/regenerate-token ───────────────────────────────
-router.post("/regenerate-token", requireAuth, (req, res) => {
+router.post("/regenerate-token", requireAuth, requireRole("owner", "manager"), (req, res) => {
   regenerateLeaderboardToken(req.manager.salon_id);
   res.redirect("/manager/performance");
 });

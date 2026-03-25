@@ -168,7 +168,7 @@ router.get("/", requireAuth, (req, res) => {
     </div>
   `;
 
-  res.send(pageShell({ title: "My Profile", current: "profile", salon_id, body }));
+  res.send(pageShell({ title: "My Profile", current: "profile", salon_id, manager_id: req.manager?.id, body }));
 });
 
 // ─── POST /manager/profile/name ──────────────────────────────────────────────

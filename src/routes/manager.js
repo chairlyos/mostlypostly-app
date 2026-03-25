@@ -1074,6 +1074,7 @@ router.get("/deny", requireAuth, requireRole("owner", "manager"), (req, res) => 
       body,
       current: "manager",
       salon_id: req.manager.salon_id,
+      manager_id: req.manager?.id,
     })
   );
 });
@@ -1156,6 +1157,7 @@ router.get("/edit/:id", requireAuth, requireRole("owner", "manager"), (req, res)
       title: "Edit Post",
       current: "manager",
       salon_id: req.manager.salon_id,
+      manager_id: req.manager?.id,
       body,
     })
   );
@@ -1270,7 +1272,7 @@ router.get("/promotion/new", requireAuth, requireRole("owner", "manager"), (req,
     </div>
   `;
 
-  return res.send(pageShell({ title: "Create Promotion", current: "manager", salon_id, body }));
+  return res.send(pageShell({ title: "Create Promotion", current: "manager", salon_id, manager_id: req.manager?.id, body }));
 });
 
 /* -------------------------------------------------------------
@@ -1435,7 +1437,7 @@ router.get("/coordinator/upload", requireAuth, (req, res) => {
     </section>
   `;
 
-  return res.send(pageShell({ title: "Upload a Post", current: "manager", salon_id, body }));
+  return res.send(pageShell({ title: "Upload a Post", current: "manager", salon_id, manager_id: req.manager?.id, body }));
 });
 
 /* -------------------------------------------------------------
