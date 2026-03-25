@@ -130,7 +130,7 @@ export default function pageShell({
 
     <!-- Salon switcher -->
     ${(!navLocked && activeSalonName) ? `
-    <a href="/manager/locations${qs}"
+    <a href="${isCoordinator ? `/manager${qs}` : `/manager/locations${qs}`}"
        class="flex items-center gap-2.5 px-4 py-3 border-b border-white/10 hover:bg-white/5 transition-colors">
       <span class="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md bg-[#3B72B9] text-white text-xs font-bold leading-none">
         ${activeSalonName.split(/\s+/).slice(0,2).map(w=>w[0]).join("").toUpperCase()}
