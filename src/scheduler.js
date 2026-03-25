@@ -16,6 +16,7 @@ import { checkAndAutoRecycle } from './core/contentRecycler.js';
 import { pickNextPost } from './core/pickNextPost.js';
 import { isEnabledFor } from './core/platformRouting.js';
 import { composeFinalCaption } from './core/composeFinalCaption.js';
+import { deriveFromPostType } from './core/contentType.js';
 
 const log = createLogger("scheduler");
 
@@ -424,7 +425,9 @@ export async function runSchedulerOnce() {
       for (const post of due) {
         const localNow  = nowUtc.setZone(tz);
         const postType  = post.post_type || "standard_post";
-        const storyOnly = isStoryOnly(postType);
+        const resolvedPlacement = post.placement || deriveFromPostType(postType);
+        // "reel" | "story" | "post"
+        const storyOnly = resolvedPlacement === "story";
 
         // --- Posting window check ---
         if (!IGNORE_WINDOW && !FORCE_POST_NOW) {
@@ -546,11 +549,11 @@ export async function runSchedulerOnce() {
           let fbResp = null;
           let igResp = null;
 
-          if (postType === "reel") {
+          if (resolvedPlacement === "reel") {
             // -- Reel publish (REEL-06, REEL-07) --------------------------
             // FB and IG publish independently — one failure does not block the other
             const videoUrl = allImages[0] || post.image_url;
-            console.log(`[Scheduler] Publishing reel ${post.id} to FB + IG`);
+            console.log(`[Scheduler] Publishing reel ${post.id} to FB + IG + TikTok`);
 
             if (isEnabledFor(salon, postType, 'facebook')) {
               try {
@@ -578,8 +581,8 @@ export async function runSchedulerOnce() {
                 if (!fbResp) throw igErr;
               }
             }
-          } else if (storyOnly) {
-            // Availability + Promotions → Stories only
+          } else if (resolvedPlacement === "story") {
+            // story placement → IG + FB Stories only (no GMB, no TikTok)
             if (isEnabledFor(salon, postType, 'instagram')) {
               const image        = allImages[0] || post.image_url;
               const storyLinkUrl = salon.booking_url || salon.booking_link || null;
@@ -637,12 +640,17 @@ export async function runSchedulerOnce() {
           console.log(`✅ [${post.id}] Published (fb today: ${fbPostedToday}/${fbDailyCap}, ig today: ${igPostedToday}/${igDailyCap})`);
 
           // --- GMB publish (independent — does not block FB/IG) ---
+          // GMB only for "post" placement; reels and stories are excluded.
+          // content_type "reviews" and "stylist_availability" are also excluded.
+          const contentType = post.content_type || null;
+          const gmbSkippedByContentType = contentType === "reviews"
+            || contentType === "stylist_availability";
           const gmbEligible = ["growth", "pro"].includes(salon.plan)
             && salon.gmb_enabled
             && salon.google_location_id
             && salon.google_refresh_token
-            && postType !== "availability"
-            && postType !== "reel"   // GMB does not support video Reels
+            && resolvedPlacement === "post"   // GMB only for feed posts (no reels, no stories)
+            && !gmbSkippedByContentType
             && isEnabledFor(salon, postType, 'gmb');
 
           if (gmbEligible) {
@@ -650,7 +658,9 @@ export async function runSchedulerOnce() {
               const caption   = fbCaption;
               const image     = allImages[0] || post.image_url;
               const todayIso  = new Date().toISOString().split("T")[0];
-              const isOffer   = ["promotions", "vendor_post"].includes(postType);
+              // Use content_type for routing when available; fall back to post_type heuristic
+              const isOffer   = contentType === "vendor_promotion"
+                || ["promotions", "vendor_post"].includes(postType);
               let gmbResp;
 
               if (isOffer) {
@@ -674,12 +684,12 @@ export async function runSchedulerOnce() {
           }
 
           // --- TikTok publish (independent — does not block FB/IG/GMB) ---
+          // Stories are excluded from TikTok (no story-type support).
+          // Reels are explicitly included; feed posts are also eligible.
           const tiktokEligible = salon.tiktok_enabled
             && salon.tiktok_access_token
             && salon.tiktok_refresh_token
-            && postType !== "availability"
-            && postType !== "promotions"
-            && postType !== "celebration_story"
+            && resolvedPlacement !== "story"   // stories never go to TikTok
             && isEnabledFor(salon, postType, 'tiktok');
 
           if (tiktokEligible && tiktokPostedToday < tiktokDailyCap) {
@@ -699,7 +709,7 @@ export async function runSchedulerOnce() {
               }).trim();
 
               let tiktokPublishId;
-              const isVideo = postType === "reel"
+              const isVideo = resolvedPlacement === "reel"
                 || /\.(mp4|mov|avi|webm)$/i.test(allImages[0] || "");
 
               if (isVideo) {
