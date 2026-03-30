@@ -791,7 +791,10 @@ router.get("/", requireAuth, async (req, res) => {
     var form = document.createElement('form');
     form.method = 'POST';
     form.action = action;
-    [['post_id', postId], ['content_type', ct], ['placement', placement], ['placement_overridden', overridden]].forEach(function(pair) {
+    var csrfMeta = document.querySelector('meta[name="csrf-token"]');
+    var pairs = [['post_id', postId], ['content_type', ct], ['placement', placement], ['placement_overridden', overridden]];
+    if (csrfMeta) pairs.push(['_csrf', csrfMeta.getAttribute('content')]);
+    pairs.forEach(function(pair) {
       var input = document.createElement('input');
       input.type = 'hidden';
       input.name = pair[0];
