@@ -312,7 +312,7 @@ router.get("/", (req, res) => {
           `SELECT id, name, integration_employee_id FROM stylists WHERE salon_id = ? ORDER BY name ASC`
         ).all(salon_id);
         if (!stylists.length) return `<p class="text-xs text-mpMuted italic">No stylists added yet. <a href="/manager/stylists" class="underline text-mpAccent">Add stylists →</a></p>`;
-        return `<form method="POST" action="/manager/integrations/zenoti/map-employees" class="space-y-2">
+        return `<form method="POST" action="/manager/integrations/zenoti/map-employees" class="space-y-2" id="zenoti-map-form">
           ${stylists.map(s => {
             const matched = !!s.integration_employee_id;
             return `
@@ -328,10 +328,18 @@ router.get("/", (req, res) => {
                 value="${s.integration_employee_id || ""}"
                 placeholder="Zenoti employee UUID"
                 class="flex-1 text-xs font-mono rounded-lg border ${matched ? 'border-green-200 bg-green-50' : 'border-gray-200 bg-gray-50'} px-3 py-1.5 text-mpCharcoal placeholder:text-gray-400 focus:outline-none focus:border-mpAccent" />
+              ${matched ? `<button type="submit" form="sync-stylist-${s.id}"
+                class="px-2.5 py-1.5 rounded-lg bg-mpAccentLight border border-mpBorder text-[11px] font-semibold text-mpAccent hover:bg-blue-100 transition-colors whitespace-nowrap">
+                Sync
+              </button>` : ""}
             </div>`;
           }).join("")}
           <button type="submit" class="mt-2 rounded-full bg-mpCharcoal px-4 py-2 text-xs font-semibold text-white hover:bg-mpCharcoalDark transition-colors">Save Mappings</button>
-        </form>`;
+        </form>
+        ${stylists.filter(s => !!s.integration_employee_id).map(s => `
+          <form id="sync-stylist-${s.id}" method="POST" action="/manager/integrations/zenoti/sync-stylist" style="display:none">
+            <input type="hidden" name="stylist_id" value="${s.id}" />
+          </form>`).join("")}`;
       })()}
     </div>
 
@@ -1222,6 +1230,59 @@ router.post("/zenoti/sync", async (req, res) => {
   } catch (e) {
     console.error('[Integrations] Zenoti sync error:', e.message);
     res.redirect('/manager/integrations?synced=1&found=0');
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────
+// POST /manager/integrations/zenoti/sync-stylist
+// Manual availability sync for a single mapped stylist.
+// ─────────────────────────────────────────────────────────────────
+router.post("/zenoti/sync-stylist", async (req, res) => {
+  const salon_id = req.manager?.salon_id;
+  const { stylist_id } = req.body;
+
+  if (!stylist_id) {
+    return res.redirect("/manager/integrations?error=missing_stylist");
+  }
+
+  // Verify stylist belongs to this salon and is mapped
+  const stylist = db.prepare(
+    `SELECT id, name, instagram_handle, integration_employee_id
+     FROM stylists WHERE id = ? AND salon_id = ?`
+  ).get(stylist_id, salon_id);
+
+  if (!stylist || !stylist.integration_employee_id) {
+    return res.redirect("/manager/integrations?error=not_mapped");
+  }
+
+  try {
+    const zenotiInfo = await getZenotiClientForSalon(salon_id);
+    if (!zenotiInfo) {
+      return res.redirect("/manager/integrations?synced=1&found=0");
+    }
+
+    const { client, centerId } = zenotiInfo;
+    const salon = db.prepare(`SELECT * FROM salons WHERE slug = ?`).get(salon_id);
+
+    const today = new Date();
+    const startDate = today.toISOString().slice(0, 10);
+    const endDate = (() => {
+      const d = new Date(today);
+      d.setDate(d.getDate() + 7);
+      return d.toISOString().slice(0, 10);
+    })();
+
+    const slots = await fetchStylistSlots({ client, centerId, stylist, salon, dateRange: { startDate, endDate } });
+    let postsCreated = 0;
+    if (slots.length) {
+      const result = await generateAndSaveAvailabilityPost({ salon, stylist, slots });
+      if (result) postsCreated = 1;
+    }
+
+    res.redirect(`/manager/integrations?synced=1&found=${postsCreated}`);
+  } catch (e) {
+    console.error("[Integrations] Zenoti sync-stylist error:", e.message);
+    res.redirect("/manager/integrations?synced=1&found=0");
   }
 });
 
