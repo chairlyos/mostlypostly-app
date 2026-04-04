@@ -59,6 +59,8 @@ export async function transcodeForTikTok(videoUrl, baseUrl) {
       .outputOptions([
         "-r 30",                // force 30fps
         "-crf 23",              // reasonable quality
+        "-preset ultrafast",    // low memory + CPU — critical for Render 512MB plan
+        "-threads 1",           // single-threaded to stay within Render memory limits
         "-movflags +faststart", // streaming-friendly
         // Scale up if smaller dimension < 720 (TikTok minimum is 360 but 720 is safe).
         // Maintains aspect ratio; rounds to even numbers required by libx264.
