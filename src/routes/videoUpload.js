@@ -289,7 +289,7 @@ router.post("/:token", videoUpload.single("video"), async (req, res) => {
     postId = randomUUID();
     db.prepare(`
       INSERT INTO posts (id, salon_id, stylist_name, image_url, base_caption, final_caption, post_type, content_type, placement, status, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, 'reel', 'standard_post', 'reel', 'draft', datetime('now'))
+      VALUES (?, ?, ?, ?, ?, ?, 'reel', 'standard_post', 'reel', 'draft', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
     `).run(postId, row.salon_id, stylist.name, videoUrl, aiJson?.caption || "", caption);
 
     console.log(`[VideoUpload] Draft post ${postId} created for ${stylist.name}`);

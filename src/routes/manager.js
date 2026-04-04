@@ -222,6 +222,7 @@ router.get("/", requireAuth, async (req, res) => {
     .all(salon_id);
 
   // Fetch recent (exclude drafts and pending-approval — those show elsewhere; capped to 14 days)
+  // Use datetime(created_at) in ORDER BY to normalize mixed ISO/SQLite timestamp formats.
   const recentRaw = db
     .prepare(
       `SELECT *
@@ -229,13 +230,10 @@ router.get("/", requireAuth, async (req, res) => {
         WHERE salon_id = ?
           AND status NOT IN ('manager_pending', 'draft', 'cancelled')
           AND datetime(created_at) >= datetime('now', '-14 days')
-        ORDER BY created_at DESC
+        ORDER BY datetime(created_at) DESC
        LIMIT 25`
     )
     .all(salon_id);
-  const reelsInRecent = recentRaw.filter(p => p.post_type === 'reel');
-  const reelsTotal = db.prepare("SELECT id, status, created_at, salon_id FROM posts WHERE salon_id = ? AND post_type = 'reel' ORDER BY created_at DESC LIMIT 5").all(salon_id);
-  console.log(`[Dashboard] salon=${salon_id} recent=${recentRaw.length} reels_in_recent=${reelsInRecent.length} all_reels:`, JSON.stringify(reelsTotal));
 
   // Fetch failed posts (need manager attention)
   const failedPosts = db
