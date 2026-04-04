@@ -6,7 +6,7 @@ import ffmpegStatic from "ffmpeg-static";
 import ffmpeg from "fluent-ffmpeg";
 import path from "path";
 import fs from "fs";
-import { fileURLToPath } from "url";
+import { UPLOADS_DIR as BASE_UPLOADS_DIR } from "../core/uploadPath.js";
 
 // Prefer system ffmpeg (avoids SIGSEGV in Render's restricted container).
 // Falls back to the bundled static binary for local dev.
@@ -16,8 +16,8 @@ const FFMPEG_PATH = process.env.FFMPEG_PATH
   || ffmpegStatic;
 console.log(`[Transcode] Using ffmpeg: ${FFMPEG_PATH}`);
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const UPLOADS_DIR = path.join(__dirname, "../../public/uploads/videos");
+// Videos subdir within the shared uploads directory (same root Express serves from).
+const UPLOADS_DIR = path.join(BASE_UPLOADS_DIR, "videos");
 
 /**
  * Transcode a video URL to a TikTok-compatible MP4 (30fps, H.264, AAC).
