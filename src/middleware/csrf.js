@@ -17,6 +17,7 @@ const SKIP_PREFIXES = [
   "/inbound/telegram",
   "/integrations/webhook",
   "/api/demo-request",
+  "/stylist/upload-video",  // token-authenticated upload page — no session required
 ];
 
 function generateToken() {

@@ -10,6 +10,7 @@ import {
 import { joinSessions } from "../core/joinSessionStore.js";
 
 import { handleIncomingMessage } from "../core/messageRouter.js";
+import { isReelRequest } from "../core/reelRequest.js";
 import moderateAIOutput from "../utils/moderation.js";
 
 // ======================================================
@@ -134,7 +135,8 @@ export default function twilioRoute(drafts, _lookupStylist, generateCaption) {
           /^(JOIN|CANCEL|SETUP|AGREE|APPROVE|DENY|EDIT|RESET|REDO|REGENERATE|MENU|LEADERBOARD|RANKINGS?)\b/i.test(text) ||
           /^(what can i do|who('?s| is) (leading|winning|in the lead))$/i.test(text) ||
           joinSessions.has(from) ||
-          isVideo    // Video flow sends its own prompt — suppress auto-ACK
+          isVideo ||        // Video flow sends its own prompt — suppress auto-ACK
+          isReelRequest(text)  // Reel keyword — sends upload link, not "Building your post"
         ) {
           // 🧠 These are command flows — respond silently (no "Got it" message)
           res.type("text/xml").send(twiml.toString());
