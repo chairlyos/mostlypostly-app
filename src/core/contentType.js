@@ -5,6 +5,8 @@ export const DEFAULT_PLACEMENT = {
   vendor_promotion: "story",
   reviews: "post",
   education: "reel",
+  promotion: "reel",
+  team_culture: "reel",
   celebration: "post",
   stylist_availability: "story",
 };
