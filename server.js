@@ -75,6 +75,7 @@ import googleAuthRoutes from "./src/routes/googleAuth.js";
 import tiktokAuthRoutes from "./src/routes/tiktokAuth.js";
 import stylistPortal from "./src/routes/stylistPortal.js";
 import videoUploadRoute from "./src/routes/videoUpload.js";
+import { drafts as sharedDrafts } from "./src/core/draftsStore.js";
 
 import managerAuthRoutes from "./src/routes/managerAuth.js";
 import managerRoutes from "./src/routes/manager.js";
@@ -252,7 +253,7 @@ app.use(csrfProtection());
 // =====================================================
 // INBOUND TELEGRAM / TWILIO / MICROSOFT TEAMS
 // =====================================================
-const drafts = new Map();
+const drafts = sharedDrafts;
 
 app.use(
   "/inbound/telegram",

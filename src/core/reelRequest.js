@@ -11,6 +11,9 @@ const FAST_PATH = [
   "share reel",
   "post my reel",
   "post video",
+  "post a video",
+  "share a video",
+  "upload a video",
 ];
 
 const INTENT_PATTERNS = [

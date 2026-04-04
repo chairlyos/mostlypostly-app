@@ -11,6 +11,7 @@ import { generateCaption } from "../openai.js";
 import { composeFinalCaption } from "../core/composeFinalCaption.js";
 import moderateAIOutput from "../utils/moderation.js";
 import { sendViaTwilio } from "./twilio.js";
+import { drafts } from "../core/draftsStore.js";
 
 const router = express.Router();
 
@@ -182,8 +183,10 @@ router.post("/:token", videoUpload.single("video"), async (req, res) => {
   // Generate caption + send SMS asynchronously
   try {
     const fullSalon = getSalonPolicy(row.salon_id) || salon;
+    // Do NOT pass videoUrl as imageDataUrl — OpenAI Vision only accepts images.
+    // The stylist's description provides all the context needed for caption generation.
     const aiJson = await generateCaption({
-      imageDataUrl: videoUrl,
+      imageDataUrl: null,
       notes: description,
       salon: fullSalon,
       stylist,
@@ -222,14 +225,11 @@ router.post("/:token", videoUpload.single("video"), async (req, res) => {
       `Here's your Reel caption:\n${preview}\n\nReply APPROVE to submit, EDIT <new caption>, or REDO <direction>.`
     );
 
-    // Store draft for approve/edit/redo flow (same in-memory drafts map)
-    const { drafts } = await import("./messageRouter.js").catch(() => ({ drafts: null }));
-    if (drafts) {
-      drafts.set(stylist.phone, {
-        postId, salonId: row.salon_id, stylistId: stylist.id,
-        caption, imageUrl: videoUrl, postType: "reel",
-      });
-    }
+    // Store draft in shared singleton so APPROVE/EDIT/REDO SMS replies work
+    drafts.set(stylist.phone, {
+      postId, salonId: row.salon_id, stylistId: stylist.id,
+      caption, imageUrl: videoUrl, postType: "reel",
+    });
 
     console.log(`[VideoUpload] Caption sent to ${stylist.phone} for post ${postId}`);
   } catch (err) {
