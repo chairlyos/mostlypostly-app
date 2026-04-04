@@ -140,9 +140,17 @@ router.post("/:token", videoUpload.single("video"), async (req, res) => {
   const base = (process.env.PUBLIC_BASE_URL || "").replace(/\/$/, "");
   const videoUrl = `${base}/uploads/videos/${req.file.filename}`;
 
-  // Look up stylist + salon for caption generation
-  const stylist = db.prepare("SELECT * FROM stylists WHERE id = ? LIMIT 1").get(row.stylist_id);
-  const salon   = db.prepare("SELECT * FROM salons   WHERE slug = ? LIMIT 1").get(row.salon_id);
+  // Look up stylist + salon for caption generation.
+  // stylist_id may be a manager UUID when a manager (not a named stylist) texted REEL.
+  let stylist = db.prepare("SELECT * FROM stylists WHERE id = ? LIMIT 1").get(row.stylist_id);
+  if (!stylist) {
+    // Fall back to managers table — manager texted "reel" from their own number
+    const mgr = db.prepare("SELECT * FROM managers WHERE id = ? LIMIT 1").get(row.stylist_id);
+    if (mgr) {
+      stylist = { id: mgr.id, name: mgr.name, phone: mgr.phone, city: null };
+    }
+  }
+  const salon = db.prepare("SELECT * FROM salons WHERE slug = ? LIMIT 1").get(row.salon_id);
 
   if (!stylist || !salon) {
     return res.status(500).send("Could not find your salon account. Please contact your manager.");
