@@ -452,7 +452,8 @@ router.get("/", (req, res) => {
 
     ${alertHtml}
 
-    <!-- ── Facebook & Instagram ─────────────────────────────── -->
+    ${[
+      { connected: fbConnected, html: `
     <div class="border border-mpBorder rounded-2xl bg-white overflow-hidden mb-4">
       <button id="toggle-btn-fb" type="button" class="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-mpBg transition-colors cursor-pointer">
         <div class="flex items-center gap-3">
@@ -505,9 +506,8 @@ router.get("/", (req, res) => {
         </a>
         `}
       </div>
-    </div>
-
-    <!-- ── Google Business Profile ──────────────────────────── -->
+    </div>` },
+      { connected: gmbConnected, html: `
     <div class="border border-mpBorder rounded-2xl bg-white overflow-hidden mb-4">
       <button id="toggle-btn-gmb" type="button" class="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-mpBg transition-colors cursor-pointer">
         <div class="flex items-center gap-3">
@@ -522,9 +522,8 @@ router.get("/", (req, res) => {
       <div id="card-gmb" data-open="false" class="border-t border-gray-100 px-6 py-5">
         ${gmbCardBody}
       </div>
-    </div>
-
-    <!-- ── Zenoti ───────────────────────────────────────────── -->
+    </div>` },
+      { connected: zenotiConnected, html: `
     <div class="border border-mpBorder rounded-2xl bg-white overflow-hidden mb-4">
       <button id="toggle-btn-zenoti" type="button" class="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-mpBg transition-colors cursor-pointer">
         <div class="flex items-center gap-3">
@@ -539,9 +538,8 @@ router.get("/", (req, res) => {
       <div id="card-zenoti" data-open="false" class="border-t border-gray-100 px-6 py-5">
         ${zenotiCardBody}
       </div>
-    </div>
-
-    <!-- TikTok -->
+    </div>` },
+      { connected: tiktokConnected, html: `
     <div class="border border-mpBorder rounded-2xl bg-white overflow-hidden mb-4">
       <button id="toggle-btn-tiktok" type="button" class="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-mpBg transition-colors cursor-pointer">
         <div class="flex items-center gap-3">
@@ -582,7 +580,8 @@ router.get("/", (req, res) => {
           </a>
         `}
       </div>
-    </div>
+    </div>` },
+    ].sort((a, b) => b.connected - a.connected).map(c => c.html).join("")}
 
     <!-- ── Content Routing ─────────────────────────────────── -->
     <div class="rounded-2xl border border-mpBorder bg-mpCard shadow-sm overflow-hidden mb-4">
