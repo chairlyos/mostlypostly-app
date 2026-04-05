@@ -464,7 +464,7 @@ router.get("/", (req, res) => {
           ${chevron('fb')}
         </div>
       </button>
-      <div id="card-fb" data-open="${fbConnected}" class="border-t border-gray-100 px-6 py-5">
+      <div id="card-fb" data-open="false" class="border-t border-gray-100 px-6 py-5">
         ${fbConnected ? `
         <div class="mb-4 rounded-xl bg-mpBg border border-mpBorder p-3 text-xs space-y-1.5">
           <div class="flex justify-between">
@@ -519,7 +519,7 @@ router.get("/", (req, res) => {
           ${chevron('gmb')}
         </div>
       </button>
-      <div id="card-gmb" data-open="${gmbConnected}" class="border-t border-gray-100 px-6 py-5">
+      <div id="card-gmb" data-open="false" class="border-t border-gray-100 px-6 py-5">
         ${gmbCardBody}
       </div>
     </div>
@@ -536,7 +536,7 @@ router.get("/", (req, res) => {
           ${chevron('zenoti')}
         </div>
       </button>
-      <div id="card-zenoti" data-open="${zenotiConnected}" class="border-t border-gray-100 px-6 py-5">
+      <div id="card-zenoti" data-open="false" class="border-t border-gray-100 px-6 py-5">
         ${zenotiCardBody}
       </div>
     </div>
@@ -553,7 +553,7 @@ router.get("/", (req, res) => {
           ${chevron('tiktok')}
         </div>
       </button>
-      <div id="card-tiktok" data-open="${tiktokConnected}" class="border-t border-gray-100 px-6 py-5">
+      <div id="card-tiktok" data-open="false" class="border-t border-gray-100 px-6 py-5">
         ${tiktokConnected ? `
           <div class="flex items-center justify-between mb-4">
             <div>
