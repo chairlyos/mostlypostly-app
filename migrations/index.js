@@ -62,6 +62,7 @@ import { run as run058 } from "./058_placement_routing.js";
 import { run as run059 } from "./059_fix_team_email_verified.js";
 import { run as run060 } from "./060_vendor_starts_at.js";
 import { run as run061 } from "./061_video_upload_tokens.js";
+import { run as run062 } from "./062_insights_sync_log.js";
 
 export const migrations = [
   { name: "001_baseline_patches",        run: run001 },
@@ -125,4 +126,5 @@ export const migrations = [
   { name: "059_fix_team_email_verified",   run: run059 },
   { name: "060_vendor_starts_at",          run: run060 },
   { name: "061_video_upload_tokens",       run: run061 },
+  { name: "062_insights_sync_log",         run: run062 },
 ];

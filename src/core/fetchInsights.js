@@ -290,5 +290,16 @@ export async function syncSalonInsights(salon) {
     await syncGmbInsights(salon);
   }
 
-  return { synced, errors };
+  // ── Persist sync result to salon row ──────────────────────────────────────
+  const result = { synced, errors, total: publishedPosts.length };
+  try {
+    db.prepare(`
+      UPDATE salons SET last_sync_at = datetime('now','utc'), last_sync_result = ? WHERE slug = ?
+    `).run(JSON.stringify(result), salonSlug);
+  } catch (e) {
+    // Column may not exist yet if migration hasn't run — fail silently
+    console.warn("[Insights] Could not write last_sync_result:", e.message);
+  }
+
+  return result;
 }

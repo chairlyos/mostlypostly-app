@@ -75,8 +75,9 @@ function postTypeLabel(t) {
 router.get("/", (req, res) => {
   const salon_id = resolveSalonId(req);
   const qs = salon_id ? `?salon=${encodeURIComponent(salon_id)}` : "";
-  const msgParam = req.query.msg || "";
-  const errParam = req.query.err || "";
+  const msgParam  = req.query.msg  || "";
+  const warnParam = req.query.warn || "";
+  const errParam  = req.query.err  || "";
 
   if (!salon_id) {
     return res.status(400).send(pageShell({
@@ -92,8 +93,36 @@ router.get("/", (req, res) => {
   const salonPolicy = getSalonPolicy(salon_id) || {};
   const tz = salonPolicy?.timezone || "America/Indiana/Indianapolis";
 
-  const salonMeta = db.prepare(`SELECT google_location_id FROM salons WHERE slug=?`).get(salon_id);
+  const salonMeta = db.prepare(`SELECT google_location_id, last_sync_at, last_sync_result FROM salons WHERE slug=?`).get(salon_id);
   const gmbConnected = !!salonMeta?.google_location_id;
+
+  // Last sync status
+  let lastSyncLabel = null;
+  if (salonMeta?.last_sync_at) {
+    const syncResult = salonMeta.last_sync_result ? JSON.parse(salonMeta.last_sync_result) : null;
+    const syncAgo = (() => {
+      const diffMs = Date.now() - new Date(salonMeta.last_sync_at + "Z").getTime();
+      const mins = Math.floor(diffMs / 60000);
+      if (mins < 1)  return "just now";
+      if (mins < 60) return `${mins}m ago`;
+      const hrs = Math.floor(mins / 60);
+      if (hrs < 24)  return `${hrs}h ago`;
+      return `${Math.floor(hrs / 24)}d ago`;
+    })();
+    if (syncResult) {
+      const { synced, errors = [], total = 0 } = syncResult;
+      const errCount = errors.length;
+      if (errCount === 0) {
+        lastSyncLabel = { color: "green", text: `Synced ${syncAgo} — ${synced}/${total} matched` };
+      } else if (synced > 0) {
+        lastSyncLabel = { color: "amber", text: `Synced ${syncAgo} — ${synced}/${total} matched, ${errCount} skipped` };
+      } else {
+        lastSyncLabel = { color: "red", text: `Sync failed ${syncAgo}` };
+      }
+    } else {
+      lastSyncLabel = { color: "green", text: `Last synced ${syncAgo}` };
+    }
+  }
 
   // Volume
   const totalPublished = db.prepare(`SELECT COUNT(*) as c FROM posts WHERE salon_id=? AND status='published'`).get(salon_id).c;
@@ -218,9 +247,17 @@ router.get("/", (req, res) => {
   // ── HTML ──────────────────────────────────────────────────────────
 
   const resultBanner = msgParam ? `
-    <div class="mb-4 rounded-2xl border border-green-200 bg-green-50 px-5 py-3 text-sm font-medium text-green-800">${msgParam}</div>` :
+    <div class="mb-4 rounded-2xl border border-green-200 bg-green-50 px-5 py-3 text-sm font-medium text-green-800">
+      <span class="mr-1.5">✓</span>${msgParam}
+    </div>` :
+    warnParam ? `
+    <div class="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-3 text-sm font-medium text-amber-800">
+      <span class="mr-1.5">⚠</span>${warnParam}
+    </div>` :
     errParam ? `
-    <div class="mb-4 rounded-2xl border border-red-200 bg-red-50 px-5 py-3 text-sm font-medium text-red-700">${errParam}</div>` : "";
+    <div class="mb-4 rounded-2xl border border-red-200 bg-red-50 px-5 py-3 text-sm font-medium text-red-700">
+      <span class="mr-1.5">✗</span>${errParam}
+    </div>` : "";
 
   const syncBanner = !hasInsights ? `
     <div class="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-2xl border border-mpBorder bg-mpAccentLight px-5 py-4">
@@ -413,7 +450,17 @@ router.get("/", (req, res) => {
     <div class="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
       <div>
         <h1 class="text-2xl font-extrabold text-mpCharcoal">Analytics</h1>
-        <p class="mt-1 text-sm text-mpMuted">Social performance across Facebook and Instagram.</p>
+        <div class="flex items-center gap-2 mt-1">
+          <p class="text-sm text-mpMuted">Social performance across Facebook and Instagram.</p>
+          ${lastSyncLabel ? (() => {
+            const colorMap = {
+              green: "bg-green-100 text-green-700 border-green-200",
+              amber: "bg-amber-100 text-amber-700 border-amber-200",
+              red:   "bg-red-100 text-red-700 border-red-200",
+            };
+            return `<span class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${colorMap[lastSyncLabel.color]}">${lastSyncLabel.text}</span>`;
+          })() : ""}
+        </div>
       </div>
       <div class="flex gap-2">
         <form method="POST" action="/analytics/reset-and-backfill-fb-ids"
@@ -620,12 +667,29 @@ router.post("/sync", async (req, res) => {
 
   try {
     const result = await syncSalonInsights(salon);
-    const synced = result?.synced ?? 0;
-    const errCount = result?.errors?.length ?? 0;
-    const msg = errCount > 0
-      ? `Synced ${synced} records. ${errCount} error(s): ${result.errors[0]}`
-      : `Synced ${synced} insight record${synced === 1 ? "" : "s"}.`;
-    res.redirect(`${back}&msg=${encodeURIComponent(msg)}`);
+    const synced   = result?.synced ?? 0;
+    const errors   = result?.errors ?? [];
+    const errCount = errors.length;
+
+    if (errCount === 0) {
+      const msg = `Synced ${synced} insight record${synced === 1 ? "" : "s"} successfully.`;
+      return res.redirect(`${back}&msg=${encodeURIComponent(msg)}`);
+    }
+
+    // Build a detail string showing up to 3 errors
+    const shown   = errors.slice(0, 3).join(" · ");
+    const more    = errCount > 3 ? ` (+${errCount - 3} more)` : "";
+    const details = `${shown}${more}`;
+
+    if (synced === 0) {
+      // Nothing synced at all — full failure
+      const msg = `Sync failed. ${errCount} error${errCount === 1 ? "" : "s"}: ${details}`;
+      return res.redirect(`${back}&err=${encodeURIComponent(msg)}`);
+    }
+
+    // Partial success
+    const msg = `Synced ${synced} record${synced === 1 ? "" : "s"}. ${errCount} skipped: ${details}`;
+    res.redirect(`${back}&warn=${encodeURIComponent(msg)}`);
   } catch (err) {
     res.redirect(`${back}&err=${encodeURIComponent(err.message)}`);
   }
