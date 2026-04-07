@@ -758,17 +758,17 @@ router.get("/", requireAuth, async (req, res) => {
         <div class="space-y-2">
           <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Interactions</label>
           <label id="tiktok-comment-row" class="flex items-center gap-2 text-sm text-mpCharcoal">
-            <input type="checkbox" id="tiktok-allow-comment" checked class="accent-blue-600" />
+            <input type="checkbox" id="tiktok-allow-comment" class="accent-blue-600" />
             Allow Comments
             <span id="tiktok-comment-disabled-note" class="text-xs text-mpMuted hidden">(disabled by creator settings)</span>
           </label>
           <label id="tiktok-duet-row" class="flex items-center gap-2 text-sm text-mpCharcoal">
-            <input type="checkbox" id="tiktok-allow-duet" checked class="accent-blue-600" />
+            <input type="checkbox" id="tiktok-allow-duet" class="accent-blue-600" />
             Allow Duet
             <span id="tiktok-duet-disabled-note" class="text-xs text-mpMuted hidden">(disabled by creator settings)</span>
           </label>
           <label id="tiktok-stitch-row" class="flex items-center gap-2 text-sm text-mpCharcoal">
-            <input type="checkbox" id="tiktok-allow-stitch" checked class="accent-blue-600" />
+            <input type="checkbox" id="tiktok-allow-stitch" class="accent-blue-600" />
             Allow Stitch
             <span id="tiktok-stitch-disabled-note" class="text-xs text-mpMuted hidden">(disabled by creator settings)</span>
           </label>
@@ -872,9 +872,9 @@ router.get("/", requireAuth, async (req, res) => {
     }
 
     // Reset checkboxes and commercial toggle
-    document.getElementById('tiktok-allow-comment').checked = true;
-    document.getElementById('tiktok-allow-duet').checked = true;
-    document.getElementById('tiktok-allow-stitch').checked = true;
+    document.getElementById('tiktok-allow-comment').checked = false;
+    document.getElementById('tiktok-allow-duet').checked = false;
+    document.getElementById('tiktok-allow-stitch').checked = false;
     resetCommercial();
 
     // Fetch creator info
@@ -1267,11 +1267,11 @@ router.get("/", requireAuth, async (req, res) => {
     var actionType = link.dataset.actionType;
     if (!postId || !actionType) return;
 
-    // TikTok modal interception: if reel placement + TikTok enabled, show modal
+    // TikTok modal interception: if non-story placement + TikTok enabled, show modal
     var tiktokEligible = link.getAttribute('data-tiktok-eligible') === '1';
     var tiktokRadio = document.querySelector('input[name="placement_' + postId + '"]:checked');
     var currentPlacement = tiktokRadio ? tiktokRadio.value : '';
-    if (tiktokEligible && currentPlacement === 'reel') {
+    if (tiktokEligible && currentPlacement !== 'story') {
       openTiktokModal(postId, actionType);
       return;
     }
