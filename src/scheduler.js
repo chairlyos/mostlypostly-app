@@ -736,9 +736,9 @@ export async function runSchedulerOnce() {
                 const rawVideoUrl = allImages[0] || post.image_url;
                 const baseUrl = process.env.PUBLIC_BASE_URL || "https://app.mostlypostly.com";
                 const videoUrl = await transcodeForTikTok(rawVideoUrl, baseUrl);
-                tiktokPublishId = await publishVideoToTikTok(salon, videoUrl, tiktokCaption);
+                tiktokPublishId = await publishVideoToTikTok(salon, videoUrl, tiktokCaption, post);
               } else {
-                tiktokPublishId = await publishPhotoToTikTok(salon, allImages, tiktokCaption);
+                tiktokPublishId = await publishPhotoToTikTok(salon, allImages, tiktokCaption, post);
               }
 
               if (tiktokPublishId) {
