@@ -19,6 +19,8 @@ import { UPLOADS_DIR, toUploadUrl } from "../core/uploadPath.js";
 import { requireRole } from "../middleware/auth.js";
 import { getDefaultPlacement, getPlatformReach, deriveFromPostType } from "../core/contentType.js";
 import { getSystemPlacementRouting, mergePlacementRouting } from "../core/placementRouting.js";
+import { getCreatorInfo } from "../publishers/tiktok.js";
+import { refreshTiktokToken } from "../core/tiktokTokenRefresh.js";
 
 // Multer config for coordinator photo uploads
 const coordinatorUpload = multer({
@@ -174,6 +176,43 @@ function requireAuth(req, res, next) {
 
   next();
 }
+
+/* -------------------------------------------------------------
+   TIKTOK CREATOR INFO (AJAX - used by approval modal)
+------------------------------------------------------------- */
+router.post("/tiktok-creator-info", requireAuth, requireRole("owner", "manager"), async (req, res) => {
+  const salon_id = req.manager.salon_id;
+  const salon = db.prepare(`
+    SELECT slug, tiktok_enabled, tiktok_access_token, tiktok_refresh_token,
+           tiktok_token_expiry, tiktok_username
+    FROM salons WHERE slug = ?
+  `).get(salon_id);
+
+  if (!salon?.tiktok_enabled || !salon.tiktok_access_token) {
+    return res.json({ error: "tiktok_not_connected" });
+  }
+
+  try {
+    const accessToken = await refreshTiktokToken(salon);
+    const info = await getCreatorInfo(accessToken);
+
+    if (info.creator_posting_limit_reached) {
+      return res.json({ error: "posting_limit_reached" });
+    }
+
+    return res.json({
+      nickname: salon.tiktok_username || "Unknown",
+      privacy_level_options: info.privacy_level_options || ["SELF_ONLY"],
+      comment_disabled: !!info.comment_disabled,
+      duet_disabled: !!info.duet_disabled,
+      stitch_disabled: !!info.stitch_disabled,
+      max_video_post_duration_sec: info.max_video_post_duration_sec || 600,
+    });
+  } catch (err) {
+    console.error("[TikTok] Creator info fetch failed:", err.message);
+    return res.json({ error: "connection_error" });
+  }
+});
 
 /* -------------------------------------------------------------
    GET /manager — OLD UI restored
