@@ -735,14 +735,22 @@ router.get("/", requireAuth, async (req, res) => {
       <!-- Error state -->
       <div id="tiktok-error" class="hidden py-6 text-center">
         <p id="tiktok-error-msg" class="text-sm text-red-600 mb-4"></p>
-        <button onclick="closeTiktokModal()" class="px-4 py-2 bg-mpBg border border-mpBorder rounded-lg text-sm text-mpCharcoal hover:bg-gray-100">Close</button>
+        <button id="tiktok-error-close" class="px-4 py-2 bg-mpBg border border-mpBorder rounded-lg text-sm text-mpCharcoal hover:bg-gray-100">Close</button>
       </div>
 
       <!-- Form section -->
       <div id="tiktok-form" class="hidden space-y-5">
         <!-- Content preview -->
         <div class="flex gap-3 p-3 bg-mpBg rounded-lg border border-mpBorder">
-          <img id="tiktok-preview-img" src="" class="w-16 h-16 rounded-lg object-cover border border-mpBorder" />
+          <div id="tiktok-preview-media" class="relative w-16 h-16 flex-shrink-0">
+            <img id="tiktok-preview-img" src="" class="w-full h-full rounded-lg object-cover border border-mpBorder hidden" />
+            <video id="tiktok-preview-video" src="" class="w-full h-full rounded-lg object-cover border border-mpBorder hidden" muted playsinline preload="metadata"></video>
+            <div id="tiktok-preview-play" class="absolute inset-0 items-center justify-center pointer-events-none hidden">
+              <div class="w-6 h-6 rounded-full bg-black/50 flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+              </div>
+            </div>
+          </div>
           <p id="tiktok-preview-caption" class="text-xs text-mpMuted line-clamp-3 flex-1"></p>
         </div>
 
@@ -777,7 +785,7 @@ router.get("/", requireAuth, async (req, res) => {
         <!-- Commercial Content -->
         <div>
           <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Commercial Content</label>
-          <button id="tiktok-commercial-toggle" type="button" onclick="toggleCommercial()"
+          <button id="tiktok-commercial-toggle" type="button"
             class="relative inline-flex h-6 w-11 items-center rounded-full bg-gray-300 transition-colors">
             <span class="inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform translate-x-1"></span>
           </button>
@@ -809,8 +817,8 @@ router.get("/", requireAuth, async (req, res) => {
 
         <!-- Buttons -->
         <div class="flex justify-end gap-3 pt-2">
-          <button onclick="closeTiktokModal()" class="px-4 py-2 bg-mpBg border border-mpBorder rounded-lg text-sm text-mpCharcoal hover:bg-gray-100">Cancel</button>
-          <button id="tiktok-confirm-btn" onclick="confirmTiktokApproval()" disabled
+          <button id="tiktok-cancel-btn" class="px-4 py-2 bg-mpBg border border-mpBorder rounded-lg text-sm text-mpCharcoal hover:bg-gray-100">Cancel</button>
+          <button id="tiktok-confirm-btn" disabled
             class="px-4 py-2 bg-mpAccent hover:bg-blue-700 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
             title="Select a privacy level to continue">
             Confirm &amp; Post to TikTok
@@ -847,9 +855,22 @@ router.get("/", requireAuth, async (req, res) => {
     // Detect photo vs video
     tiktokIsPhoto = !/\.(mp4|mov|avi|webm)$/i.test(imgSrc || '');
 
-    // Set preview
+    // Set preview — use <video> for video files, <img> for images
     var previewImg = document.getElementById('tiktok-preview-img');
-    if (previewImg) previewImg.src = imgSrc || '';
+    var previewVideo = document.getElementById('tiktok-preview-video');
+    var previewPlay = document.getElementById('tiktok-preview-play');
+    if (tiktokIsPhoto) {
+      previewImg.src = imgSrc || '';
+      previewImg.classList.remove('hidden');
+      previewVideo.classList.add('hidden');
+      previewPlay.classList.add('hidden');
+    } else {
+      previewVideo.src = imgSrc || '';
+      previewVideo.classList.remove('hidden');
+      previewPlay.classList.remove('hidden');
+      previewPlay.classList.add('flex');
+      previewImg.classList.add('hidden');
+    }
     var previewCap = document.getElementById('tiktok-preview-caption');
     if (previewCap) previewCap.textContent = captionText || '';
 
@@ -1146,6 +1167,10 @@ router.get("/", requireAuth, async (req, res) => {
   document.getElementById('tiktok-your-brand').addEventListener('change', updateCommercialState);
   document.getElementById('tiktok-branded-content').addEventListener('change', updateCommercialState);
   document.getElementById('tiktok-modal-backdrop').addEventListener('click', closeTiktokModal);
+  document.getElementById('tiktok-commercial-toggle').addEventListener('click', toggleCommercial);
+  document.getElementById('tiktok-cancel-btn').addEventListener('click', closeTiktokModal);
+  document.getElementById('tiktok-error-close').addEventListener('click', closeTiktokModal);
+  document.getElementById('tiktok-confirm-btn').addEventListener('click', confirmTiktokApproval);
   document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') closeTiktokModal();
   });
