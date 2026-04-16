@@ -1469,6 +1469,43 @@ export async function handleIncomingMessage({
       return;
     }
 
+    // Multi-image guard: redirect to portal instead of publishing directly
+    if ((draft?.image_urls?.length ?? 0) > 1) {
+      const postId = draft._db_id;
+      let portalUrl = null;
+
+      if (postId) {
+        // Reuse existing unexpired token
+        const existingToken = db.prepare(
+          `SELECT token FROM stylist_portal_tokens
+           WHERE post_id = ? AND expires_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+           ORDER BY rowid DESC LIMIT 1`
+        ).get(postId);
+
+        if (existingToken) {
+          const baseUrl = process.env.PUBLIC_BASE_URL || "";
+          portalUrl = `${baseUrl}/stylist/${postId}?token=${existingToken.token}`;
+        } else {
+          // Generate fresh token (server restart edge case — original token expired)
+          const freshToken = crypto.randomBytes(32).toString("hex");
+          const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+          db.prepare(
+            "INSERT INTO stylist_portal_tokens (id, post_id, token, expires_at) VALUES (?, ?, ?, ?)"
+          ).run(crypto.randomUUID(), postId, freshToken, expiresAt);
+          const baseUrl = process.env.PUBLIC_BASE_URL || "";
+          portalUrl = `${baseUrl}/stylist/${postId}?token=${freshToken}`;
+        }
+      }
+
+      const msg = portalUrl
+        ? `You sent ${draft.image_urls.length} photos — tap here to review and confirm before posting:\n${portalUrl}`
+        : `You sent ${draft.image_urls.length} photos — please use your preview link to review and submit.`;
+
+      await sendMessage.sendText(chatId, msg);
+      endTimer(start);
+      return;
+    }
+
     // Guard: reel drafts must be classified before enqueue — redirect to type selection
     if (draft?.postType === 'reel') {
       await sendMessage.sendText(
