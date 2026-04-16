@@ -157,6 +157,10 @@ router.post("/regen", express.json(), async (req, res) => {
   const salon  = db.prepare("SELECT * FROM salons WHERE slug = ? LIMIT 1").get(post.salon_id);
   const stylist = { name: post.stylist_name, city: null };
 
+  const stylistRow = db.prepare(
+    "SELECT instagram_handle FROM stylists WHERE name = ? AND salon_id = ? LIMIT 1"
+  ).get(post.stylist_name, post.salon_id);
+
   try {
     const notes = [originalDescription, direction].filter(Boolean).join(". Direction: ");
     const fullSalon = getSalonPolicy(post.salon_id) || salon;
@@ -173,6 +177,7 @@ router.post("/regen", express.json(), async (req, res) => {
       caption: aiJson?.caption || "",
       hashtags: aiJson?.hashtags || [],
       stylistName: post.stylist_name || "",
+      instagramHandle: stylistRow?.instagram_handle || "",
       salon: fullSalon,
       platform: "instagram",
     });
@@ -282,6 +287,7 @@ router.post("/:token", videoUpload.single("video"), async (req, res) => {
       caption: aiJson?.caption || "",
       hashtags: aiJson?.hashtags || [],
       stylistName: stylist.name || "",
+      instagramHandle: stylist.instagram_handle || "",
       salon: fullSalon,
       platform: "instagram",
     });
