@@ -237,7 +237,7 @@ function removeIGUrlLine(caption) {
     // Remove old "IG: https://..." format
     if (/^IG:\s/i.test(l.trim())) continue;
     // Strip bare @handle line that sits directly after "Styled By:" (insertIGUnderStyledBy always places it there)
-    if (i > 0 && /^Styled [Bb]y[:]?\s/i.test(lines[i - 1].trim()) && /^@\w+$/.test(l.trim())) continue;
+    if (i > 0 && /^Styled [Bb]y[:]?\s/i.test(lines[i - 1].trim()) && /^@[\w.-]+$/.test(l.trim())) continue;
     out.push(l);
   }
   return out.join("\n");
